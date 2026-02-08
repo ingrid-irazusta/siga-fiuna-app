@@ -1,7 +1,16 @@
+"use client"; // necesario para usar hooks y supabase en cliente
+
 import Image from "next/image";
 import styles from "./page.module.css";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function Home() {
+  const testSupabase = async () => {
+    const { data, error } = await supabase.from("user_profiles").select("*");
+    console.log({ data, error });
+    alert(error ? `Error: ${error.message}` : `¡Conexión exitosa! ${data?.length} perfiles`);
+  };
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
@@ -35,6 +44,11 @@ export default function Home() {
             center.
           </p>
         </div>
+
+        <button onClick={testSupabase} style={{ marginTop: 20, padding: "8px 16px" }}>
+          Test Supabase
+        </button>
+
         <div className={styles.ctas}>
           <a
             className={styles.primary}
