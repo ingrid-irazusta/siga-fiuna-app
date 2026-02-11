@@ -1,8 +1,7 @@
-"use client"; // Esto es necesario para componentes que usan hooks
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabase } from "../lib/supabaseClient";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -22,49 +21,33 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     }
 
     try {
-      // Revisar sesión actual
-      const supabase = getSupabase();
-      const session = supabase.auth.getSession();
+      // Verificar si hay token de autenticación en localStorage
+      const token = localStorage.getItem("auth_token");
+      const currentUser = localStorage.getItem("current_user");
 
-      session.then(({ data }) => {
-        if (data.session?.user) {
-          setAuthenticated(true);
-        } else {
-          router.replace("/auth"); // Redirige a login si no hay sesión
-        }
+      if (token && currentUser) {
+        setAuthenticated(true);
         setLoading(false);
-      }).catch((error) => {
-        console.error("Error getting session:", error);
+      } else {
+        // Redirigir a login si no hay sesión
         router.replace("/auth");
         setLoading(false);
-      });
-
-      // Escuchar cambios de sesión
-      const { data: listener } = supabase.auth.onAuthStateChange(
-        (_event, session) => {
-          if (!session?.user) {
-            router.replace("/auth");
-          }
-        }
-      );
-
-      return () => {
-        listener.subscription.unsubscribe();
-      };
+      }
     } catch (error) {
-      console.error("Error initializing Supabase:", error);
+      console.error("Error checking auth:", error);
       router.replace("/auth");
       setLoading(false);
     }
   }, [router]);
 
   if (loading) {
-    return <div>Cargando...</div>; // Puedes poner un spinner si quieres
+    return <div>Cargando...</div>;
   }
 
   if (!authenticated) {
-    return null; // Mientras redirige, no mostrar contenido
+    return null;
   }
 
   return <>{children}</>;
 }
+
