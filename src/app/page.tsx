@@ -623,23 +623,6 @@ const { error } = await supabase
 
   return (
     <div className="grid" style={{ gap: 14 }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "1rem 0" }}>
-            <button 
-              onClick={handleLogout}
-              className="btn"
-              style={{ 
-                padding: "8px 16px",
-                background: "#ef4444",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontWeight: "bold"
-              }}
-            >
-              🚪 Cerrar Sesión
-            </button>
-          </div>
       <div className="dashGrid">
 
         {/* ===============================================
@@ -743,6 +726,26 @@ const { error } = await supabase
         </div>
 
         {/* ===============================================
+            PRÓXIMO EXAMEN
+        ================================================ */}
+        <div className="blockProximo">
+          <Card title={<span className="sectionLabel">⏱️ PRÓXIMO EXAMEN</span>}>
+            <div className="bigDays">{nextExam ? `${nextExam.dias} días` : "—"}</div>
+            <div className="centerNote">Días Restantes</div>
+            <div style={{ height: 10 }} />
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontWeight: 950 }}>📅 {nextExam ? nextExam.tipo : "Sin examen"}</div>
+              <div style={{ fontWeight: 900, textTransform: "lowercase" }}>
+                {(nextExam ? nextExam.materia : "Cargá tus fechas en Horario de Exámenes").toLowerCase()}
+              </div>
+              <div className="metaLine">
+                <span>🗓️ {nextExam ? nextExam.fecha : "—"}</span>
+                <span>⏰ {nextExam ? nextExam.hora : "—"}</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+        {/* ===============================================
             MATERIAS EN CURSO
         ================================================ */}
         <div className="blockMaterias">
@@ -833,28 +836,6 @@ const { error } = await supabase
             )}
           </Card>
         </div>
-
-        {/* ===============================================
-            PRÓXIMO EXAMEN
-        ================================================ */}
-        <div className="blockProximo">
-          <Card title={<span className="sectionLabel">⏱️ PRÓXIMO EXAMEN</span>}>
-            <div className="bigDays">{nextExam ? `${nextExam.dias} días` : "—"}</div>
-            <div className="centerNote">Días Restantes</div>
-            <div style={{ height: 10 }} />
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontWeight: 950 }}>📅 {nextExam ? nextExam.tipo : "Sin examen"}</div>
-              <div style={{ fontWeight: 900, textTransform: "lowercase" }}>
-                {(nextExam ? nextExam.materia : "Cargá tus fechas en Horario de Exámenes").toLowerCase()}
-              </div>
-              <div className="metaLine">
-                <span>🗓️ {nextExam ? nextExam.fecha : "—"}</span>
-                <span>⏰ {nextExam ? nextExam.hora : "—"}</span>
-              </div>
-            </div>
-          </Card>
-        </div>
-
         {/* ===============================================
             AVANCE ACADÉMICO
         ================================================ */}
