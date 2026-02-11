@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabaseClient";
+import { getSupabase } from "../lib/supabaseClient";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -22,6 +22,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     }
 
     // Revisar sesión actual
+    const supabase = getSupabase();
     const session = supabase.auth.getSession();
 
     session.then(({ data }) => {

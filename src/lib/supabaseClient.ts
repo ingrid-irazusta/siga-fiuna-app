@@ -24,6 +24,14 @@ export const getSupabase = (): SupabaseClient => {
   return supabase;
 };
 
+// Lazy getter para AuthGuard
+export const getSupabaseInstance = (): SupabaseClient | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  return getSupabase();
+};
+
 // Exportar para lazy loading
 export const initSupabase = (): void => {
   if (typeof window !== 'undefined') {
