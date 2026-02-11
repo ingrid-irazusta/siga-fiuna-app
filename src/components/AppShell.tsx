@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -49,21 +49,26 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [navOpen, setNavOpen] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [profileInfo, setProfileInfo] = useState<{ carrera: string; malla: string }>({ carrera: "", malla: "" });
 
+  const handleLogout = async () => {
+    try {
+      const { getSupabase } = await import("../lib/supabaseClient");
+      const supabase = getSupabase();
+      await supabase.auth.signOut();
+      router.push("/auth");
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      router.push("/auth");
+    }
+  };
+
   const pageLabel = getPageLabel(pathname);
   const headerTop = pathname === "/" ? APP_TITLE : pageLabel;
-
-  const headerInfo = useMemo((): string => {
-    const pieces: string[] = [APP_VERSION];
-    if (profileInfo.carrera) pieces.push(profileInfo.carrera);
-    if (profileInfo.malla) pieces.push(`Malla ${profileInfo.malla}`);
-    if (pieces.length === 1) pieces.push("Información importante");
-    return pieces.join(" — ");
-  }, [profileInfo]);
 
   useEffect(() => { setNavOpen(false); }, [pathname]);
 
@@ -120,36 +125,45 @@ export default function AppShell({ children }: AppShellProps) {
     </>
   );
 
+  const isAuthPage = pathname?.startsWith("/auth");
+
   return (
-    <div className={`appShellRoot ${isMobile ? "isMobileDevice" : ""}`}>
-      <header className="appTopbar">
-        <button
-          type="button"
-          className="appHamb"
-          onClick={() => setNavOpen((v) => !v)}
-          aria-label="Menú"
-        >
-          ☰
-        </button>
-        <div className="appBrand">SIGA FIUNA</div>
-      </header>
+    <div className={`appShellRoot ${isMobile ? "isMobileDevice" : ""}`} style={{ minHeight: '100vh', margin: 0 }}>
+      {/* Header solo si NO es login */}
+      {!isAuthPage && (
+        <header className="appTopbar">
+          <button type="button" className="appHamb" onClick={() => setNavOpen((v) => !v)} aria-label="Menú">☰</button>
+          <div className="appBrand">SIGA FIUNA</div>
+          <button type="button" className="appLogoutBtn" onClick={handleLogout} aria-label="Cerrar sesión">Cerrar sesión</button>
+        </header>
+      )}
 
-      {mounted ? createPortal(drawerUI, document.body) : null}
+      {/* Sidebar solo si NO es login */}
+      {!isAuthPage && mounted ? createPortal(drawerUI, document.body) : null}
 
-      <main className="main">
-        <div className="mainInner">
-          <div className="dashHeader">
-            <div className="dashHeaderTop">{headerTop}</div>
-          </div>
+      <main
+        className="main"
+        style={{
+          padding: isAuthPage ? 0 : undefined,
+          margin: 0,
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <div className="mainInner" style={{ width: '100%', maxWidth: '100%', margin: 0, flex: 1 }}>
+          {!isAuthPage && (
+            <div className="dashHeader">
+              <div className="dashHeaderTop">{headerTop}</div>
+            </div>
+          )}
           {children}
         </div>
       </main>
 
       <style jsx>{`
         .appShellRoot{
-          min-height: 100vh;
           background: var(--bg);
-          display: block;
         }
         .main{ padding: 14px; padding-top: 68px; width: 100%; }
         .mainInner{ width: 100%; max-width: 100%; margin: 0; }

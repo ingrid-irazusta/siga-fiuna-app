@@ -1586,3 +1586,576 @@ button, input, select { font: inherit; }
   font-size: 12px;
   color: var(--text);
 }
+/* ===== HORARIO PAGE STYLES ===== */
+.pageWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.calTopControls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.calToggle {
+  display: flex;
+  background: #f0f0f0;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.calTBtn {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: #666;
+}
+
+.calTBtn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.calTBtn.on {
+  background: white;
+  color: #333;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.calDayPills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.calDayPill {
+  padding: 0.6rem 1rem;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.calDayPill:hover {
+  border-color: #999;
+}
+
+.calDayPill.on {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.calWeekCard {
+  overflow-x: auto;
+}
+
+.calWeek {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.calWeekHead {
+  display: grid;
+  grid-template-columns: 80px repeat(6, 1fr);
+  gap: 10px;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #ddd;
+  margin-bottom: 0.5rem;
+}
+
+.calCorner {
+}
+
+.calHeadCell {
+  font-weight: 600;
+  color: #333;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.calWeekBody {
+  display: flex;
+  gap: 10px;
+}
+
+.calTimes {
+  display: flex;
+  flex-direction: column;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.calTimeRow {
+  flex: 1;
+  min-height: 50px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 0.25rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.calTimeLabel {
+  font-size: 0.75rem;
+  color: #999;
+  font-weight: 500;
+  padding: 0 0.5rem;
+}
+
+.calDays {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  flex: 1;
+}
+
+.calDayCol {
+  position: relative;
+  border-left: 1px solid #f0f0f0;
+  min-height: 750px;
+}
+
+.calSlot {
+  position: absolute;
+  width: 100%;
+  height: 50px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.calSlot:hover {
+  background: rgba(0, 123, 255, 0.05);
+}
+
+.calEvent {
+  position: absolute;
+  width: 95%;
+  left: 2.5%;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-align: left;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.calEvent.teo {
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  color: #1565c0;
+}
+
+.calEvent.prac {
+  background: #f3e5f5;
+  border: 1px solid #e1bee7;
+  color: #6a1b9a;
+}
+
+.calEvent:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
+}
+
+.calBadges {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.calBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.calBadge.teo {
+  background: rgba(21, 101, 192, 0.3);
+  color: #1565c0;
+}
+
+.calBadge.prac {
+  background: rgba(106, 27, 154, 0.3);
+  color: #6a1b9a;
+}
+
+.calBadge.sec {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+.calEvTitle {
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.2;
+}
+
+.calEvMeta {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.calEvTime {
+  font-weight: 500;
+}
+
+.calEvProf {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.calDayCard {
+  max-width: 600px;
+}
+
+.calDayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #eee;
+}
+
+.calDayHeader .h2 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.calDayList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.calEmpty {
+  text-align: center;
+  padding: 2rem;
+  color: #999;
+}
+
+.calEmptyTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #666;
+}
+
+.calCardItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  transition: all 0.2s ease;
+}
+
+.calCardItem.teo {
+  background: #f0f8ff;
+  border-color: #bbdefb;
+}
+
+.calCardItem.prac {
+  background: #faf0ff;
+  border-color: #e1bee7;
+}
+
+.calCardItem:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.calCardLeft {
+  flex: 1;
+}
+
+.calCardTime {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.calCardTitle {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.calCardSub {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.calMiniBadge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+.calMiniBadge.teo {
+  background: rgba(21, 101, 192, 0.2);
+  color: #1565c0;
+}
+
+.calMiniBadge.prac {
+  background: rgba(106, 27, 154, 0.2);
+  color: #6a1b9a;
+}
+
+.calCardMeta {
+  color: #666;
+}
+
+.calCardActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.calIconBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  color: #666;
+}
+
+.calIconBtn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+.calModalWrap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calModalOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.calModal {
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.calModalHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.calModalTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.calModalBody {
+  padding: 1.5rem;
+}
+
+.calForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formGroup label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.formInput,
+.formInput[type="text"],
+.formInput[type="time"],
+select {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.formInput:focus,
+.formInput[type="text"]:focus,
+.formInput[type="time"]:focus,
+select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.formActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.formButtonsRight {
+  display: flex;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.btnDanger {
+  background: #dc3545;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.btnDanger:hover {
+  background: #c82333;
+}
+
+.btnDanger:active {
+  transform: scale(0.98);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .pageWrap {
+    padding: 1rem;
+  }
+
+  .calWeekHead {
+    grid-template-columns: 60px repeat(6, 1fr);
+  }
+
+  .calTopControls {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .calDayCol {
+    min-height: 600px;
+  }
+
+  .calHeadCell {
+    font-size: 0.85rem;
+  }
+
+  .calEvent {
+    font-size: 0.75rem;
+  }
+
+  .calEvTitle {
+    font-size: 0.75rem;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .calCardSub {
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .calWeekHead {
+    grid-template-columns: 50px repeat(6, 1fr);
+  }
+
+  .calTimeLabel {
+    font-size: 0.65rem;
+  }
+
+  .calModal {
+    width: 95%;
+  }
+
+  .formActions {
+    flex-direction: column;
+  }
+
+  .formButtonsRight {
+    flex-direction: column;
+    margin-left: 0;
+  }
+}
