@@ -1,73 +1,141 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '../../lib/supabaseClient';
+import styles from './login.module.css'; // mismo CSS del segundo login
 
 export default function AuthPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSignUp = async () => {
-    setMessage("");
+    setMessage('');
+    if (!email || !password) {
+      setMessage('Por favor completa todos los campos');
+      return;
+    }
+
+    setIsLoading(true);
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      setMessage("Error al registrarse: " + error.message);
+      setMessage('Error al registrarse: ' + error.message);
+      setIsLoading(false);
       return;
     }
 
     if (data.user) {
       const { error: profileError } = await supabase
-        .from("user_profiles")
+        .from('user_profiles')
         .insert({ user_id: data.user.id, email: data.user.email });
 
       if (profileError) {
-        setMessage("Error al crear perfil: " + profileError.message);
+        setMessage('Error al crear perfil: ' + profileError.message);
+        setIsLoading(false);
         return;
       }
 
-      setMessage("Registro exitoso! Redirigiendo...");
-      router.push("/"); // 🔹 Redirige al home
+      setMessage('Registro exitoso! Redirigiendo...');
+      setTimeout(() => router.push('/'), 1000);
     }
+    setIsLoading(false);
   };
 
   const handleSignIn = async () => {
-    setMessage("");
+    setMessage('');
+    if (!email || !password) {
+      setMessage('Por favor completa todos los campos');
+      return;
+    }
+
+    setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setMessage("Error al iniciar sesión: " + error.message);
+      setMessage('Error al iniciar sesión: ' + error.message);
     } else {
-      setMessage("Login exitoso! Redirigiendo...");
-      router.push("/"); // 🔹 Redirige al home
+      setMessage('Login exitoso! Redirigiendo...');
+      setTimeout(() => router.push('/'), 1000);
     }
+    setIsLoading(false);
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "2rem auto", textAlign: "center" }}>
-      <h1>Login / Registro</h1>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ width: "100%", marginBottom: 10, padding: 8 }}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ width: "100%", marginBottom: 10, padding: 8 }}
-      />
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <button onClick={handleSignIn} style={{ padding: "8px 16px" }}>Login</button>
-        <button onClick={handleSignUp} style={{ padding: "8px 16px" }}>Registro</button>
+    <div className={styles.container}>
+      <div className={styles.background}>
+        <div className={styles.backgroundShape1}></div>
+        <div className={styles.backgroundShape2}></div>
+        <div className={styles.backgroundShape3}></div>
       </div>
-      {message && <p style={{ marginTop: 10 }}>{message}</p>}
+
+      <div className={styles.content}>
+        <div className={styles.card}>
+          <div className={styles.header}>
+            <div className={styles.logo}>
+              <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="40" height="40" rx="8" fill="#0066cc" />
+                <path d="M12 20L18 26L28 14" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <h1 className={styles.title}>Login / Registro</h1>
+          </div>
+
+          {message && (
+            <div className={message.includes('error') ? styles.errorMessage : styles.successMessage}>
+              <span>{message}</span>
+            </div>
+          )}
+
+          <form className={styles.form} onSubmit={(e) => e.preventDefault()}>
+            <div className={styles.inputGroup}>
+              <label htmlFor="email">Correo electrónico</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="tu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label htmlFor="password">Contraseña</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className={styles.buttonGroup}>
+              <button
+                type="button"
+                className={styles.submitButton}
+                onClick={handleSignIn}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Cargando...' : 'Login'}
+              </button>
+              <button
+                type="button"
+                className={styles.submitButton}
+                onClick={handleSignUp}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Cargando...' : 'Registro'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
