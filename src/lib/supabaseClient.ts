@@ -1,8 +1,18 @@
 // lib/supabaseClient.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Las variables vienen del .env.local
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+let supabase: SupabaseClient;
+
+export const getSupabase = () => {
+  if (!supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+      throw new Error('Supabase URL o Anon Key no están definidas');
+    }
+
+    supabase = createClient(url, key);
+  }
+  return supabase;
+};

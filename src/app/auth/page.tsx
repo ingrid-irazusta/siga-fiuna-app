@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../lib/supabaseClient';
+import { getSupabase } from '../../lib/supabaseClient';
 import styles from './login.module.css'; // mismo CSS del segundo login
 
 export default function AuthPage() {
@@ -22,6 +22,7 @@ export default function AuthPage() {
     }
 
     setIsLoading(true);
+    const supabase = getSupabase(); // <- inicializamos aquí en runtime
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
@@ -55,6 +56,7 @@ export default function AuthPage() {
     }
 
     setIsLoading(true);
+    const supabase = getSupabase(); // <- inicializamos aquí también
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
@@ -87,7 +89,7 @@ export default function AuthPage() {
           </div>
 
           {message && (
-            <div className={message.includes('error') ? styles.errorMessage : styles.successMessage}>
+            <div className={message.toLowerCase().includes('error') ? styles.errorMessage : styles.successMessage}>
               <span>{message}</span>
             </div>
           )}

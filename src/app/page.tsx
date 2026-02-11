@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/components/Card";
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabase } from "@/lib/supabaseClient";
 import { Session } from "@supabase/supabase-js";
 
 /* =========================================================
@@ -127,6 +127,7 @@ async function computeNotasKpis(
   carrera: string
 ): Promise<{ promedioStr: string; aprobadas: number; total: number; progresoPct: number; faltan: number }> {
   try {
+    const supabase = getSupabase();
     const { data: notes } = await supabase
       .from("student_notes")
       .select("materia, nota1, nota2, nota3")
@@ -186,6 +187,7 @@ async function computeNextExam(userId: string): Promise<{
   dias: number;
 } | null> {
   try {
+    const supabase = getSupabase();
     const { data: exams } = await supabase
       .from("student_exams")
       .select("materia, tipo, fecha, hora")
@@ -228,6 +230,7 @@ async function computeNextExam(userId: string): Promise<{
 
 async function loadAcademicEvents(date: string): Promise<string[]> {
   try {
+    const supabase = getSupabase();
     const { data: events } = await supabase
       .from("academic_calendar")
       .select("evento")
@@ -241,6 +244,7 @@ async function loadAcademicEvents(date: string): Promise<string[]> {
 
 async function loadScheduleForDay(userId: string, dayId: number): Promise<ClassRow[]> {
   try {
+    const supabase = getSupabase();
     const { data: classes } = await supabase
       .from("student_schedule")
       .select("id, dia, materia, tipo, seccion, horaInicio, horaFin, profesor")
@@ -323,6 +327,7 @@ export default function Page() {
   ======================================================== */
   useEffect(() => {
     const load = async () => {
+      const supabase = getSupabase();
       const { data } = await supabase.auth.getSession();
 
       if (!data.session) {
@@ -379,7 +384,7 @@ export default function Page() {
     load();
 
     // ✅ AGREGAR LISTENER DE SESIÓN
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = getSupabase().auth.onAuthStateChange(
       (event, session) => {
         if (event === "SIGNED_OUT") {
           router.push("/auth");
@@ -396,6 +401,7 @@ export default function Page() {
   const userId = session?.user.id;
 
   const handleLogout = async () => {
+    const supabase = getSupabase();
     await supabase.auth.signOut();
     router.push("/auth");
   };
@@ -467,6 +473,7 @@ export default function Page() {
       updated_at: new Date().toISOString(),
     };
 
+const supabase = getSupabase();
 const { error } = await supabase
   .from("user_profiles")
   .update({
@@ -599,6 +606,7 @@ const { error } = await supabase
       .filter((c) => c.materia);
 
     // borrar y reinsertar
+    const supabase = getSupabase();
     await supabase.from("student_courses").delete().eq("user_id", userId);
 
     if (clean.length) {
