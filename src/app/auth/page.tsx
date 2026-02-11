@@ -1,10 +1,10 @@
 'use client';
 
 export const dynamic = 'force-dynamic';
+export const prerender = false;
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabase } from '../../lib/supabaseClient';
 import styles from './login.module.css'; // mismo CSS del segundo login
 
 export default function AuthPage() {
@@ -22,6 +22,7 @@ export default function AuthPage() {
     }
 
     setIsLoading(true);
+    const { getSupabase } = await import('../../lib/supabaseClient');
     const supabase = getSupabase(); // <- inicializamos aquí en runtime
     const { data, error } = await supabase.auth.signUp({ email, password });
 
@@ -56,6 +57,7 @@ export default function AuthPage() {
     }
 
     setIsLoading(true);
+    const { getSupabase } = await import('../../lib/supabaseClient');
     const supabase = getSupabase(); // <- inicializamos aquí también
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
