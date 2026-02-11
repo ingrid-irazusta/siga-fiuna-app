@@ -1,42 +1,1588 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root{
+  --bg: #F4F6F8;
+  --card: #FFFFFF;
+  --text: #0F172A;
+  --muted: #64748B;
+  --border: rgba(15, 23, 42, 0.10);
+  --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+  --shadow2: 0 6px 18px rgba(2, 6, 23, 0.08);
+  --primary: #00B0FF;
+  --primary2: rgba(0, 176, 255, 0.12);
+  --success: #2E7D32;
+  /* Verde "habilitado" estilo lima (tierno pero fuerte) */
+  --successLime: #A3E635;
+  --danger: #D32F2F;
+  --warn: #FFD700;
+  --radius: 18px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* =============================
+   Menú móvil (hamburguesa)
+   Estilos GLOBAL para que funcionen incluso con Portal.
+   ============================= */
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
+.appTopbar{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* IMPORTANT: usar border-box para que el padding no “agrande” la barra
+     y no tape contenido/clics en móvil. */
   box-sizing: border-box;
-  padding: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  z-index: 12000;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.appHamb{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+
+.appBrand{
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  font-size: 14px;
+}
+
+.appOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.35);
+  z-index: 11998;
+}
+
+.appSidebar{
+  position: fixed;
+  top: 56px;
+  left: 0;
+  width: 260px;
+  height: calc(100vh - 56px);
+  z-index: 11999;
+  border-right: 1px solid var(--border);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  padding: 14px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  transform: translateX(-110%);
+  transition: transform .18s ease;
+}
+.appSidebar.open{ transform: translateX(0); }
+
+.appSideHeader{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.appCloseBtn{
+  display:inline-flex;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.appNav{ display:grid; gap: 8px; }
+
+.appNavItem{
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.75);
+  font-weight: 800;
+}
+.appNavItem.active{
+  outline: 2px solid rgba(0,176,255,0.25);
+  background: rgba(0,176,255,0.10);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body{
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  letter-spacing: -0.01em;
+}
+a{ color: inherit; text-decoration: none; }
+button, input, select { font: inherit; }
+
+.container{
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+}
+.grid{
+  display: grid;
+  gap: 14px;
+}
+.card{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow2);
+}
+.cardPad{ padding: 26px; }
+@media (max-width: 520px){ .cardPad{ padding: 18px; } }
+
+/* Variante compacta: para cards que solo muestran título + botón (evita espacio vacío) */
+.cardCompact .cardPad{ padding: 16px 20px; }
+@media (max-width: 520px){ .cardCompact .cardPad{ padding: 14px 16px; } }
+.h1{ font-size: 22px; font-weight: 700; margin: 0; color: var(--primary); }
+.h2{ font-size: 16px; font-weight: 850; margin: 0; color: var(--primary); }
+.muted{ color: var(--muted); }
+.pill{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.7);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.kbd{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  background: rgba(2,6,23,0.05);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 8px;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* Badges de estado (Proceso / Notas) */
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:900;white-space:nowrap}
+.badgeLime{border-color: rgba(163,230,53,0.45);background: rgba(163,230,53,0.18);color:#3f6212}
+.badgeDanger{border-color: rgba(239,68,68,0.35);background: rgba(239,68,68,0.12);color:#991b1b}
+.badgeInfo{border-color: rgba(0,176,255,0.28);background: rgba(0,176,255,0.10);color:#0b4b75}
+
+.shell{
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+.sidebar{
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 18px;
+}
+.sidebarInner{
+  height: calc(100vh - 36px);
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.brand{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 6px 10px;
+}
+.logo{
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary), #7DD3FC);
+  box-shadow: 0 10px 25px rgba(0,176,255,0.25);
+}
+.brandTitle{ font-weight: 800; line-height: 1.1; }
+.brandSub{ font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.nav{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+}
+.navItem{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  transition: all 0.15s ease;
+}
+.navItem:hover{
+  background: rgba(0, 176, 255, 0.08);
+  border-color: rgba(0, 176, 255, 0.20);
+  color: var(--text);
+}
+.navItemActive{
+  background: var(--primary2);
+  border-color: rgba(0, 176, 255, 0.28);
+  color: var(--text);
+}
+.navIcon{ width: 18px; height: 18px; opacity: .85; }
+
+.sidebarFooter{
+  margin-top: auto;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+.smallBtn{
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.9);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.smallBtn:hover{ transform: translateY(-1px); box-shadow: var(--shadow2); }
+.smallBtnPrimary{
+  border-color: rgba(0,176,255,0.35);
+  background: rgba(0,176,255,0.10);
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+.main{
+  padding: 18px 18px 90px 18px;
+}
+.topbar{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 12px 0;
+  margin-bottom: 12px;
+  background: linear-gradient(to bottom, rgba(244,246,248,0.92), rgba(244,246,248,0.70), rgba(244,246,248,0));
+  backdrop-filter: blur(8px);
+}
+.topbarRow{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.topbarRight{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+.select{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.85);
+  padding: 10px 12px;
+  border-radius: 14px;
+  color: var(--text);
+  outline: none;
+}
+.input{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.85);
+  padding: 10px 12px;
+  border-radius: 14px;
+  color: var(--text);
+  outline: none;
+}
+.input:focus,.select:focus{box-shadow: 0 0 0 3px rgba(0,176,255,0.18)}
+.btn{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.85);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow2); }
+.btnPrimary{
+  border-color: rgba(0,176,255,0.35);
+  background: rgba(0,176,255,0.10);
+}
+
+/* Estado "éxito" del botón Actualizar (2s) */
+.btnSuccess{
+  border-color: rgba(34,197,94,0.55);
+  background: rgba(34,197,94,0.18);
+}
+
+/* Mini loader para el botón "Actualizar" (sin cambiar layout general) */
+.miniSpinner{
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(2,6,23,0.25);
+  border-top-color: rgba(2,6,23,0.55);
+  animation: fiunaSpin 0.8s linear infinite;
+}
+@keyframes fiunaSpin{
+  to{ transform: rotate(360deg); }
+}
+
+.pageTitleRow{
+  display:flex;
+  align-items:flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 0 14px 0;
+}
+.pageMeta{
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.twoCol{
+  display:grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 14px;
+}
+.threeCol{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.progressWrap{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.progressBar{
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(2,6,23,0.06);
+  overflow:hidden;
+  border: 1px solid var(--border);
+}
+.progressFill{
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #7DD3FC);
+}
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+
+.list{
+  display:grid;
+  gap: 10px;
+}
+.row{
+  display:flex;
+  align-items:flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.75);
+}
+.rowLeft{ display:grid; gap: 3px; }
+.rowRight{ text-align:right; color: var(--muted); font-size: 12px; }
+.chip{
+  display:inline-flex;
+  align-items:center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(255,255,255,0.7);
+}
+.chipOk{ border-color: rgba(46,125,50,0.35); background: rgba(46,125,50,0.10); color: #1B5E20; }
+.chipLock{ border-color: rgba(15,23,42,0.15); background: rgba(2,6,23,0.04); }
+.chipGo{ border-color: rgba(0,176,255,0.35); background: rgba(0,176,255,0.10); color: #075985; }
+.chipWarn{ border-color: rgba(255,215,0,0.55); background: rgba(255,215,0,0.16); color: #7A5A00; }
+
+.bottomNav{
+  display:none;
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 20;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+}
+.bottomNavRow{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bottomItem{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  color: var(--muted);
+  border: 1px solid transparent;
+  min-width: 64px;
+}
+.bottomItemActive{
+  background: var(--primary2);
+  border-color: rgba(0, 176, 255, 0.28);
+  color: var(--text);
+}
+.bottomLabel{ font-size: 11px; }
+
+@media (max-width: 980px){
+  .shell{ grid-template-columns: 1fr; }
+  .sidebar{ display:none; }
+  .main{ padding-bottom: 110px; }
+  .bottomNav{ display:block; }
+  .twoCol{ grid-template-columns: 1fr; }
+  .threeCol{ grid-template-columns: 1fr; }
+}
+
+
+/* Abaco */
+.abacoWrap{
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: rgba(255,255,255,0.75);
+}
+.abacoScroll{
+  overflow: auto;
+  max-height: 68vh;
+}
+.abacoTable{
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+.abacoTable th, .abacoTable td{
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  text-align: center;
+  padding: 0;
+  /* Tamaño base responsive: en móvil se achica solo, en PC queda cómodo */
+  width: clamp(14px, 2.1vw, 28px);
+  height: clamp(12px, 1.9vw, 24px);
+  /* Nota: separamos tamaños para que quede armónico (como tu ábaco original):
+     - Encabezados (puntajes): ~11
+     - Celdas (nota 1-5): ~14
+  */
+  font-weight: 700;
+}
+
+/* Desktop/PC: encabezados más pequeños y celdas más legibles */
+@media (min-width: 901px){
+  .abacoTable th{ font-size: 11px; font-weight: 600; }
+  .abacoTable td{ font-size: 14px; font-weight: 750; }
+}
+
+/* En pantallas chicas (móvil/tablet): celdas más chicas para que el ábaco se vea armónico y entre mejor */
+@media (max-width: 900px){
+  /* En móvil queremos 0 scroll horizontal: forzamos que la tabla se ajuste al ancho */
+  .abacoTable{
+    width: 100%;
+    table-layout: fixed;
   }
+  .abacoTable th, .abacoTable td{
+    /* Extra compacto (móvil real): el ancho se distribuye por columnas */
+    width: auto;
+    height: 10px;
+    font-size: 6px;
+    font-weight: 650;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  /* Encabezados aún más finos (los números arriba/abajo son lo que más “traba” el tamaño) */
+  .abacoTable th{
+    font-size: 5px;
+    font-weight: 500;
+  }
+  .abacoTable td.leftSticky,
+  .abacoTable th.leftSticky{
+    font-weight: 800;
+  }
+  .abacoTitle{ padding: 12px 10px; }
+  .abacoToolbar{ gap: 8px; }
+  .abacoBtn{ padding: 7px 9px; }
+}
+
+/* Calculadora del Ábaco: en móvil apilada y sin “huecos” */
+@media (max-width: 900px){
+  .calcBar{ flex-direction: column; }
+  .calcField{ min-width: 0; width: 100%; }
+  .calcResult{ min-width: 0; width: 100%; justify-items: start; }
+  .bigNota{ font-size: 30px; }
+}
+.abacoTable th{
+  background: rgba(2,6,23,0.80);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.abacoTable th.leftSticky{
+  left: 0;
+  z-index: 5;
+}
+.abacoTable td.leftSticky{
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: rgba(2,6,23,0.80);
+  color: #fff;
+  font-weight: 900;
+}
+.cell1{ background: #E53935; color: #111827; }
+.cell2{ background: #FB8C00; color: #111827; }
+.cell3{ background: #FDD835; color: #111827; }
+.cell4{ background: #A5D6A7; color: #111827; }
+.cell5{ background: #2E7D32; color: #FFFFFF; }
+.abacoTitle{
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #00B0FF;
+  text-align: center;
+  padding: 14px 10px;
+  background: rgba(255,255,255,0.9);
+  border-bottom: 1px solid var(--border);
+}
+.abacoSubTitle{
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #00B0FF;
+  text-align: center;
+  padding: 12px 10px;
+  background: rgba(255,255,255,0.9);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.abacoNote{
+  font-size: 12px;
+  color: var(--muted);
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.9);
+  border-top: 1px solid var(--border);
+}
+
+/* Abaco responsive fit-to-width + zoom */
+.abacoFitOuter{
+  width: 100%;
+  overflow: auto; /* si no entra, permite scroll suave */
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y pinch-zoom;
+  background: rgba(255,255,255,0.75);
+}
+.abacoFitInner{
+  transform-origin: top left;
+  will-change: transform;
+}
+.abacoToolbar{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.92);
+  border-bottom: 1px solid var(--border);
+}
+.abacoZoomGroup{
+  display:flex;
+  gap: 8px;
+  align-items:center;
+  flex-wrap: wrap;
+}
+.abacoBtn{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.9);
+  padding: 8px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+.abacoBtn:hover{ box-shadow: var(--shadow2); }
+
+@media (max-width: 900px){
+  /* En móvil priorizamos “auto-fit”: evitamos el scroll horizontal (si hiciera falta, el zoom lo reduce) */
+  .abacoFitOuter{ overflow-x: hidden; }
+}
+.abacoBadge{
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.7);
+}
+.calcBar{
+  display:flex;
+  gap: 10px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.calcField{
+  flex: 1 1 140px;
+  min-width: 140px;
+  display:grid;
+  gap: 6px;
+}
+.calcResult{
+  flex: 0 0 auto;
+  min-width: 140px;
+  display:grid;
+  gap: 6px;
+  justify-items: end;
+  align-content: start;
+}
+.bigNota{
+  font-size: 34px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+@media (max-width: 900px){
+  /* En móvil/tablet: calculadora en 1 columna para evitar espacios raros y que ocupe todo el ancho */
+  .calcBar{ flex-direction: column; flex-wrap: nowrap; gap: 12px; }
+  .calcField{ flex: 1 1 auto; min-width: 0; width: 100%; }
+  .calcResult{ flex: 1 1 auto; min-width: 0; width: 100%; justify-items: start; }
+  .bigNota{ font-size: 30px; }
+}
+
+
+.abacoTable tfoot th{
+  background: rgba(2,6,23,0.80);
+  color:#fff;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
+.abacoTable tfoot th.leftSticky{
+  left: 0;
+  z-index: 6;
+}
+
+/* === Inicio (Dashboard) estilo tipo hoja === */
+.dashHeader{
+  margin-bottom: 6px;
+  width: 100%;
+}
+.dashHeaderTop{
+  background: rgba(0,176,255,0.92);
+  color: #fff;
+  padding: 18px 18px;
+  text-align: center;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+}
+.dashHeaderSub{
+  padding: 10px 16px 16px;
+  text-align: center;
+  color: rgba(15,23,42,0.70);
+  font-weight: 800;
+}
+.dashGrid{
+  display: grid;
+  /* Desktop: 2 columnas */
+  grid-template-columns: minmax(340px, 0.9fr) minmax(340px, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+/* Ubicación de bloques (Inicio) */
+.blockProfile, .blockProximo, .blockMaterias{ grid-column: 1; }
+.blockAvance, .blockClases, .blockAvisos, .blockLinks{ grid-column: 2; }
+
+/* En celular/tablet: 1 columna + orden limpio
+   (subimos el breakpoint para evitar “huecos” en algunos móviles que reportan ancho grande) */
+@media (max-width: 980px){
+  .dashGrid{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  /* En móvil: todas las cards exactamente el mismo ancho (evita “deformado”) */
+  .dashGrid > *{ width: 100%; }
+  .dashGrid .card{ width: 100%; }
+
+  .blockProfile{ order: 1; }
+  .blockAvance{ order: 2; }
+  .blockClases{ order: 3; }
+  .blockProximo{ order: 4; }
+  .blockAvisos{ order: 5; }
+  .blockMaterias{ order: 6; }
+  .blockLinks{ order: 7; }
+}
+
+/* Algunos móviles (según navegador/zoom) pueden reportar un ancho CSS grande y
+   "saltarse" el breakpoint anterior, dejando huecos/espacios raros.
+   Regla extra: si es un dispositivo táctil, forzamos el layout móvil siempre. */
+@media (hover: none) and (pointer: coarse){
+  .dashGrid{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .dashGrid > *{ width: 100%; }
+  .dashGrid .card{ width: 100%; }
+}
+
+
+/* Forzado por JS: si detectamos móvil, aplicamos layout móvil aunque el viewport sea raro */
+.isMobileDevice .dashGrid{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:12px !important;
+  align-items:stretch !important;
+}
+.isMobileDevice .dashGrid > *{ width:100% !important; }
+.isMobileDevice .dashGrid .card{ width:100% !important; }
+
+/* En PC: evitamos el “desfasado” (columna vacía debajo) usando layout tipo masonry.
+   Así no queda un bloque enorme de fondo gris cuando una columna es más corta. */
+@media (min-width: 981px){
+  .dashGrid{
+    display: block;
+    column-count: 2;
+    column-gap: 18px;
+  }
+  .dashGrid > *{
+    break-inside: avoid;
+    display: inline-block;
+    width: 100%;
+    margin: 0 0 18px 0;
+  }
+  /* Desactivamos la asignación por columnas del grid cuando usamos masonry */
+  .blockProfile, .blockProximo, .blockMaterias,
+  .blockAvance, .blockClases, .blockAvisos, .blockLinks{ grid-column: auto; }
+}
+
+/* Desktop grande: el lado derecho se reparte en 2 columnas */
+@media (min-width: 1400px){
+  .dashRight{ grid-template-columns: 1fr 1fr; gap: 18px; }
+  .dashRight .fullWidth{ grid-column: 1 / -1; }
+}
+.sectionLabel{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  font-weight: 950;
+  color: var(--primary);
+  letter-spacing: .02em;
+}
+.smallRow{
+  display:grid;
+  grid-template-columns: 110px 1fr;
+  gap: 10px;
+  align-items:center;
+  font-size: 13px;
+}
+.smallKey{ color: rgba(15,23,42,0.65); font-weight: 800; }
+.fakeInput{
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.85);
+  font-weight: 800;
+}
+
+/* Inputs reales (misma estética que fakeInput, pero editables) */
+.profileField{
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.85);
+  font-weight: 800;
+  font-size: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.profileField::placeholder{
+  color: rgba(15,23,42,0.45);
+  font-weight: 800;
+}
+
+.profileSelect{
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+  color: inherit;
+  appearance: none;
+}
+.fakeSelect{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.checkMini{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  font-weight: 900;
+  color: rgba(15,23,42,0.80);
+}
+.bigDays{
+  font-size: 44px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  text-align: center;
+  color: var(--primary);
+}
+.centerNote{
+  text-align:center;
+  color: rgba(15,23,42,0.65);
+  font-weight: 800;
+  font-size: 12px;
+}
+.todayList{
+  display:grid;
+  gap: 10px;
+}
+.classItem{
+  display:grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  padding: 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.75);
+}
+.timeCol{ font-weight: 950; }
+.metaLine{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items:center;
+  color: rgba(15,23,42,0.75);
+  font-weight: 800;
+  font-size: 12px;
+}
+.badgeWarn{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(245,158,11,0.45);
+  background: rgba(245,158,11,0.12);
+  color: rgba(180,83,9,1);
+  font-weight: 950;
+  font-size: 12px;
+}
+.tableMini{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.tableMini th, .tableMini td{
+  border-bottom: 1px solid var(--border);
+  padding: 10px 10px;
+}
+.tableMini th{ text-align:left; color: rgba(15,23,42,0.65); font-weight: 950; }
+.tableMini td{ font-weight: 850; }
+.footerLinks{
+  text-align:center;
+  padding: 18px 10px 6px;
+  color: rgba(15,23,42,0.55);
+  font-weight: 900;
+}
+/* === Ajustes Dashboard v12 === */
+.dashGrid{
+  /* derecha más ancha, manteniendo 2 columnas */
+  grid-template-columns: minmax(340px, 0.9fr) minmax(340px, 1.1fr);
+}
+
+.fullWidth{
+  grid-column: 1 / -1;
+}
+
+.spacerBig{
+  height: 72px;
+}
+
+/* Avisos y enlaces horizontales */
+.avisosBox{
+  min-height: 120px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight: 900;
+  color: rgba(15,23,42,0.55);
+}
+
+.linksBox{
+  text-align:center;
+  padding: 22px 10px;
+  font-weight: 900;
+  color: rgba(15,23,42,0.6);
+}
+
+@media (max-width: 720px){
+  .dashGrid{
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
+/* dashBreathV15 */
+.dashHeaderSub{ line-height: 1.4; }
+.classItem{ padding: 14px 12px; }
+.tableMini th, .tableMini td{ padding: 12px 12px; }
+
+/* === Responsive layout: PC más horizontal, Celular mantiene aire (v16) === */
+@media (min-width: 1100px){
+  /* Usa más ancho de pantalla */
+  .mainInner{ max-width: 1600px !important; }
+
+  /* Más horizontal: derecha más amplia */
+  .dashGrid{
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 18px;
+  }
+
+  /* Menos aire vertical en PC (sin afectar móvil) */
+  .dashLeft{ gap: 18px; }
+  .dashRight{ gap: 18px; }
+
+  .cardPad{ padding: 20px; } /* reduce un poco solo en PC */
+  .spacerBig{ height: 44px; }
+
+  /* Reduce un poco tamaños “gigantes” solo en PC */
+  .bigDays{ font-size: 38px; }
+  .dashHeaderTop{ padding: 16px 18px; }
+  .dashHeaderSub{ padding: 8px 16px 14px; }
+}
+
+
+/* =========================
+   Horario (Calendario Pro)
+   ========================= */
+.calTopControls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.calToggle{display:flex;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:4px}
+.calTBtn{border:0;background:transparent;padding:8px 12px;border-radius:10px;font-weight:700;color:#64748b;cursor:pointer}
+.calTBtn.on{background:#fff;color:#0ea5e9;box-shadow:0 1px 0 rgba(15,23,42,.06)}
+.calDayPills{display:flex;gap:8px;flex-wrap:wrap}
+.calDayPill{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:8px 12px;font-weight:700;color:#475569;cursor:pointer}
+.calDayPill.on{border-color:#0ea5e9;color:#0ea5e9;background:#e0f2fe}
+
+.calWeekCard{overflow:hidden}
+.calWeek{width:100%}
+.calWeekHead{display:grid;grid-template-columns:84px repeat(6,1fr);border-bottom:1px solid #e2e8f0;background:#f8fafc}
+.calCorner{height:44px;border-right:1px solid #e2e8f0}
+.calHeadCell{height:44px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#334155;border-right:1px solid #e2e8f0}
+.calHeadCell:last-child{border-right:0}
+
+.calWeekBody{display:grid;grid-template-columns:84px 1fr;min-height:720px}
+
+/* Mobile polish: Week view
+   - Horizontal scroll only inside the week card (not the whole page)
+   - Keep columns readable (avoid ultra-thin days on phones) */
+@media (max-width: 640px){
+  .calWeekCard{overflow-x:auto; -webkit-overflow-scrolling:touch}
+  .calWeek{min-width: 980px}
+}
+.calTimes{border-right:1px solid #e2e8f0;background:linear-gradient(#fff,#fff)}
+.calTimeRow{height:56px;border-bottom:1px solid #f1f5f9;display:flex;align-items:flex-start;justify-content:center;position:relative}
+.calTimeLabel{position:sticky;left:0;top:0;margin-top:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px;color:#94a3b8;font-weight:700}
+
+.calDays{display:grid;grid-template-columns:repeat(6,1fr);position:relative}
+.calDayCol{position:relative;border-right:1px solid #f1f5f9}
+.calDayCol:last-child{border-right:0}
+.calSlot{height:56px;width:100%;border:0;border-bottom:1px solid #f1f5f9;background:#fff;cursor:pointer}
+.calSlot:hover{background:#f8fafc}
+.calEvent{position:absolute;left:8px;right:8px;border-radius:14px;border:1px solid #cbd5e1;background:#e0f2fe;cursor:pointer;text-align:left;padding:10px 10px 8px;overflow:hidden}
+.calEvent.teo{background:#e3f2fd;border-left:5px solid #00b0ff}
+.calEvent.prac{background:#e8f5e9;border-left:5px solid #22c55e}
+.calEvTitle{font-weight:800;color:#0f172a;font-size:13px;line-height:1.15;margin-top:6px}
+.calEvMeta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:#475569;margin-top:6px}
+.calEvTime{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;color:#334155;font-weight:700}
+.calEvDot{opacity:.5}
+.calEvProf{font-size:11px;color:#475569;margin-top:6px;opacity:.9}
+
+.calBadges{display:flex;gap:6px;flex-wrap:wrap}
+.calBadge{font-size:10px;font-weight:900;letter-spacing:.02em;border-radius:999px;padding:4px 8px;border:1px solid #e2e8f0;background:#fff;color:#475569}
+.calBadge.teo{background:#e0f2fe;border-color:#bae6fd;color:#0369a1}
+.calBadge.prac{background:#dcfce7;border-color:#bbf7d0;color:#166534}
+.calBadge.sec{background:#f1f5f9}
+
+.calDayCard{overflow:hidden}
+.calDayHeader{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.calDayList{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.calEmpty{border:2px dashed #e2e8f0;border-radius:16px;padding:26px;text-align:center;background:#f8fafc}
+.calEmptyTitle{font-weight:900;color:#334155;margin-bottom:6px}
+.calCardItem{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid #e2e8f0;border-radius:16px;padding:14px;background:#fff}
+.calCardItem.teo{border-left:5px solid #00b0ff}
+.calCardItem.prac{border-left:5px solid #22c55e}
+.calCardTime{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;color:#334155;font-weight:800;font-size:12px}
+.calCardTitle{font-weight:900;color:#0f172a;margin-top:6px}
+.calCardSub{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.calMiniBadge{font-size:10px;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid #e2e8f0;background:#fff;color:#475569}
+.calMiniBadge.teo{background:#e0f2fe;border-color:#bae6fd;color:#0369a1}
+.calMiniBadge.prac{background:#dcfce7;border-color:#bbf7d0;color:#166534}
+.calMiniBadge.sec{background:#f1f5f9}
+.calCardMeta{font-size:11px;color:#64748b}
+.calIconBtn{border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:8px 10px;cursor:pointer;color:#64748b;font-weight:900}
+.calIconBtn:hover{background:#f8fafc;color:#334155}
+
+/* =========================
+   Proceso de Evaluación
+   Mobile: shrink the table proportionally (like zooming an image)
+   so it fits better without horizontal scroll.
+   ========================= */
+/* ====== PROCESO: Chips pulcros en Situación Final ====== */
+.sfChips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+
+.sfChip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(15,23,42,0.14);
+  background:#fff;
+  font-weight:900;
+  font-size:13px;
+  cursor:pointer;
+  user-select:none;
+}
+
+.sfChip:hover{
+  box-shadow: 0 6px 18px rgba(2,6,23,0.08);
+  transform: translateY(-1px);
+}
+
+.sfChipOk{
+  border-color: rgba(34,197,94,0.35);
+  background: rgba(34,197,94,0.16);
+}
+
+.sfChipSub{
+  font-weight:950;
+  font-size:12px;
+  opacity:.75;
+}
+
+@media (max-width: 520px){
+  .sfChip{ padding:8px 10px; font-size:12px; }
+  .sfChipSub{ font-size:11px; }
+}
+
+@media (max-width: 520px){
+  .procScale{ --proc-scale: 0.88; }
+  .procScale > table{
+    transform: scale(var(--proc-scale));
+    transform-origin: top left;
+    width: calc(100% / var(--proc-scale));
+  }
+}
+
+.calModalWrap{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:16px}
+.calModalOverlay{position:absolute;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(2px)}
+.calModal{position:relative;width:min(560px, 92vw);border-radius:18px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 20px 60px rgba(2,6,23,.25);overflow:hidden}
+.calModalHead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+.calModalTitle{font-weight:900;color:#0f172a}
+.calModalBody{padding:16px}
+.calForm{display:flex;flex-direction:column;gap:10px}
+.calLbl{font-size:12px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:6px}
+.calInp{width:100%;border:1px solid #e2e8f0;border-radius:14px;padding:10px 12px;font-weight:700;color:#0f172a;background:#fff}
+.calInp:focus{outline:2px solid rgba(14,165,233,.25);border-color:#0ea5e9}
+.calRow2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:640px){.calRow2{grid-template-columns:1fr}}
+.calSeg{display:flex;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:14px;padding:4px}
+.calSegBtn{flex:1;border:0;background:transparent;padding:10px 10px;border-radius:12px;font-weight:900;color:#64748b;cursor:pointer}
+.calSegBtn.on{background:#fff;color:#0ea5e9;box-shadow:0 1px 0 rgba(15,23,42,.06)}
+.calModalBtns{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px;flex-wrap:wrap}
+.calModalBtnsR{display:flex;gap:10px;align-items:center}
+.btnGhost{border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:10px 14px;font-weight:900;color:#334155;cursor:pointer}
+.btnGhost:hover{background:#f8fafc}
+.btnDanger{border:1px solid #fecaca;background:#fff;border-radius:14px;padding:10px 14px;font-weight:900;color:#ef4444;cursor:pointer}
+.btnDanger:hover{background:#fff1f2}
+
+/* =====================
+   MALLA (Semáforo + Radar)
+===================== */
+
+.mallaPageWrap{display:grid;gap:12px}
+.mallaModeBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding: 10px 12px;
+  border:1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.75);
+  border-radius: 18px;
+}
+.mallaModeTitle{font-weight:950;color: rgba(15,23,42,0.7);}
+.mallaSeg{display:flex;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:14px;padding:4px}
+.mallaSegBtn{border:0;background:transparent;padding:10px 12px;border-radius:12px;font-weight:950;color:#64748b;cursor:pointer;min-width:120px;text-align:center}
+.mallaSegBtn.on{background:#fff;color: var(--primary);box-shadow:0 1px 0 rgba(15,23,42,.06)}
+@media (max-width: 540px){
+  .mallaModeBar{flex-direction:column;align-items:stretch}
+  .mallaSeg{width:100%}
+  .mallaSegBtn{flex:1;min-width:auto}
+}
+
+.mallaToolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.mallaToolbarLeft{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mallaToolbarRight{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.mallaToast{border:1px solid rgba(255,193,7,.35);background:rgba(255,193,7,.18);border-radius:16px;padding:10px 12px;font-weight:900;color:#7a5b00}
+.mallaError{border:1px solid #fecaca;background:#fff1f2;border-radius:16px;padding:12px 14px}
+
+.mallaBoard{display:flex;gap:14px;overflow-x:auto;padding-bottom:4px}
+.mallaSemestre{
+  /* Más angosto en PC para que no se vea “gigante” y quede simétrico */
+  min-width:220px;
+  max-width:220px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  border:1px solid rgba(15,23,42,0.08);
+  background: rgba(255,255,255,0.72);
+  border-radius:20px;
+  padding:12px;
+  box-shadow:0 8px 20px rgba(2,6,23,0.04);
+}
+.mallaSemestreHeader{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:2px 2px}
+.mallaSemestreList{display:flex;flex-direction:column;gap:10px}
+
+/* Malla 2 (vertical) */
+.mallaBoardV{display:grid;gap:14px}
+.mallaSemestreV{border:1px solid rgba(15,23,42,0.08);background:rgba(255,255,255,0.55);border-radius:20px;padding:12px;box-shadow:0 8px 20px rgba(2,6,23,0.04)}
+
+/* Título de semestre (Vertical): negrita + celeste fuerte */
+.mallaSemestreTitleV{font-weight:950;font-size:18px;color:var(--primary);letter-spacing:0.02em}
+/* Malla 2 (vertical): 6 materias por fila y centrado (wrap automático)
+   - Usamos flex-wrap + justify-content:center para que la última fila quede centrada
+   - En pantallas chicas bajamos a 3/2/1 por fila
+*/
+.mallaGridV{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.mallaGridV > *{flex:0 1 calc((100% - (5 * 10px)) / 6)}
+@media (max-width: 1100px){.mallaGridV > *{flex-basis: calc((100% - (2 * 10px)) / 3)}}
+@media (max-width: 820px){.mallaGridV > *{flex-basis: calc((100% - (1 * 10px)) / 2)}}
+@media (max-width: 540px){.mallaGridV > *{flex-basis: 100%}}
+
+.mallaMateria{border:1px solid rgba(15,23,42,0.10);border-radius:16px;padding:10px 10px;box-shadow:0 8px 20px rgba(2,6,23,0.06);width:100%;text-align:left;cursor:pointer}
+.mallaMateria{background:transparent}
+.mallaMateriaTop{display:grid;grid-template-columns:20px 1fr;align-items:center;gap:10px}
+.mallaMateriaName{font-weight:900;text-align:center;line-height:1.15}
+
+/* Selector de vista (Modo PC / Modo Celular) dentro de Malla Curricular */
+.mallaPageWrap{display:grid;gap:12px}
+.mallaModeBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  padding: 10px 12px;
+  border: 1px solid rgba(15,23,42,0.10);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.72);
+  box-shadow: 0 8px 20px rgba(2,6,23,0.04);
+}
+.mallaModeTitle{font-weight:950;color: rgba(15,23,42,0.70)}
+.mallaSeg{display:flex;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:14px;padding:4px}
+.mallaSegBtn{border:0;background:transparent;padding:10px 12px;border-radius:12px;font-weight:950;color:#64748b;cursor:pointer;min-width:120px;text-align:center}
+.mallaSegBtn.on{background:#fff;color: var(--primary);box-shadow:0 1px 0 rgba(15,23,42,.06)}
+.mallaRadarBtn{border:1px solid rgba(15,23,42,0.10);background:rgba(255,255,255,0.65);border-radius:12px;padding:6px 6px;cursor:pointer}
+.mallaRadarBtn:hover{background:rgba(255,255,255,0.9)}
+.mallaMateriaReq{margin-top:8px;font-size:11px;line-height:1.3}
+
+/* Modal de requisitos */
+.mallaModalOverlay{position:fixed;inset:0;z-index:4000;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center;padding:14px}
+.mallaModal{width:min(560px,100%);background:rgba(255,255,255,0.98);border:1px solid rgba(15,23,42,0.12);border-radius:22px;box-shadow:0 20px 60px rgba(2,6,23,0.25);padding:14px}
+.mallaModalHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.mallaReqList{border:1px solid rgba(15,23,42,0.10);background:rgba(255,255,255,0.75);border-radius:18px;padding:12px}
+
+
+
+
+/* === HORARIO DE EXÁMENES (UI PRO) === */
+.examEditorList{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.examMateriaCard{
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:16px;
+  padding:12px;
+  background: rgba(255,255,255,.65);
+}
+
+.examMateriaHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.examMateriaName{
+  font-weight:900;
+  font-size:14px;
+  line-height:1.2;
+}
+
+.examMateriaActions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.examEditorBody{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px dashed rgba(0,0,0,.10);
+}
+
+.examInputsGrid{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.examRow{
+  display:grid;
+  grid-template-columns: 130px 1fr 1fr;
+  gap:10px;
+  align-items:center;
+  padding:8px 10px;
+  border:1px solid rgba(0,0,0,.06);
+  border-radius:14px;
+  background:#fff;
+}
+
+.examType{
+  font-weight:900;
+  font-size:12px;
+  opacity:.85;
+}
+
+.examField{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+
+.examLabel{
+  font-size:11px;
+  font-weight:900;
+  opacity:.7;
+  white-space:nowrap;
+}
+
+.examInput{
+  width:100%;
+  min-width:0;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:12px;
+  padding:8px 10px;
+  font-size:13px;
+  outline:none;
+}
+
+.examInput:focus{
+  border-color: rgba(0,0,0,.25);
+}
+
+.examFinal3Add{
+  padding:2px 2px 0 2px;
+}
+
+.examRowRight{
+  justify-content:flex-end;
+}
+
+/* Summary list */
+.examSummaryCard{
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:18px;
+  padding:0;
+  background:#fff;
+  overflow:hidden;
+}
+
+.examSummaryTitle{
+  font-weight:950;
+  font-size:13px;
+  letter-spacing:.6px;
+  text-align:center;
+  padding:10px 12px;
+
+  /* 👇 NUEVO look */
+  background: rgba(14,165,233,0.14);          /* celeste suave */
+  color: #0277BD;                             /* azul serio */
+  border-bottom: 1px solid rgba(2,6,23,0.10);
+}
+
+
+.examSummaryWrap{
+  padding:12px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.examSummaryTable{
+  display:grid;
+  grid-template-columns: minmax(180px, 1.6fr) 190px 90px 140px;
+  gap:8px 10px;
+  align-items:center;
+}
+
+.examSummaryTh{
+  font-size:11px;
+  font-weight:900;
+  opacity:.9;
+  padding:8px 10px;
+  border-bottom:1px solid rgba(0,0,0,.08);
+  background: rgba(14,165,233,0.14);
+}
+
+.examSummaryTd{
+  font-size:13px;
+  padding:8px 10px;
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+
+.examSummaryMateria{
+  font-weight:900;
+}
+
+@media (max-width: 640px){
+  .examRow{
+    grid-template-columns: 1fr;
+  }
+  .examType{
+    font-size:13px;
+  }
+  .examSummaryWrap{
+    padding:10px;
+  }
+  .examSummaryTable{
+    font-size:12px;
+    /* Si no entra, se hace scroll dentro de la tarjeta (no se solapa) */
+    min-width: 520px;
+  }
+}
+
+
+.btnSoft{
+  border:1px solid rgba(0,0,0,.10);
+  background: rgba(0,0,0,.03);
+  border-radius:14px;
+  padding:10px 14px;
+  font-weight:900;
+  cursor:pointer;
+}
+.btnSoft:hover{ background: rgba(0,0,0,.05); }
+
+
+/* =========================
+   PROCESO: mobile sin scroll
+   (solo en celular)
+   ========================= */
+@media (max-width: 520px) {
+  .procTableWrap:not(.procEvalWrap) {
+    overflow-x: hidden !important;
+  }
+
+  .procTableWrap:not(.procEvalWrap) table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .procTableWrap:not(.procEvalWrap) th,
+  .procTableWrap:not(.procEvalWrap) td {
+    padding: 6px 6px !important;
+    font-size: 11px !important;
+  }
+
+  .procTableWrap:not(.procEvalWrap) input,
+  .procTableWrap:not(.procEvalWrap) select,
+  .procTableWrap:not(.procEvalWrap) .input {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    font-size: 12px !important;
+    padding: 6px 6px !important;
+  }
+
+  .procEvalWrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+
+  .procEvalWrap > div {
+    display: inline-block;
+    min-width: max-content;
+  }
+
+  .procEvalWrap table {
+    width: auto !important;
+    table-layout: fixed;
+  }
+}
+
+/* seguro para evitar desbordes raros */
+.procEvalWrap { max-width: 100%; }
+
+/* numMini (una sola vez) */
+.procEvalWrap input.numMini,
+.procEvalWrap .input.numMini {
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  padding: 4px 6px !important;
+  text-align: center !important;
+}
+@media (max-width: 520px) {
+  /* Texto general de PROCESO */
+  .procEvalWrap th,
+  .procEvalWrap td {
+    font-size: 13px !important;
+  }
+
+  /* Texto dentro de inputs de PROCESO */
+  .procEvalWrap input,
+  .procEvalWrap .input {
+    font-size: 12px !important;
+  }
+
+  /* Etiquetas fijas tipo "Parcial 1", "Taller" */
+  .procEvalWrap td > div {
+    font-size: 11px !important;
+  }
+}
+
+/* =====================================================
+   SIMETRÍA DE HEADERS EN PC (NO TOCAR MÓVIL)
+   - Crea un "botón fantasma" en el header azul
+   - Solo existe en escritorio
+   ===================================================== */
+
+
+/* Botón fantasma: SIEMPRE invisible (solo ocupa espacio) */
+.procHeaderGhostBtn{
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Mostrar botón simulador SOLO en escritorio */
+.simBtnDesktop{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* En pantallas compactas (móvil + PC achicado): ocultar */
+@media (max-width: 980px){
+  .simBtnDesktop{
+    display: none !important;
+  }
+}
+
+/* Extra: si es táctil (celulares/tablets aunque el ancho sea raro): ocultar */
+@media (hover: none) and (pointer: coarse){
+  .simBtnDesktop{
+    display: none !important;
+  }
+}
+
+/* PROCESO: 1 columna por defecto (móvil) */
+.procTwoCards{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+/* Desde 900px en adelante: 2 columnas */
+@media (min-width: 900px){
+  .procTwoCards{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* SIMULADOR: 1 columna por defecto (móvil) */
+.simTwoCols{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+/* Desde desktop: 2 columnas */
+@media (min-width: 900px){
+  .simTwoCols{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* =========================
+   SITUACIÓN FINAL - Tooltip por chip (tap/click)
+   ========================= */
+
+.sfChipWrap{
+  position: relative;
+  display: inline-flex;
+}
+
+.sfTip{
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 80;
+  width: min(340px, 86vw);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow2);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text);
 }

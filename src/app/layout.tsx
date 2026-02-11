@@ -1,33 +1,26 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import AuthGuard from "@/components/AuthGuard";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "SIGA FIUNA",
-  description: "Aplicación académica FIUNA",
+  title: "S.I.G.A. FIUNA",
+  description: "Gestión académica personalizada para estudiantes de FIUNA",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
-  // Si quieres que algunas rutas sean públicas, puedes chequear la ruta aquí
-  // Por simplicidad, protegemos todo menos /auth
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children && <AuthGuard>{children}</AuthGuard>}
-      </body>
+    <html lang="es">
+      <body>{children}</body>
     </html>
   );
 }
