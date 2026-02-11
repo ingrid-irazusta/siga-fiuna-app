@@ -21,31 +21,41 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       return;
     }
 
-    // Revisar sesión actual
-    const supabase = getSupabase();
-    const session = supabase.auth.getSession();
+    try {
+      // Revisar sesión actual
+      const supabase = getSupabase();
+      const session = supabase.auth.getSession();
 
-    session.then(({ data }) => {
-      if (data.session?.user) {
-        setAuthenticated(true);
-      } else {
-        router.replace("/auth"); // Redirige a login si no hay sesión
-      }
-      setLoading(false);
-    });
-
-    // Escuchar cambios de sesión
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!session?.user) {
-          router.replace("/auth");
+      session.then(({ data }) => {
+        if (data.session?.user) {
+          setAuthenticated(true);
+        } else {
+          router.replace("/auth"); // Redirige a login si no hay sesión
         }
-      }
-    );
+        setLoading(false);
+      }).catch((error) => {
+        console.error("Error getting session:", error);
+        router.replace("/auth");
+        setLoading(false);
+      });
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+      // Escuchar cambios de sesión
+      const { data: listener } = supabase.auth.onAuthStateChange(
+        (_event, session) => {
+          if (!session?.user) {
+            router.replace("/auth");
+          }
+        }
+      );
+
+      return () => {
+        listener.subscription.unsubscribe();
+      };
+    } catch (error) {
+      console.error("Error initializing Supabase:", error);
+      router.replace("/auth");
+      setLoading(false);
+    }
   }, [router]);
 
   if (loading) {
