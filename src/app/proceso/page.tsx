@@ -412,6 +412,7 @@ function calcNotaFinalFIUNA(proceso: number, finalPts: number): number {
 // ============= MAIN COMPONENT =============
 
 export default function ProcesoPage() {
+  const [isLoading, setIsLoading] = useState(true);
   const [simRowsById, setSimRowsById] = useState<Record<string, Row[]>>({});
   const [items, setItems] = useState<CourseItem[]>(DEFAULT_ITEMS);
   const [recuPctByItem, setRecuPctByItem] = useState<Record<string, number>>({});
@@ -427,6 +428,7 @@ export default function ProcesoPage() {
     const merged = mergeCoursesIntoItems(courses, d.items).map(migrateItemIfNeeded);
     setItems(merged);
     setDidLoadProceso(true);
+    setIsLoading(false); // ← Agregar esto
   }, []);
 
   useEffect(() => {
@@ -593,6 +595,32 @@ export default function ProcesoPage() {
     }));
     setSimOpenId(it.id);
   };
+
+
+if (isLoading) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <p>Cargando...</p>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div style={{ padding: 24 }}>
+        <Card title="No hay materias">
+          <p>No se encontraron materias registradas.</p>
+          <button 
+            className="btn" 
+            onClick={syncFromInicio}
+            style={{ marginTop: 12 }}
+          >
+            Sincronizar desde Inicio
+          </button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -2631,4 +2659,4 @@ function ScoreRow({ label, max, value, onChange }: ScoreRowProps) {
       />
     </div>
   );
-}
+} 
