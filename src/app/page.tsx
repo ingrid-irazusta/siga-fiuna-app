@@ -738,12 +738,12 @@ const { error } = await supabase
             PRÓXIMO EXAMEN
         ================================================ */}
         <div className="blockProximo">
-          <Card title={<span className="sectionLabel">⏱️ PRÓXIMO EXAMEN</span>}>
+          <Card title={<span className="sectionLabel">⏳ PRÓXIMO EXAMEN</span>}>
             <div className="bigDays">{nextExam ? `${nextExam.dias} días` : "—"}</div>
             <div className="centerNote">Días Restantes</div>
             <div style={{ height: 10 }} />
             <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontWeight: 950 }}>📅 {nextExam ? nextExam.tipo : "Sin examen"}</div>
+              <div style={{ fontWeight: 950 }}>📌 {nextExam ? nextExam.tipo : "Sin examen"}</div>
               <div style={{ fontWeight: 900, textTransform: "lowercase" }}>
                 {(nextExam ? nextExam.materia : "Cargá tus fechas en Horario de Exámenes").toLowerCase()}
               </div>
@@ -945,7 +945,7 @@ const { error } = await supabase
                 <div className="classItem" style={{ borderStyle: "dashed", opacity: 0.95 }}>
                   <div className="timeCol">—</div>
                   <div style={{ display: "grid", gap: 6 }}>
-                    <div style={{ fontWeight: 950 }}>📅 Día libre</div>
+                    <div style={{ fontWeight: 950 }}>🌿 Día libre</div>
                     <div className="metaLine"><span>Sin clases</span></div>
                   </div>
                 </div>
@@ -983,7 +983,7 @@ const { error } = await supabase
             AVISOS
         ================================================ */}
         <div className="blockAvisos">
-          <Card className="fullWidth" title={<span className="sectionLabel">📅 AVISOS</span>}>
+          <Card className="fullWidth" title={<span className="sectionLabel">🧭 AVISOS</span>}>
             <div className="avisosBox">
               (Espacio reservado para avisos / recordatorios)
             </div>
