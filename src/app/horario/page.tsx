@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getSupabase } from "../../lib/supabaseClient";
 
 const DAYS = [
   { id: 1, short: "Lun", long: "Lunes" },
@@ -28,7 +29,7 @@ const minToTime = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
 type DayId = 1 | 2 | 3 | 4 | 5 | 6;
 
 type ScheduleEvent = {
-  id: number;
+  id: string;
   materia: string;
   tipo: "T" | "P";
   seccion?: string;
@@ -48,28 +49,143 @@ const seed: Schedule = {
   6: [],
 };
 
-const SCHEDULE_KEY = "fiuna_os_schedule_v1";
+// --- DATABASE FUNCTIONS ---
 
-function loadSchedule(): Schedule {
-  if (typeof window === "undefined") return seed;
+async function loadScheduleFromDB(userId: string): Promise<Schedule> {
+  if (!userId) return seed;
   try {
-    const raw = window.localStorage.getItem(SCHEDULE_KEY);
-    if (!raw) return seed;
-    const parsed: Schedule = JSON.parse(raw);
-    for (let i = 1; i <= 6; i++) {
-      if (!Object.prototype.hasOwnProperty.call(parsed, i)) return seed;
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("student_classes")
+      .select("id, day_id, materia, tipo, seccion, inicio, fin, prof")
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error loading schedule:", error);
+      return seed;
     }
-    return parsed;
-  } catch {
+
+    if (!Array.isArray(data)) return seed;
+
+    const schedule: Schedule = { ...seed };
+    for (const row of data) {
+      const dayId = (Number(row.day_id) || 0) as DayId;
+      if (dayId < 1 || dayId > 6) continue;
+      
+      schedule[dayId] = [
+        ...(schedule[dayId] || []),
+        {
+          id: row.id,
+          materia: row.materia || "",
+          tipo: row.tipo || "T",
+          seccion: row.seccion || undefined,
+          inicio: row.inicio || "08:00",
+          fin: row.fin || "09:00",
+          prof: row.prof || undefined,
+        },
+      ];
+    }
+
+    // Sort each day by start time
+    for (let i = 1; i <= 6; i++) {
+      schedule[i as DayId] = schedule[i as DayId].sort((a, b) =>
+        a.inicio.localeCompare(b.inicio)
+      );
+    }
+
+    return schedule;
+  } catch (error) {
+    console.error("Error in loadScheduleFromDB:", error);
     return seed;
   }
 }
 
-function saveSchedule(nextSchedule: Schedule) {
-  if (typeof window === "undefined") return;
+async function saveScheduleEventToDB(
+  userId: string,
+  dayId: DayId,
+  event: ScheduleEvent
+): Promise<string | null> {
+  if (!userId) return null;
   try {
-    window.localStorage.setItem(SCHEDULE_KEY, JSON.stringify(nextSchedule));
-  } catch {}
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("student_classes")
+      .insert({
+        user_id: userId,
+        day_id: dayId,
+        materia: event.materia,
+        tipo: event.tipo,
+        seccion: event.seccion || null,
+        inicio: event.inicio,
+        fin: event.fin,
+        prof: event.prof || null,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Error saving event:", error);
+      return null;
+    }
+
+    return data?.id || null;
+  } catch (error) {
+    console.error("Error in saveScheduleEventToDB:", error);
+    return null;
+  }
+}
+
+async function updateScheduleEventToDB(
+  eventId: string,
+  dayId: DayId,
+  event: ScheduleEvent
+): Promise<boolean> {
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from("student_classes")
+      .update({
+        day_id: dayId,
+        materia: event.materia,
+        tipo: event.tipo,
+        seccion: event.seccion || null,
+        inicio: event.inicio,
+        fin: event.fin,
+        prof: event.prof || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", eventId);
+
+    if (error) {
+      console.error("Error updating event:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in updateScheduleEventToDB:", error);
+    return false;
+  }
+}
+
+async function deleteScheduleEventFromDB(eventId: string): Promise<boolean> {
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from("student_classes")
+      .delete()
+      .eq("id", eventId);
+
+    if (error) {
+      console.error("Error deleting event:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in deleteScheduleEventFromDB:", error);
+    return false;
+  }
 }
 
 // --- COMPONENTS ---
@@ -112,12 +228,14 @@ function Modal({ open, onClose, title, children }: ModalProps) {
 }
 
 export default function HorarioPage() {
+  const [userId, setUserId] = useState<string>("");
   const [mode, setMode] = useState<"week" | "day">("week");
   const [activeDay, setActiveDay] = useState<DayId>(1);
   const [schedule, setSchedule] = useState<Schedule>(seed);
+  const [loading, setLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editing, setEditing] = useState<{ dayId: DayId; id: number } | null>(null);
+  const [editing, setEditing] = useState<{ dayId: DayId; id: string } | null>(null);
 
   const [form, setForm] = useState<ScheduleEvent & { dayId: DayId }>({
     dayId: 1,
@@ -127,13 +245,71 @@ export default function HorarioPage() {
     inicio: "08:00",
     fin: "09:00",
     prof: "",
-    id: 0,
+    id: "",
   });
 
+  // --- Load userId and schedule on mount ---
   useEffect(() => {
-    const stored = loadSchedule();
-    setSchedule(stored);
+    const load = async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.auth.getSession();
+
+        if (!data.session?.user?.id) {
+          console.error("No session found");
+          setLoading(false);
+          return;
+        }
+
+        const uid = data.session.user.id;
+        setUserId(uid);
+
+        // Load schedule from DB
+        const schedule = await loadScheduleFromDB(uid);
+        setSchedule(schedule);
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error loading user or schedule:", error);
+        setLoading(false);
+      }
+    };
+
+    load();
   }, []);
+
+  // --- Subscribe to real-time changes ---
+  useEffect(() => {
+    if (!userId) return;
+
+    try {
+      const supabase = getSupabase();
+      const subscription = supabase
+        .channel(`student_classes_${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "student_classes",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            // Reload schedule when changes occur
+            loadScheduleFromDB(userId).then((newSchedule) => {
+              setSchedule(newSchedule);
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    } catch (error) {
+      console.error("Error setting up subscription:", error);
+    }
+  }, [userId]);
 
   const hours = useMemo(() => {
     const arr: string[] = [];
@@ -154,7 +330,7 @@ export default function HorarioPage() {
       inicio: s,
       fin: minToTime(em),
       prof: "",
-      id: 0,
+      id: "",
     });
     setIsModalOpen(true);
   };
@@ -165,50 +341,72 @@ export default function HorarioPage() {
     setIsModalOpen(true);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!form.materia.trim()) return alert("Escribí el nombre de la materia.");
     if (timeToMin(form.fin) <= timeToMin(form.inicio)) return alert("La hora fin debe ser mayor a la hora inicio.");
 
-    setSchedule((prev) => {
-      const next = { ...prev };
-      if (editing) {
-        next[editing.dayId] = (next[editing.dayId] || []).filter((x) => x.id !== editing.id);
-      }
-      const newId = editing?.id ?? Date.now();
-      const item: ScheduleEvent = {
-        id: newId,
-        materia: form.materia.trim(),
-        tipo: form.tipo,
-        seccion: form.seccion?.trim() || undefined,
-        inicio: form.inicio,
-        fin: form.fin,
-        prof: form.prof?.trim() || undefined,
-      };
-      next[form.dayId] = [...(next[form.dayId] || []), item].sort((a, b) => a.inicio.localeCompare(b.inicio));
-      saveSchedule(next);
-      try { window.dispatchEvent(new Event("fiuna_schedule_updated")); } catch {}
-      return next;
-    });
+    if (!userId) return alert("Error: No session found");
 
-    setIsModalOpen(false);
+    const item: ScheduleEvent = {
+      id: form.id || "",
+      materia: form.materia.trim(),
+      tipo: form.tipo,
+      seccion: form.seccion?.trim() || undefined,
+      inicio: form.inicio,
+      fin: form.fin,
+      prof: form.prof?.trim() || undefined,
+    };
+
+    if (editing) {
+      // Update existing event
+      const success = await updateScheduleEventToDB(editing.id, form.dayId, item);
+      if (success) {
+        const newSchedule = await loadScheduleFromDB(userId);
+        setSchedule(newSchedule);
+        setIsModalOpen(false);
+      } else {
+        alert("Error al guardar el cambio");
+      }
+    } else {
+      // Create new event
+      const eventId = await saveScheduleEventToDB(userId, form.dayId, item);
+      if (eventId) {
+        const newSchedule = await loadScheduleFromDB(userId);
+        setSchedule(newSchedule);
+        setIsModalOpen(false);
+      } else {
+        alert("Error al crear la clase");
+      }
+    }
   };
 
-  const del = () => {
+  const del = async () => {
     if (!editing) return;
     if (!confirm("¿Borrar esta clase?")) return;
-    setSchedule((prev) => {
-      const next = { ...prev };
-      next[editing.dayId] = (next[editing.dayId] || []).filter((x) => x.id !== editing.id);
-      saveSchedule(next);
-      try { window.dispatchEvent(new Event("fiuna_schedule_updated")); } catch {}
-      return next;
-    });
-    setIsModalOpen(false);
+
+    const success = await deleteScheduleEventFromDB(editing.id);
+    if (success) {
+      if (userId) {
+        const newSchedule = await loadScheduleFromDB(userId);
+        setSchedule(newSchedule);
+      }
+      setIsModalOpen(false);
+    } else {
+      alert("Error al borrar la clase");
+    }
   };
 
   const totalMin = (END_HOUR - START_HOUR) * 60;
   const topFor = (t: string) => ((timeToMin(t) - START_HOUR * 60) / totalMin) * 100;
   const heightFor = (a: string, b: string) => ((timeToMin(b) - timeToMin(a)) / totalMin) * 100;
+
+  if (loading) {
+    return (
+      <div className="pageWrap" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}>
+        <div>Cargando horario...</div>
+      </div>
+    );
+  }
 
 return (
   <div className="pageWrap">

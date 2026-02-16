@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSupabase } from "@/lib/supabaseClient";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -14,29 +15,39 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     // Excluir rutas públicas (/auth)
-    if (window.location.pathname.startsWith("/auth")) {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/auth")) {
       setAuthenticated(true);
       setLoading(false);
       return;
     }
 
     try {
-      // Verificar si hay token de autenticación en localStorage
-      const token = localStorage.getItem("auth_token");
-      const currentUser = localStorage.getItem("current_user");
+      const supabase = getSupabase();
 
-      if (token && currentUser) {
-        setAuthenticated(true);
-        setLoading(false);
-      } else {
-        // Redirigir a login si no hay sesión
-        router.replace("/auth");
-        setLoading(false);
-      }
+      // Usar onAuthStateChange para verificar sesión real de Supabase
+      const { data: authListener } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          if (session?.user) {
+            // Usuario autenticado
+            setAuthenticated(true);
+            setLoading(false);
+          } else {
+            // Sin sesión activa - redirigir a login
+            setAuthenticated(false);
+            setLoading(false);
+            router.replace("/auth");
+          }
+        }
+      );
+
+      // Cleanup del listener cuando el componente se desmonta
+      return () => {
+        authListener?.subscription?.unsubscribe();
+      };
     } catch (error) {
       console.error("Error checking auth:", error);
-      router.replace("/auth");
       setLoading(false);
+      router.replace("/auth");
     }
   }, [router]);
 

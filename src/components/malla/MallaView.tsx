@@ -27,14 +27,24 @@ interface MateriaItem {
   requisitosKeys: string[];
 }
 
-function loadProfile(): any | null {
-  if (typeof window === "undefined") return null;
+async function loadProfileFromDB(userId: string): Promise<any | null> {
+  if (!userId) return null;
   try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    return p && typeof p === "object" ? p : null;
-  } catch {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("carrera, malla, ci")
+      .eq("user_id", userId)
+      .single();
+
+    if (error) {
+      console.error("Error loading profile from DB:", error);
+      return null;
+    }
+
+    return data && typeof data === "object" ? data : null;
+  } catch (error) {
+    console.error("Error in loadProfileFromDB:", error);
     return null;
   }
 }
@@ -136,12 +146,57 @@ export default function MallaView() {
   }, []);
 
   useEffect(() => {
-    const p = loadProfile();
-    if (!p) return;
-    if (CARRERAS.includes(p.carrera)) setCarrera(p.carrera);
-    if (p.malla === "2013" || p.malla === "2023") setPlan(p.malla);
-    if (typeof p.ci === "string") setCi(p.ci);
-  }, []);
+    let cancelled = false;
+
+    const loadProfile = async () => {
+      if (!userId) return;
+      
+      const p = await loadProfileFromDB(userId);
+      if (cancelled) return;
+      
+      if (!p) return;
+      if (CARRERAS.includes(p.carrera)) setCarrera(p.carrera);
+      if (p.malla === "2013" || p.malla === "2023") setPlan(p.malla);
+      if (typeof p.ci === "string") setCi(p.ci);
+    };
+
+    loadProfile();
+
+    // Suscribirse a cambios en user_profiles para esta reacción a cambios en tiempo real
+    try {
+      const supabase = getSupabase();
+      const subscription = supabase
+        .channel(`public:user_profiles:user_id=eq.${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_profiles",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            if (!cancelled && payload.new) {
+              const newProfile = payload.new as any;
+              if (CARRERAS.includes(newProfile.carrera)) setCarrera(newProfile.carrera);
+              if (newProfile.malla === "2013" || newProfile.malla === "2023") setPlan(newProfile.malla);
+              if (typeof newProfile.ci === "string") setCi(newProfile.ci);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        cancelled = true;
+        subscription.unsubscribe();
+      };
+    } catch (error) {
+      console.error("Error setting up profile subscription:", error);
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [userId]);
 
   const [mode, setMode] = useState<"estricto" | "flexible">("estricto");
   const [blockPlaceholders, setBlockPlaceholders] = useState<boolean>(false);
