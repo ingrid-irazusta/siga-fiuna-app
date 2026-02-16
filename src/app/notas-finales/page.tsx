@@ -4,9 +4,7 @@ import { useEffect, useMemo, useState, Fragment } from "react";
 import { getSupabase } from "../../lib/supabaseClient";
 import Card from "../../components/Card";
 
-const PROFILE_KEY = "fiuna_os_profile_v1";
 const MALLA_CACHE_PREFIX = "fiuna_os_malla_cache_v1";
-const NOTAS_PREFIX = "fiuna_os_notas_finales_v4";
 
 interface Profile {
   carrera: string;
@@ -68,22 +66,31 @@ function safeParse<T = any>(raw: string | null): T | null {
   }
 }
 
-function loadProfile(): Partial<Profile> {
+async function loadProfileFromDB(userId: string): Promise<Profile | null> {
+  if (!userId) return null;
   try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    const p = safeParse(raw);
-    return p && typeof p === "object" ? p : {};
-  } catch {
-    return {};
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("carrera, malla, ci")
+      .eq("user_id", userId)
+      .single();
+
+    if (error) {
+      console.error("Error loading profile from DB:", error);
+      return null;
+    }
+
+    return data && typeof data === "object"
+      ? (data as Profile)
+      : null;
+  } catch (error) {
+    console.error("Error in loadProfileFromDB:", error);
+    return null;
   }
 }
 
-function storageKey({ carrera, plan, ci }: StorageKeyParams): string {
-  const c = normText(carrera);
-  const p = String(plan || "2023");
-  const id = String(ci || "").trim();
-  return id ? `${NOTAS_PREFIX}:${c}:${p}:${id}` : `${NOTAS_PREFIX}:${c}:${p}`;
-}
+
 
 function mallaCacheKey({ carrera, plan }: MallaCacheKeyParams): string {
   return `${MALLA_CACHE_PREFIX}:${normText(carrera)}:${String(plan || "2023")}`;
@@ -195,11 +202,37 @@ function enforceSinglePass(row: NotaRow, changedKey: NotaKey | undefined): NotaR
   return out;
 }
 
-function readMallaMaterias({ carrera, plan }: MallaCacheKeyParams): MallaItem[] {
+async function readMallaMaterias(carrera: string, plan: string): Promise<MallaItem[]> {
   try {
-    const raw = localStorage.getItem(mallaCacheKey({ carrera, plan }));
+    // Primero intenta leer desde localStorage (cache)
+    const cacheKey = mallaCacheKey({ carrera, plan });
+    const raw = localStorage.getItem(cacheKey);
     const parsed = (safeParse<{ items?: any[] }>(raw) || {}) as { items?: any[] };
-    const items = Array.isArray(parsed.items) ? parsed.items : [];
+    const cachedItems = Array.isArray(parsed.items) ? parsed.items : [];
+    
+    if (cachedItems.length > 0) {
+      const filtered = cachedItems
+        .map((it: any) => ({
+          semestre: Number(it?.semestre) || 0,
+          materia: String(it?.materia || "").trim(),
+        }))
+        .filter((x: MallaItem) => x.semestre > 0 && x.materia);
+      filtered.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
+      return filtered;
+    }
+
+    // Si no hay cache, fetch desde la API
+    const response = await fetch(
+      `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}`
+    );
+    const data = await response.json();
+    
+    if (!response.ok || !data?.ok) {
+      console.error("Error fetching malla:", data?.error);
+      return [];
+    }
+
+    const items = Array.isArray(data.materias) ? data.materias : [];
     const filtered = items
       .map((it: any) => ({
         semestre: Number(it?.semestre) || 0,
@@ -207,8 +240,15 @@ function readMallaMaterias({ carrera, plan }: MallaCacheKeyParams): MallaItem[] 
       }))
       .filter((x: MallaItem) => x.semestre > 0 && x.materia);
     filtered.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
+    
+    // Cache the result
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({ items: filtered }));
+    } catch {}
+    
     return filtered;
-  } catch {
+  } catch (error) {
+    console.error("Error in readMallaMaterias:", error);
     return [];
   }
 }
@@ -268,15 +308,9 @@ export default function NotasFinalesPage() {
   const [profile, setProfile] = useState<Profile>({ carrera: "", malla: "2023", ci: "" });
   const [rows, setRows] = useState<NotaRow[]>([]);
   const [totalMalla, setTotalMalla] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const p = loadProfile();
-    const carrera = String(p?.carrera || "").trim();
-    const plan = p?.malla === "2013" || p?.malla === "2023" ? p.malla : "2023";
-    const ci = String(p?.ci || "").trim();
-    setProfile({ carrera, malla: plan, ci });
-  }, []);
-
+  // Load userId from auth
   useEffect(() => {
     try {
       const supabase = getSupabase();
@@ -295,91 +329,136 @@ export default function NotasFinalesPage() {
     }
   }, []);
 
+  // Load profile from Supabase and subscribe to changes
   useEffect(() => {
-    if (!profile.carrera) return;
+    if (!userId) return;
 
-    const mallaItems = readMallaMaterias({ carrera: profile.carrera, plan: profile.malla });
-    setTotalMalla(mallaItems.length);
-    const baseRows = buildBaseRows(mallaItems);
+    let cancelled = false;
 
-    (async () => {
-      let loaded: NotaRow[] = [];
-
-      if (userId) {
-        try {
-          const supabase = getSupabase();
-          const { data, error } = await supabase
-            .from("student_notes")
-            .select("id,materia,nota1,nota2,nota3")
-            .eq("user_id", userId);
-
-          if (!error && Array.isArray(data)) {
-            loaded = data.map((d: any) => {
-              const materia = String(d.materia || "").trim();
-              const key = normText(materia);
-              const isBase = baseRows.some((b) => normText(b.materia) === key);
-              const semestre = isBase
-                ? baseRows.find((b) => normText(b.materia) === key)!.semestre
-                : 0;
-              return {
-                id: String(d.id),
-                base: !!isBase,
-                semestre,
-                materia: materia,
-                nota1: d.nota1 ?? "",
-                nota2: d.nota2 ?? "",
-                nota3: d.nota3 ?? "",
-              } as NotaRow;
-            });
-          } else {
-            console.error("Error loading notes from DB:", error);
-          }
-        } catch (err) {
-          console.error("Error reading notes from DB:", err);
-        }
-      } else {
-        // fallback: localStorage for anonymous
-        try {
-          const key = storageKey({ carrera: profile.carrera, plan: profile.malla, ci: profile.ci });
-          const raw = localStorage.getItem(key);
-          const parsed = safeParse(raw);
-          if (Array.isArray(parsed)) loaded = parsed;
-
-          if (!loaded.length) {
-            try {
-              const legacyKey = key.replace(NOTAS_PREFIX, "fiuna_os_notas_finales_v3");
-              const legacyRaw = localStorage.getItem(legacyKey);
-              const legacyParsed = safeParse(legacyRaw);
-              if (Array.isArray(legacyParsed)) loaded = legacyParsed;
-            } catch {}
-          }
-        } catch (err) {
-          /* ignore */
-        }
-      }
-
-      const merged = mergeKeepNotas(loaded, baseRows);
-      setRows(merged);
-    })();
-  }, [profile.carrera, profile.malla, profile.ci, userId]);
-
-  useEffect(() => {
-    if (!profile.carrera) return;
-
-    const sync = async () => {
-      if (!userId) {
-        // fallback: save to localStorage
-        try {
-          const key = storageKey({ carrera: profile.carrera, plan: profile.malla, ci: profile.ci });
-          localStorage.setItem(key, JSON.stringify(rows));
-        } catch {}
+    const loadProfile = async () => {
+      const p = await loadProfileFromDB(userId);
+      if (cancelled) return;
+      
+      if (!p) {
+        setProfile({ carrera: "", malla: "2023", ci: "" });
         return;
       }
 
+      const carrera = String(p.carrera || "").trim();
+      const plan = p.malla === "2013" || p.malla === "2023" ? p.malla : "2023";
+      const ci = String(p.ci || "").trim();
+      setProfile({ carrera, malla: plan, ci });
+    };
+
+    loadProfile();
+
+    // Subscribe to profile changes
+    try {
+      const supabase = getSupabase();
+      const subscription = supabase
+        .channel(`user_profiles_${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_profiles",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            if (!cancelled && payload.new) {
+              const newProfile = payload.new as any;
+              const carrera = String(newProfile.carrera || "").trim();
+              const plan = newProfile.malla === "2013" || newProfile.malla === "2023" ? newProfile.malla : "2023";
+              const ci = String(newProfile.ci || "").trim();
+              setProfile({ carrera, malla: plan, ci });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        cancelled = true;
+        subscription.unsubscribe();
+      };
+    } catch (error) {
+      console.error("Error setting up profile subscription:", error);
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [userId]);
+
+  // Load malla and notes when profile changes
+  useEffect(() => {
+    if (!profile.carrera || !userId) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+
+      // Load malla
+      const mallaItems = await readMallaMaterias(profile.carrera, profile.malla);
+      if (cancelled) return;
+      
+      setTotalMalla(mallaItems.length);
+      const baseRows = buildBaseRows(mallaItems);
+
+      // Load notes from DB
+      let loaded: NotaRow[] = [];
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase
+          .from("student_notes")
+          .select("id,materia,nota1,nota2,nota3")
+          .eq("user_id", userId);
+
+        if (!error && Array.isArray(data)) {
+          loaded = data.map((d: any) => {
+            const materia = String(d.materia || "").trim();
+            const key = normText(materia);
+            const isBase = baseRows.some((b) => normText(b.materia) === key);
+            const semestre = isBase
+              ? baseRows.find((b) => normText(b.materia) === key)!.semestre
+              : 0;
+            return {
+              id: String(d.id),
+              base: !!isBase,
+              semestre,
+              materia: materia,
+              nota1: d.nota1 ?? "",
+              nota2: d.nota2 ?? "",
+              nota3: d.nota3 ?? "",
+            } as NotaRow;
+          });
+        }
+      } catch (err) {
+        console.error("Error reading notes from DB:", err);
+      }
+
+      if (cancelled) return;
+      const merged = mergeKeepNotas(loaded, baseRows);
+      setRows(merged);
+      setLoading(false);
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.carrera, profile.malla, userId]);
+
+  // Sync notes to DB whenever they change
+  useEffect(() => {
+    if (!profile.carrera || !userId) return;
+
+    const sync = async () => {
       try {
         const supabase = getSupabase();
 
-        // fetch existing DB notes for the user
+        // Fetch existing DB notes for the user
         const { data: dbAll, error: fetchErr } = await supabase
           .from("student_notes")
           .select("id,materia")
@@ -394,14 +473,14 @@ export default function NotasFinalesPage() {
 
         const currentMaterias = new Set(rows.map((r) => normText(r.materia)));
 
-        // delete removed notes
+        // Delete removed notes
         for (const [mat, id] of dbMap.entries()) {
           if (!currentMaterias.has(mat)) {
             await supabase.from("student_notes").delete().eq("id", id);
           }
         }
 
-        // upsert current rows (nota1..nota3)
+        // Upsert current rows
         for (const r of rows) {
           const materiaKey = normText(r.materia);
           const payload = {
@@ -419,6 +498,9 @@ export default function NotasFinalesPage() {
             await supabase.from("student_notes").insert(payload);
           }
         }
+
+        // Broadcast KPI update event to main page
+        window.dispatchEvent(new CustomEvent("notasUpdated", { detail: { userId } }));
       } catch (err) {
         console.error("Error syncing notes to DB:", err);
       }

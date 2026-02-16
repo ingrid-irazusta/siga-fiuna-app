@@ -133,6 +133,7 @@ export default function Page() {
                 value={P}
                 onChange={(e) => setP(e.target.value)}
                 inputMode="numeric"
+                placeholder="Ej: 70"
               />
             </div>
 
@@ -145,6 +146,7 @@ export default function Page() {
                 value={F}
                 onChange={(e) => setF(e.target.value)}
                 inputMode="numeric"
+                placeholder="Ej: 55"
               />
             </div>
 
@@ -164,6 +166,9 @@ export default function Page() {
               >
                 {res?.empty ? "—" : res?.blocked ? "—" : res?.nota}
               </div>
+              <div className="muted" style={{ fontSize: 12, textAlign: "right" }}>
+                {res?.blocked ? "Proceso < 50 ⇒ sin derecho" : Number(F) < 40 ? "Si F < 40 ⇒ 1" : ""}
+              </div>
             </div>
           </div>
         </div>
@@ -174,9 +179,9 @@ export default function Page() {
 
         <div className="abacoToolbar">
           <div className="abacoZoomGroup">
-            <button className="abacoBtn" onClick={zoomOut}>−</button>
-            <button className="abacoBtn" onClick={zoomIn}>+</button>
-            <button className="abacoBtn" onClick={zoomReset}>Reset</button>
+            <button className="abacoBtn" onClick={zoomOut} aria-label="Zoom menos">−</button>
+            <button className="abacoBtn" onClick={zoomIn} aria-label="Zoom más">+</button>
+            <button className="abacoBtn" onClick={zoomReset} aria-label="Reset zoom">Reset</button>
             <span className="abacoBadge">
               Zoom: {Math.round(effectiveScaleMain * 100)}%
             </span>
@@ -198,7 +203,7 @@ export default function Page() {
             className="abacoFitInner"
             style={{ transform: `scale(${effectiveScaleMain})` }}
           >
-            <table className="abacoTable" ref={mainTableRef}>
+            <table className="abacoTable" ref={mainTableRef} aria-label="Tabla Ábaco">
               <thead>
                 <tr>
                   <th className="leftSticky">Pts</th>
@@ -233,9 +238,62 @@ export default function Page() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <th className="leftSticky">Pts</th>
+                  {PROCESO.map((p) => (
+                    <th key={`f-${p}`}>{p}</th>
+                  ))}
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
+
+        <details>
+          <summary className="abacoSubTitle" style={{ cursor: "pointer" }}>EVALUACIÓN DE PROCESO (Exoneración)</summary>
+          <div className="abacoFitOuter" ref={exoOuterRef}>
+            <div className="abacoFitInner" style={{ transform: `scale(${effectiveScaleExo})` }}>
+              <table className="abacoTable" ref={exoTableRef} aria-label="Exoneración">
+                <thead>
+                  <tr>
+                    <th className="leftSticky">Pts</th>
+                    {PROCESO.map((p) => (
+                      <th key={`h-${p}`}>{p}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="leftSticky">Cursos Básicos</td>
+                    {PROCESO.map((p) => {
+                      const n = exoBasicos(p);
+                      return (
+                        <td key={`b-${p}`} className={n ? cellClass(n as number) : ""}>
+                          {n}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <td className="leftSticky">Cursos Profesionales</td>
+                    {PROCESO.map((p) => {
+                      const n = exoProfesionales(p);
+                      return (
+                        <td key={`p-${p}`} className={n ? cellClass(n as number) : ""}>
+                          {n}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="abacoNote">
+            Básicos: 3 (71–80), 4 (81–90), 5 (91–100). Profesionales: 4 (81–90), 5 (91–100).
+          </div>
+        </details>
       </section>
     </div>
   );

@@ -447,12 +447,57 @@ export default function Page() {
   useEffect(() => {
     if (!userId || !profile.carrera) return;
 
+    let cancelled = false;
+
     const refreshKpis = async () => {
       const kpis = await computeNotasKpis(userId, profile.carrera);
-      setNotasKpis(kpis);
+      if (!cancelled) setNotasKpis(kpis);
     };
 
     refreshKpis();
+
+    // Subscribe to real-time changes in student_notes
+    try {
+      const supabase = getSupabase();
+      const subscription = supabase
+        .channel(`student_notes_${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "student_notes",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            if (!cancelled) {
+              refreshKpis();
+            }
+          }
+        )
+        .subscribe();
+
+      // Also listen for event from notas-finales page for immediate feedback
+      const handleNotasUpdated = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        if (customEvent.detail?.userId === userId && !cancelled) {
+          refreshKpis();
+        }
+      };
+
+      window.addEventListener("notasUpdated", handleNotasUpdated);
+
+      return () => {
+        cancelled = true;
+        subscription.unsubscribe();
+        window.removeEventListener("notasUpdated", handleNotasUpdated);
+      };
+    } catch (error) {
+      console.error("Error setting up notes subscription:", error);
+      return () => {
+        cancelled = true;
+      };
+    }
   }, [userId, profile.carrera]);
 
   /* =======================================================
