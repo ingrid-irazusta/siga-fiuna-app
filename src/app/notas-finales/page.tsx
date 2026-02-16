@@ -411,7 +411,7 @@ export default function NotasFinalesPage() {
         const supabase = getSupabase();
         const { data, error } = await supabase
           .from("student_notes")
-          .select("id,materia,nota1,nota2,nota3")
+          .select("id,materia,nota1,nota2,nota3,nota4,nota5,nota6,optativa_nombre")
           .eq("user_id", userId);
 
         if (!error && Array.isArray(data)) {
@@ -422,7 +422,7 @@ export default function NotasFinalesPage() {
             const semestre = isBase
               ? baseRows.find((b) => normText(b.materia) === key)!.semestre
               : 0;
-            return {
+            const row: NotaRow = {
               id: String(d.id),
               base: !!isBase,
               semestre,
@@ -430,7 +430,17 @@ export default function NotasFinalesPage() {
               nota1: d.nota1 ?? "",
               nota2: d.nota2 ?? "",
               nota3: d.nota3 ?? "",
-            } as NotaRow;
+            };
+            
+            // Incluir notas extra si existen
+            if (typeof d.nota4 !== "undefined" && d.nota4 !== null) row.nota4 = d.nota4;
+            if (typeof d.nota5 !== "undefined" && d.nota5 !== null) row.nota5 = d.nota5;
+            if (typeof d.nota6 !== "undefined" && d.nota6 !== null) row.nota6 = d.nota6;
+            
+            // Incluir nombre de optativa si existe
+            if (d.optativa_nombre) row.optativaNombre = d.optativa_nombre;
+            
+            return row;
           });
         }
       } catch (err) {
@@ -483,19 +493,42 @@ export default function NotasFinalesPage() {
         // Upsert current rows
         for (const r of rows) {
           const materiaKey = normText(r.materia);
-          const payload = {
+          const payload: any = {
             user_id: userId,
-            materia: materiaKey,
+            materia: r.materia, // Guardar el nombre real, no normalizado
             nota1: r.nota1 === "" ? null : Number(r.nota1),
             nota2: r.nota2 === "" ? null : Number(r.nota2),
             nota3: r.nota3 === "" ? null : Number(r.nota3),
-          } as any;
+          };
+
+          // Incluir notas extra si existen
+          if (typeof r.nota4 !== "undefined" && r.nota4 !== "") {
+            payload.nota4 = Number(r.nota4);
+          }
+          if (typeof r.nota5 !== "undefined" && r.nota5 !== "") {
+            payload.nota5 = Number(r.nota5);
+          }
+          if (typeof r.nota6 !== "undefined" && r.nota6 !== "") {
+            payload.nota6 = Number(r.nota6);
+          }
+
+          // Incluir nombre de optativa si existe
+          if (r.optativaNombre) {
+            payload.optativa_nombre = r.optativaNombre;
+          }
 
           const existingId = dbMap.get(materiaKey);
           if (existingId) {
-            await supabase.from("student_notes").update(payload).eq("id", existingId);
+            const { error: updateErr } = await supabase
+              .from("student_notes")
+              .update(payload)
+              .eq("id", existingId);
+            if (updateErr) console.error(`Error updating nota for ${r.materia}:`, updateErr);
           } else {
-            await supabase.from("student_notes").insert(payload);
+            const { error: insertErr } = await supabase
+              .from("student_notes")
+              .insert(payload);
+            if (insertErr) console.error(`Error inserting nota for ${r.materia}:`, insertErr);
           }
         }
 

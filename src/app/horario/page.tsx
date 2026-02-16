@@ -52,7 +52,10 @@ const seed: Schedule = {
 // --- DATABASE FUNCTIONS ---
 
 async function loadScheduleFromDB(userId: string): Promise<Schedule> {
-  if (!userId) return seed;
+  if (!userId) {
+    console.warn("loadScheduleFromDB: No userId provided");
+    return seed;
+  }
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
@@ -61,16 +64,22 @@ async function loadScheduleFromDB(userId: string): Promise<Schedule> {
       .eq("user_id", userId);
 
     if (error) {
-      console.error("Error loading schedule:", error);
+      console.error("Database load error:", error.message, error);
       return seed;
     }
 
-    if (!Array.isArray(data)) return seed;
+    if (!Array.isArray(data)) {
+      console.warn("Database returned non-array data");
+      return seed;
+    }
 
     const schedule: Schedule = { ...seed };
     for (const row of data) {
       const dayId = (Number(row.day_id) || 0) as DayId;
-      if (dayId < 1 || dayId > 6) continue;
+      if (dayId < 1 || dayId > 6) {
+        console.warn(`Invalid day_id: ${dayId}`);
+        continue;
+      }
       
       schedule[dayId] = [
         ...(schedule[dayId] || []),
@@ -95,7 +104,7 @@ async function loadScheduleFromDB(userId: string): Promise<Schedule> {
 
     return schedule;
   } catch (error) {
-    console.error("Error in loadScheduleFromDB:", error);
+    console.error("Exception in loadScheduleFromDB:", error);
     return seed;
   }
 }
@@ -105,7 +114,14 @@ async function saveScheduleEventToDB(
   dayId: DayId,
   event: ScheduleEvent
 ): Promise<string | null> {
-  if (!userId) return null;
+  if (!userId) {
+    console.error("saveScheduleEventToDB: No userId provided");
+    alert("Error: Debes iniciar sesión para crear clases");
+    return null;
+  }
+  
+  console.log("Attempting to save event:", { userId, dayId, event });
+  
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
@@ -124,13 +140,16 @@ async function saveScheduleEventToDB(
       .single();
 
     if (error) {
-      console.error("Error saving event:", error);
+      console.error("Database save error:", error.message, error);
+      alert(`Error al guardar: ${error.message}`);
       return null;
     }
 
+    console.log("Event saved successfully with id:", data?.id);
     return data?.id || null;
   } catch (error) {
-    console.error("Error in saveScheduleEventToDB:", error);
+    console.error("Exception in saveScheduleEventToDB:", error);
+    alert("Error inesperado al guardar la clase");
     return null;
   }
 }
@@ -140,6 +159,13 @@ async function updateScheduleEventToDB(
   dayId: DayId,
   event: ScheduleEvent
 ): Promise<boolean> {
+  if (!eventId) {
+    console.error("updateScheduleEventToDB: No eventId provided");
+    return false;
+  }
+  
+  console.log("Attempting to update event:", { eventId, dayId, event });
+  
   try {
     const supabase = getSupabase();
     const { error } = await supabase
@@ -157,18 +183,28 @@ async function updateScheduleEventToDB(
       .eq("id", eventId);
 
     if (error) {
-      console.error("Error updating event:", error);
+      console.error("Database update error:", error.message, error);
+      alert(`Error al actualizar: ${error.message}`);
       return false;
     }
 
+    console.log("Event updated successfully");
     return true;
   } catch (error) {
-    console.error("Error in updateScheduleEventToDB:", error);
+    console.error("Exception in updateScheduleEventToDB:", error);
+    alert("Error inesperado al actualizar la clase");
     return false;
   }
 }
 
 async function deleteScheduleEventFromDB(eventId: string): Promise<boolean> {
+  if (!eventId) {
+    console.error("deleteScheduleEventFromDB: No eventId provided");
+    return false;
+  }
+  
+  console.log("Attempting to delete event:", eventId);
+  
   try {
     const supabase = getSupabase();
     const { error } = await supabase
@@ -177,13 +213,16 @@ async function deleteScheduleEventFromDB(eventId: string): Promise<boolean> {
       .eq("id", eventId);
 
     if (error) {
-      console.error("Error deleting event:", error);
+      console.error("Database delete error:", error.message, error);
+      alert(`Error al borrar: ${error.message}`);
       return false;
     }
 
+    console.log("Event deleted successfully");
     return true;
   } catch (error) {
-    console.error("Error in deleteScheduleEventFromDB:", error);
+    console.error("Exception in deleteScheduleEventFromDB:", error);
+    alert("Error inesperado al borrar la clase");
     return false;
   }
 }
@@ -233,6 +272,7 @@ export default function HorarioPage() {
   const [activeDay, setActiveDay] = useState<DayId>(1);
   const [schedule, setSchedule] = useState<Schedule>(seed);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<{ dayId: DayId; id: string } | null>(null);
@@ -253,24 +293,30 @@ export default function HorarioPage() {
     const load = async () => {
       try {
         const supabase = getSupabase();
-        const { data } = await supabase.auth.getSession();
+        const { data, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.info("Session error (this is normal if not logged in):", sessionError.message);
+          setLoading(false);
+          return;
+        }
 
         if (!data.session?.user?.id) {
-          console.error("No session found");
+          console.info("No active session found");
           setLoading(false);
           return;
         }
 
         const uid = data.session.user.id;
+        console.log("User ID loaded:", uid);
         setUserId(uid);
 
         // Load schedule from DB
         const schedule = await loadScheduleFromDB(uid);
         setSchedule(schedule);
-
-        setLoading(false);
       } catch (error) {
-        console.error("Error loading user or schedule:", error);
+        console.error("Error loading initial data:", error);
+      } finally {
         setLoading(false);
       }
     };
@@ -295,6 +341,7 @@ export default function HorarioPage() {
             filter: `user_id=eq.${userId}`,
           },
           (payload) => {
+            console.log("Real-time update received:", payload);
             // Reload schedule when changes occur
             loadScheduleFromDB(userId).then((newSchedule) => {
               setSchedule(newSchedule);
@@ -307,7 +354,7 @@ export default function HorarioPage() {
         subscription.unsubscribe();
       };
     } catch (error) {
-      console.error("Error setting up subscription:", error);
+      console.warn("Exception setting up real-time subscription:", error);
     }
   }, [userId]);
 
@@ -342,10 +389,29 @@ export default function HorarioPage() {
   };
 
   const save = async () => {
-    if (!form.materia.trim()) return alert("Escribí el nombre de la materia.");
-    if (timeToMin(form.fin) <= timeToMin(form.inicio)) return alert("La hora fin debe ser mayor a la hora inicio.");
+    // Validation
+    if (!form.materia.trim()) {
+      alert("Escribí el nombre de la materia.");
+      return;
+    }
+    
+    if (timeToMin(form.fin) <= timeToMin(form.inicio)) {
+      alert("La hora fin debe ser mayor a la hora inicio.");
+      return;
+    }
 
-    if (!userId) return alert("Error: No session found");
+    if (!userId) {
+      alert("Error: Debes iniciar sesión para guardar cambios");
+      return;
+    }
+
+    // Prevent double-clicking
+    if (saving) {
+      console.log("Save already in progress");
+      return;
+    }
+
+    setSaving(true);
 
     const item: ScheduleEvent = {
       id: form.id || "",
@@ -357,26 +423,45 @@ export default function HorarioPage() {
       prof: form.prof?.trim() || undefined,
     };
 
-    if (editing) {
-      // Update existing event
-      const success = await updateScheduleEventToDB(editing.id, form.dayId, item);
+    try {
+      let success = false;
+
+      // Determine if this is an edit or create based on editing state
+      if (editing && editing.id) {
+        console.log("Updating existing event:", editing.id);
+        success = await updateScheduleEventToDB(editing.id, form.dayId, item);
+        
+        if (!success) {
+          alert("No se pudo guardar el cambio. Por favor, verifica tu conexión e intenta de nuevo.");
+          setSaving(false);
+          return;
+        }
+      } else {
+        console.log("Creating new event");
+        const eventId = await saveScheduleEventToDB(userId, form.dayId, item);
+        
+        if (!eventId) {
+          alert("No se pudo crear la clase. Por favor, verifica tu conexión e intenta de nuevo.");
+          setSaving(false);
+          return;
+        }
+        
+        success = true;
+      }
+
       if (success) {
+        // Reload schedule from database
+        console.log("Reloading schedule after save");
         const newSchedule = await loadScheduleFromDB(userId);
         setSchedule(newSchedule);
         setIsModalOpen(false);
-      } else {
-        alert("Error al guardar el cambio");
+        console.log("Save completed successfully");
       }
-    } else {
-      // Create new event
-      const eventId = await saveScheduleEventToDB(userId, form.dayId, item);
-      if (eventId) {
-        const newSchedule = await loadScheduleFromDB(userId);
-        setSchedule(newSchedule);
-        setIsModalOpen(false);
-      } else {
-        alert("Error al crear la clase");
-      }
+    } catch (error) {
+      console.error("Unexpected error in save:", error);
+      alert("Error inesperado al guardar. Por favor, intenta de nuevo.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -384,21 +469,37 @@ export default function HorarioPage() {
     if (!editing) return;
     if (!confirm("¿Borrar esta clase?")) return;
 
-    const success = await deleteScheduleEventFromDB(editing.id);
-    if (success) {
-      if (userId) {
-        const newSchedule = await loadScheduleFromDB(userId);
-        setSchedule(newSchedule);
+    setSaving(true);
+
+    try {
+      const success = await deleteScheduleEventFromDB(editing.id);
+      
+      if (success) {
+        if (userId) {
+          const newSchedule = await loadScheduleFromDB(userId);
+          setSchedule(newSchedule);
+        }
+        setIsModalOpen(false);
+      } else {
+        alert("No se pudo borrar la clase. Por favor, intenta de nuevo.");
       }
-      setIsModalOpen(false);
-    } else {
-      alert("Error al borrar la clase");
+    } catch (error) {
+      console.error("Unexpected error in delete:", error);
+      alert("Error inesperado al borrar. Por favor, intenta de nuevo.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const totalMin = (END_HOUR - START_HOUR) * 60;
-  const topFor = (t: string) => ((timeToMin(t) - START_HOUR * 60) / totalMin) * 100;
-  const heightFor = (a: string, b: string) => ((timeToMin(b) - timeToMin(a)) / totalMin) * 100;
+  const topFor = (t: string) => {
+    const totalMin = (END_HOUR - START_HOUR) * 60;
+    return ((timeToMin(t) - START_HOUR * 60) / totalMin) * 100;
+  };
+  
+  const heightFor = (a: string, b: string) => {
+    const totalMin = (END_HOUR - START_HOUR) * 60;
+    return ((timeToMin(b) - timeToMin(a)) / totalMin) * 100;
+  };
 
   if (loading) {
     return (
@@ -408,275 +509,319 @@ export default function HorarioPage() {
     );
   }
 
-return (
-  <div className="pageWrap">
-    <div className="pageHeader">
-      <div className="calTopControls">
-        <div className="calToggle">
-          <button
-            className={`calTBtn ${mode === "day" ? "on" : ""}`}
-            onClick={() => setMode("day")}
-          >
-            Día
-          </button>
-          <button
-            className={`calTBtn ${mode === "week" ? "on" : ""}`}
-            onClick={() => setMode("week")}
-          >
-            Semana
-          </button>
+  if (!userId) {
+    return (
+      <div className="pageWrap" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}>
+        <div className="card cardPad" style={{ textAlign: "center", maxWidth: "400px" }}>
+          <div className="h2">Inicia sesión</div>
+          <p className="muted" style={{ marginTop: "1rem" }}>Debes iniciar sesión para ver y crear tu horario de clases.</p>
+          <a href="/auth/login" className="btnPrimary" style={{ display: "inline-block", marginTop: "1rem" }}>Ir a Login</a>
         </div>
-
-        {mode === "day" ? (
-          <div className="calDayPills">
-            {DAYS.map((d) => (
-              <button
-                key={d.id}
-                className={`calDayPill ${activeDay === d.id ? "on" : ""}`}
-                onClick={() => setActiveDay(d.id as DayId)}
-              >
-                {d.short}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <button className="btnPrimary" onClick={() => openNew({ dayId: 1 as DayId })}>
-            ＋ Nueva clase
-          </button>
-        )}
       </div>
-    </div>
+    );
+  }
 
-    {/* WEEK VIEW */}
-    {mode === "week" && (
-      <div className="card cardPad calWeekCard">
-        <div className="calWeek">
-          {/* header row */}
-          <div className="calWeekHead">
-            <div className="calCorner" />
-            {DAYS.map((d) => (
-              <div key={d.id} className="calHeadCell">
-                {d.long}
-              </div>
-            ))}
+  return (
+    <div className="pageWrap">
+      <div className="pageHeader">
+        <div className="calTopControls">
+          <div className="calToggle">
+            <button
+              className={`calTBtn ${mode === "day" ? "on" : ""}`}
+              onClick={() => setMode("day")}
+            >
+              Día
+            </button>
+            <button
+              className={`calTBtn ${mode === "week" ? "on" : ""}`}
+              onClick={() => setMode("week")}
+            >
+              Semana
+            </button>
           </div>
 
-          {/* body */}
-          <div className="calWeekBody">
-            {/* time column */}
-            <div className="calTimes">
-              {hours.map((h) => (
-                <div key={h} className="calTimeRow">
-                  <div className="calTimeLabel">{h}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* day columns */}
-            <div className="calDays">
+          {mode === "day" ? (
+            <div className="calDayPills">
               {DAYS.map((d) => (
-                <div key={d.id} className="calDayCol">
-                  {/* background hour lines */}
-                  {hours.map((h) => (
-                    <button
-                      key={h}
-                      className="calSlot"
-                      onClick={() => openNew({ dayId: d.id as DayId, start: h })}
-                      aria-label={`Agregar clase ${d.long} ${h}`}
-                      type="button"
-                    />
-                  ))}
-
-                  {/* events */}
-                  {(schedule[d.id as DayId] || []).map((ev) => (
-                    <button
-                      key={ev.id}
-                      className={`calEvent ${ev.tipo === "P" ? "prac" : "teo"}`}
-                      style={{
-                        top: `${topFor(ev.inicio)}%`,
-                        height: `${heightFor(ev.inicio, ev.fin)}%`,
-                      }}
-                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                        e.stopPropagation();
-                        openEdit(d.id as DayId, ev);
-                      }}
-                      title={`${ev.materia} (${ev.inicio}-${ev.fin})`}
-                      type="button"
-                    >
-                      <Badge tipo={ev.tipo} seccion={ev.seccion} />
-                      <div className="calEvTitle">{ev.materia}</div>
-                      <div className="calEvMeta">
-                        <span className="calEvTime">
-                          {ev.inicio}–{ev.fin}
-                        </span>
-                      </div>
-                      {ev.prof && <div className="calEvProf">👨‍🏫 {ev.prof}</div>}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  key={d.id}
+                  className={`calDayPill ${activeDay === d.id ? "on" : ""}`}
+                  onClick={() => setActiveDay(d.id as DayId)}
+                >
+                  {d.short}
+                </button>
               ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* DAY VIEW */}
-    {mode === "day" && (
-      <div className="card cardPad calDayCard">
-        <div className="calDayHeader">
-          <div className="h2">{DAYS.find((d) => d.id === activeDay)?.long ?? ""}</div>
-          <button
-            className="btnPrimary"
-            onClick={() => openNew({ dayId: activeDay })}
-          >
-            ＋ Agregar
-          </button>
-        </div>
-
-        <div className="calDayList">
-          {(schedule[activeDay] || []).length === 0 ? (
-            <div className="calEmpty">
-              <div className="calEmptyTitle">Día libre</div>
-              <div className="muted">Tocá “Agregar” para crear una clase.</div>
             </div>
           ) : (
-            (schedule[activeDay] || []).map((ev) => (
-              <div
-                key={ev.id}
-                className={`calCardItem ${ev.tipo === "P" ? "prac" : "teo"}`}
-              >
-                <div className="calCardLeft">
-                  <div className="calCardTime">
-                    {ev.inicio}
-                    <span className="muted"> → </span>
-                    {ev.fin}
-                  </div>
-                  <div className="calCardTitle">{ev.materia}</div>
-                  <div className="calCardSub">
-                    <span className={`calMiniBadge ${ev.tipo === "P" ? "prac" : "teo"}`}>
-                      {ev.tipo}
-                    </span>
-                    {ev.seccion && (
-                      <span className="calMiniBadge sec">Sec. {ev.seccion}</span>
-                    )}
-                    {ev.prof && <span className="calCardMeta">👨‍🏫 {ev.prof}</span>}
-                  </div>
+            <button className="btnPrimary" onClick={() => openNew({ dayId: 1 as DayId })}>
+              ＋ Nueva clase
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* WEEK VIEW */}
+      {mode === "week" && (
+        <div className="card cardPad calWeekCard">
+          <div className="calWeek">
+            {/* header row */}
+            <div className="calWeekHead">
+              <div className="calCorner" />
+              {DAYS.map((d) => (
+                <div key={d.id} className="calHeadCell">
+                  {d.long}
                 </div>
-                <div className="calCardActions">
-                  <button
-                    className="calIconBtn"
-                    onClick={() => openEdit(activeDay, ev)}
-                    aria-label="Editar"
-                    type="button"
-                  >
-                    ✎
-                  </button>
-                </div>
+              ))}
+            </div>
+
+            {/* body */}
+            <div className="calWeekBody">
+              {/* time column */}
+              <div className="calTimes">
+                {hours.map((h) => (
+                  <div key={h} className="calTimeRow">
+                    <div className="calTimeLabel">{h}</div>
+                  </div>
+                ))}
               </div>
-            ))
-          )}
-        </div>
-      </div>
-    )}
 
-    {/* MODAL */}
-    <Modal
-      open={isModalOpen}
-      onClose={() => setIsModalOpen(false)}
-      title={editing ? "Editar Clase" : "Nueva Clase"}
-    >
-      <div className="calForm">
-        <div className="formGroup">
-          <label htmlFor="materia">Materia</label>
-          <input
-            id="materia"
-            type="text"
-            placeholder="Ej. Cálculo I"
-            value={form.materia}
-            onChange={(e) => setForm({ ...form, materia: e.target.value })}
-            className="formInput"
-          />
-        </div>
+              {/* day columns */}
+              <div className="calDays">
+                {DAYS.map((d) => (
+                  <div key={d.id} className="calDayCol">
+                    {/* background hour lines */}
+                    {hours.map((h) => (
+                      <button
+                        key={h}
+                        className="calSlot"
+                        onClick={() => openNew({ dayId: d.id as DayId, start: h })}
+                        aria-label={`Agregar clase ${d.long} ${h}`}
+                        type="button"
+                      />
+                    ))}
 
-        <div className="formRow">
-          <div className="formGroup">
-            <label htmlFor="tipo">Tipo</label>
-            <select
-              id="tipo"
-              value={form.tipo}
-              onChange={(e) => setForm({ ...form, tipo: e.target.value as "T" | "P" })}
-              className="formInput"
+                    {/* events */}
+                    {(schedule[d.id as DayId] || []).map((ev) => (
+                      <button
+                        key={ev.id}
+                        className={`calEvent ${ev.tipo === "P" ? "prac" : "teo"}`}
+                        style={{
+                          top: `${topFor(ev.inicio)}%`,
+                          height: `${heightFor(ev.inicio, ev.fin)}%`,
+                        }}
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          e.stopPropagation();
+                          openEdit(d.id as DayId, ev);
+                        }}
+                        title={`${ev.materia} (${ev.inicio}-${ev.fin})`}
+                        type="button"
+                      >
+                        <Badge tipo={ev.tipo} seccion={ev.seccion} />
+                        <div className="calEvTitle">{ev.materia}</div>
+                        <div className="calEvMeta">
+                          <span className="calEvTime">
+                            {ev.inicio}–{ev.fin}
+                          </span>
+                        </div>
+                        {ev.prof && <div className="calEvProf">👨‍🏫 {ev.prof}</div>}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DAY VIEW */}
+      {mode === "day" && (
+        <div className="card cardPad calDayCard">
+          <div className="calDayHeader">
+            <div className="h2">{DAYS.find((d) => d.id === activeDay)?.long ?? ""}</div>
+            <button
+              className="btnPrimary"
+              onClick={() => openNew({ dayId: activeDay })}
             >
-              <option value="T">Teoría</option>
-              <option value="P">Práctica</option>
-            </select>
+              ＋ Agregar
+            </button>
           </div>
-          <div className="formGroup">
-            <label htmlFor="seccion">Sección</label>
-            <input
-              id="seccion"
-              type="text"
-              placeholder="A, B, 1, 2..."
-              value={form.seccion ?? ""}
-              onChange={(e) => setForm({ ...form, seccion: e.target.value })}
-              className="formInput"
-            />
+
+          <div className="calDayList">
+            {(schedule[activeDay] || []).length === 0 ? (
+              <div className="calEmpty">
+                <div className="calEmptyTitle">Día libre</div>
+                <div className="muted">Tocá "Agregar" para crear una clase.</div>
+              </div>
+            ) : (
+              (schedule[activeDay] || []).map((ev) => (
+                <div
+                  key={ev.id}
+                  className={`calCardItem ${ev.tipo === "P" ? "prac" : "teo"}`}
+                >
+                  <div className="calCardLeft">
+                    <div className="calCardTime">
+                      {ev.inicio}
+                      <span className="muted"> → </span>
+                      {ev.fin}
+                    </div>
+                    <div className="calCardTitle">{ev.materia}</div>
+                    <div className="calCardSub">
+                      <span className={`calMiniBadge ${ev.tipo === "P" ? "prac" : "teo"}`}>
+                        {ev.tipo}
+                      </span>
+                      {ev.seccion && (
+                        <span className="calMiniBadge sec">Sec. {ev.seccion}</span>
+                      )}
+                      {ev.prof && <span className="calCardMeta">👨‍🏫 {ev.prof}</span>}
+                    </div>
+                  </div>
+                  <div className="calCardActions">
+                    <button
+                      className="calIconBtn"
+                      onClick={() => openEdit(activeDay, ev)}
+                      aria-label="Editar"
+                      type="button"
+                    >
+                      ✎
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
+      )}
 
-        <div className="formRow">
-          <div className="formGroup">
-            <label htmlFor="inicio">Inicio</label>
-            <input
-              id="inicio"
-              type="time"
-              value={form.inicio}
-              onChange={(e) => setForm({ ...form, inicio: e.target.value })}
-              className="formInput"
-            />
-          </div>
-          <div className="formGroup">
-            <label htmlFor="fin">Fin</label>
-            <input
-              id="fin"
-              type="time"
-              value={form.fin}
-              onChange={(e) => setForm({ ...form, fin: e.target.value })}
-              className="formInput"
-            />
-          </div>
-        </div>
+      <Modal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editing ? "Editar clase" : "Nueva clase"}
+      >
+        <div className="calForm">
+          <label className="calLbl">Día</label>
+          <select 
+            className="calInp" 
+            value={form.dayId} 
+            onChange={(e) => setForm((f) => ({ ...f, dayId: Number(e.target.value) as DayId }))}
+            disabled={saving}
+          >
+            {DAYS.map((d) => (
+              <option key={d.id} value={d.id}>{d.long}</option>
+            ))}
+          </select>
 
-        <div className="formGroup">
-          <label htmlFor="prof">Profesor</label>
-          <input
-            id="prof"
-            type="text"
-            placeholder="Nombre del profesor"
-            value={form.prof ?? ""}
-            onChange={(e) => setForm({ ...form, prof: e.target.value })}
-            className="formInput"
+          <label className="calLbl">Materia (Nombre exacto, según Distribución de Aulas)</label>
+          <input 
+            className="calInp" 
+            value={form.materia} 
+            onChange={(e) => setForm((f) => ({ ...f, materia: e.target.value }))} 
+            placeholder="Ej: Física 1"
+            disabled={saving}
           />
-        </div>
 
-        <div className="formActions">
-          {editing && (
-            <button onClick={del} className="btnDanger">
-              Borrar
-            </button>
-          )}
-          <div className="formButtonsRight">
-            <button onClick={() => setIsModalOpen(false)} className="btnSecondary">
-              Cancelar
-            </button>
-            <button onClick={save} className="btnPrimary">
-              {editing ? "Guardar" : "Crear"}
-            </button>
+          <div className="calRow2">
+            <div>
+              <label className="calLbl">Tipo</label>
+              <div className="calSeg">
+                <button 
+                  className={`calSegBtn ${form.tipo === "T" ? "on" : ""}`} 
+                  onClick={() => setForm((f) => ({ ...f, tipo: "T" }))} 
+                  type="button"
+                  disabled={saving}
+                >
+                  T
+                </button>
+                <button 
+                  className={`calSegBtn ${form.tipo === "P" ? "on" : ""}`} 
+                  onClick={() => setForm((f) => ({ ...f, tipo: "P" }))} 
+                  type="button"
+                  disabled={saving}
+                >
+                  P
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="calLbl">Sección</label>
+              <input 
+                className="calInp" 
+                value={form.seccion ?? ""} 
+                onChange={(e) => setForm((f) => ({ ...f, seccion: e.target.value }))} 
+                placeholder="A"
+                disabled={saving}
+              />
+            </div>
+          </div>
+
+          <div className="calRow2">
+            <div>
+              <label className="calLbl">Inicio</label>
+              <input 
+                className="calInp" 
+                type="time" 
+                value={form.inicio} 
+                onChange={(e) => setForm((f) => ({ ...f, inicio: e.target.value }))}
+                disabled={saving}
+              />
+            </div>
+            <div>
+              <label className="calLbl">Fin</label>
+              <input 
+                className="calInp" 
+                type="time" 
+                value={form.fin} 
+                onChange={(e) => setForm((f) => ({ ...f, fin: e.target.value }))}
+                disabled={saving}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="calLbl">Profesor</label>
+            <input 
+              className="calInp" 
+              value={form.prof ?? ""} 
+              onChange={(e) => setForm((f) => ({ ...f, prof: e.target.value }))} 
+              placeholder="Apellido"
+              disabled={saving}
+            />
+          </div>
+
+          <div className="calModalBtns">
+            {editing ? (
+              <button 
+                className="btnDanger" 
+                onClick={del} 
+                type="button"
+                disabled={saving}
+              >
+                {saving ? "Borrando..." : "Borrar"}
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="calModalBtnsR">
+              <button 
+                className="btnGhost" 
+                onClick={() => setIsModalOpen(false)} 
+                type="button"
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btnPrimary" 
+                onClick={() => save()} 
+                type="button"
+                disabled={saving}
+              >
+                {saving ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </Modal>
-  </div>
-);
+      </Modal>
+    </div>
+  );
 }

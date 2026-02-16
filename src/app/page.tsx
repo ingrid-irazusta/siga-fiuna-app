@@ -125,7 +125,8 @@ function dayIdFromISO(iso: string): number {
 
 async function computeNotasKpis(
   userId: string,
-  carrera: string
+  carrera: string,
+  plan: string = "2023"
 ): Promise<{ promedioStr: string; aprobadas: number; total: number; progresoPct: number; faltan: number }> {
   try {
     const supabase = getSupabase();
@@ -134,12 +135,35 @@ async function computeNotasKpis(
       .select("materia, nota1, nota2, nota3")
       .eq("user_id", userId);
 
-    const { data: courses } = await supabase
-      .from("student_courses")
-      .select("materia")
-      .eq("user_id", userId);
+    // Obtener la lista completa de materias desde la BD de malla (API interna)
+    let materiasMallaSet = new Set<string>();
+    try {
+      const r = await fetch(
+        `/api/malla?carrera=${encodeURIComponent(carrera || "")}&plan=${encodeURIComponent(plan)}`
+      );
+      const mdata = await r.json().catch(() => null);
+      if (r.ok && mdata?.ok && Array.isArray(mdata.materias)) {
+        for (const m of mdata.materias) {
+          const semestre = Number(m?.semestre) || 0;
+          if (semestre <= 0) continue; // contar sólo materias con semestre válido
+          const nombre = String(m?.materia || "");
+          const k = normText(nombre);
+          if (k) materiasMallaSet.add(k);
+        }
+      }
+    } catch {
+      // ignore, fallback below
+    }
 
-    const materiasCurso = new Set((courses || []).map((c) => normText(c.materia || "")));
+    // Fallback: si no se pudo obtener la malla, usar las materias que el usuario tiene en student_courses
+    if (materiasMallaSet.size === 0) {
+      const { data: courses } = await supabase
+        .from("student_courses")
+        .select("materia")
+        .eq("user_id", userId);
+      for (const c of courses || []) materiasMallaSet.add(normText(c.materia || ""));
+    }
+
     const todasLasNotas: number[] = [];
     const aprobadaByMateria = new Map<string, boolean>();
 
@@ -159,12 +183,13 @@ async function computeNotasKpis(
       ? todasLasNotas.reduce((a, b) => a + b, 0) / todasLasNotas.length
       : 0;
 
-    const aprobadas = Array.from(materiasCurso).reduce(
+    // Contar aprobadas sobre la malla completa (no solo las materias que el usuario agregó)
+    const aprobadas = Array.from(materiasMallaSet).reduce(
       (acc, k) => acc + (aprobadaByMateria.get(k) ? 1 : 0),
       0
     );
 
-    const total = materiasCurso.size || 0;
+    const total = materiasMallaSet.size || 0;
     const progresoPct = total ? (aprobadas / total) * 100 : 0;
     const faltan = Math.max(0, total - aprobadas);
 
@@ -175,7 +200,8 @@ async function computeNotasKpis(
       progresoPct,
       faltan,
     };
-  } catch {
+  } catch (e) {
+    console.error("computeNotasKpis error:", e);
     return { promedioStr: "0,00", aprobadas: 0, total: 0, progresoPct: 0, faltan: 0 };
   }
 }
@@ -287,7 +313,7 @@ export default function Page() {
   const [toastCourses, setToastCourses] = useState("");
 
   /* =======================================================
-     ESTADOS EXÃMENES Y NOTAS
+     ESTADOS EXAMENES Y NOTAS
   ======================================================== */
   const [nextExam, setNextExam] = useState<{
     materia: string;
@@ -375,7 +401,7 @@ export default function Page() {
       setNextExam(nextExamData);
 
       /* --- cargar KPIs de notas --- */
-      const kpis = await computeNotasKpis(uid, profileData?.carrera || "");
+      const kpis = await computeNotasKpis(uid, profileData?.carrera || "", profileData?.malla || DEFAULT_PROFILE.malla);
       setNotasKpis(kpis);
 
       setLoading(false);
@@ -450,7 +476,7 @@ export default function Page() {
     let cancelled = false;
 
     const refreshKpis = async () => {
-      const kpis = await computeNotasKpis(userId, profile.carrera);
+      const kpis = await computeNotasKpis(userId, profile.carrera, profile.malla || DEFAULT_PROFILE.malla);
       if (!cancelled) setNotasKpis(kpis);
     };
 
