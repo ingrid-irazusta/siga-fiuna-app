@@ -420,7 +420,7 @@ export default function EvaluacionesPage(): React.ReactNode {
 <body>
   <button class="printBtn" onclick="window.print()">Guardar como PDF</button>
 
-  <div class="meta">Generado: ${escapeHtml(stamp)}<br/>SIGA FIUNA</div>
+  <div class="meta">Generado: ${escapeHtml(stamp)}<br/>S.I.G.A</div>
 
   ${body}
 </body>

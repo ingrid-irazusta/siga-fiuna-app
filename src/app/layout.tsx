@@ -3,7 +3,7 @@ import AppShell from "@/components/AppShell";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "S.I.G.A. FIUNA",
+  title: "S.I.G.A.",
   description: "Gestión académica personalizada para estudiantes de FIUNA",
 };
 

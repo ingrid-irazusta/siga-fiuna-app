@@ -107,7 +107,7 @@ export default function AppShell({ children }: AppShellProps) {
       {navOpen && <div className="appOverlay" onClick={() => setNavOpen(false)} />}
       <aside className={`appSidebar ${navOpen ? "open" : ""}`} aria-label="Menú lateral">
         <div className="appSideHeader">
-          <div className="appBrand">SIGA FIUNA</div>
+          <div className="appBrand">MENU</div>
           <button type="button" className="appCloseBtn" onClick={() => setNavOpen(false)} aria-label="Cerrar menú">✕</button>
         </div>
 
@@ -134,7 +134,7 @@ export default function AppShell({ children }: AppShellProps) {
         <header className="appTopbar">
           <div className="appTopbarLeft">
             <button type="button" className="appHamb" onClick={() => setNavOpen((v) => !v)} aria-label="Menú">☰</button>
-            <div className="appBrand">SIGA FIUNA</div>
+            <div className="appBrand">S.I.G.A</div>
           </div>
           <button type="button" className="appLogoutBtn" onClick={handleLogout} aria-label="Cerrar sesión">Cerrar sesión</button>
         </header>
