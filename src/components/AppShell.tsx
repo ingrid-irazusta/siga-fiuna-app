@@ -132,8 +132,10 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Header solo si NO es login */}
       {!isAuthPage && (
         <header className="appTopbar">
-          <button type="button" className="appHamb" onClick={() => setNavOpen((v) => !v)} aria-label="Menú">☰</button>
-          <div className="appBrand">SIGA FIUNA</div>
+          <div className="appTopbarLeft">
+            <button type="button" className="appHamb" onClick={() => setNavOpen((v) => !v)} aria-label="Menú">☰</button>
+            <div className="appBrand">SIGA FIUNA</div>
+          </div>
           <button type="button" className="appLogoutBtn" onClick={handleLogout} aria-label="Cerrar sesión">Cerrar sesión</button>
         </header>
       )}

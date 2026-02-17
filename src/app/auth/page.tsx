@@ -13,6 +13,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
 
   const handleSignUp = async () => {
     setMessage('');
@@ -85,7 +86,7 @@ export default function AuthPage() {
                 <path d="M12 20L18 26L28 14" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h1 className={styles.title}>Login / Registro</h1>
+            <h1 className={styles.title}>{isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}</h1>
           </div>
 
           {message && (
@@ -123,21 +124,21 @@ export default function AuthPage() {
               <button
                 type="button"
                 className={styles.submitButton}
-                onClick={handleSignIn}
+                onClick={isRegister ? handleSignUp : handleSignIn}
                 disabled={isLoading}
               >
-                {isLoading ? 'Cargando...' : 'Login'}
-              </button>
-              <button
-                type="button"
-                className={styles.submitButton}
-                onClick={handleSignUp}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Cargando...' : 'Registro'}
+                {isLoading ? 'Cargando...' : (isRegister ? 'Registrarse' : 'Iniciar Sesión')}
               </button>
             </div>
           </form>
+
+          <div className={styles.switchMode}>
+            {isRegister ? (
+              <p>¿Ya tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(false); setMessage(''); }}>Inicia sesión</a></p>
+            ) : (
+              <p>¿No tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(true); setMessage(''); }}>Crea una cuenta</a></p>
+            )}
+          </div>
         </div>
       </div>
     </div>

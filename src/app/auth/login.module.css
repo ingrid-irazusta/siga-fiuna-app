@@ -422,29 +422,28 @@
   }
 }
 
-@media (max-width: 480px) {
-  .container {
-    padding: 20px;
-  }
+.switchMode {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
 
-  .card {
-    padding: 24px 16px;
-  }
+.switchMode p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
 
-  .header {
-    margin-bottom: 24px;
-  }
+.switchMode a {
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
 
-  .logo {
-    width: 48px;
-    height: 48px;
-  }
-
-  .title {
-    font-size: 20px;
-  }
-
-  .submitButton {
-    font-size: 14px;
-  }
+.switchMode a:hover {
+  color: #764ba2;
+  text-decoration: underline;
 }
