@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Card from "../../components/Card";
+import { getSupabase } from "@/lib/supabaseClient";
 import BigModal from "../proceso/components/BigModal";
 import InfoTip from "../proceso/components/InfoTip";
 
@@ -236,35 +238,57 @@ function calcExoneracion(semestre: number, P: number): ExoneracionResult {
   return { ok: false, nota: null };
 }
 
-function loadCourses(): Course[] {
+async function loadCourses(userId: string): Promise<Course[]> {
   try {
-    const raw = localStorage.getItem(COURSES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const supabase = getSupabase();
+    const { data: coursesData } = await supabase
+      .from("student_courses")
+      .select("semestre, materia")
+      .eq("user_id", userId)
+      .order("semestre", { ascending: true });
+
+    return (coursesData || []).map((c) => ({
+      mat: c.materia,
+      sem: c.semestre,
+    }));
   } catch {
     return [];
   }
 }
 
-function loadProceso(): ProcesoData {
+async function loadProceso(userId: string): Promise<ProcesoData> {
   try {
-    const raw = localStorage.getItem(PROCESS_KEY);
-    if (!raw) return { items: DEFAULT_ITEMS };
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return { items: DEFAULT_ITEMS };
-    const items = Array.isArray(parsed.items) ? parsed.items : DEFAULT_ITEMS;
+    const supabase = getSupabase();
+    const { data: processesData } = await supabase
+      .from("student_processes")
+      .select("materia, process_data")
+      .eq("user_id", userId);
+
+    const items: CourseItem[] = (processesData || []).map((p) => p.process_data).filter(Boolean);
     return { items };
   } catch {
     return { items: DEFAULT_ITEMS };
   }
 }
 
-function saveProceso(data: ProcesoData): void {
+async function saveProceso(userId: string, data: ProcesoData): Promise<void> {
   try {
-    localStorage.setItem(PROCESS_KEY, JSON.stringify(data));
-  } catch {
-    // ignore
+    const supabase = getSupabase();
+    // Delete existing
+    await supabase.from("student_processes").delete().eq("user_id", userId);
+
+    // Insert new
+    if (data.items.length) {
+      const inserts = data.items.map((item) => ({
+        user_id: userId,
+        materia: normText(item.nombre),
+        process_data: item,
+        updated_at: new Date().toISOString(),
+      }));
+      await supabase.from("student_processes").insert(inserts);
+    }
+  } catch (e) {
+    console.error("Error saving proceso:", e);
   }
 }
 
@@ -412,6 +436,8 @@ function calcNotaFinalFIUNA(proceso: number, finalPts: number): number {
 // ============= MAIN COMPONENT =============
 
 export default function ProcesoPage() {
+  const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [simRowsById, setSimRowsById] = useState<Record<string, Row[]>>({});
   const [items, setItems] = useState<CourseItem[]>(DEFAULT_ITEMS);
@@ -423,21 +449,37 @@ export default function ProcesoPage() {
   const [didLoadProceso, setDidLoadProceso] = useState<boolean>(false);
 
   useEffect(() => {
-    const d = loadProceso();
-    const courses = loadCourses();
-    const merged = mergeCoursesIntoItems(courses, d.items).map(migrateItemIfNeeded);
-    setItems(merged);
-    setDidLoadProceso(true);
-    setIsLoading(false); // ← Agregar esto
-  }, []);
+    const load = async () => {
+      const supabase = getSupabase();
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        router.push("/auth");
+        return;
+      }
+
+      const uid = data.session.user.id;
+      setUserId(uid);
+
+      const d = await loadProceso(uid);
+      const courses = await loadCourses(uid);
+      const merged = mergeCoursesIntoItems(courses, d.items).map(migrateItemIfNeeded);
+      setItems(merged);
+      setDidLoadProceso(true);
+      setIsLoading(false);
+    };
+
+    load();
+  }, [router]);
 
   useEffect(() => {
-    if (!didLoadProceso) return;
-    saveProceso({ items });
-  }, [didLoadProceso, items]);
+    if (!didLoadProceso || !userId) return;
+    saveProceso(userId, { items });
+  }, [didLoadProceso, items, userId]);
 
-  const syncFromInicio = () => {
-    const courses = loadCourses();
+  const syncFromInicio = async () => {
+    if (!userId) return;
+    const courses = await loadCourses(userId);
     setItems((prev) => mergeCoursesIntoItems(courses, prev).map(migrateItemIfNeeded));
   };
 
