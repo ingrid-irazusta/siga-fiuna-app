@@ -78,8 +78,8 @@ type AcademicEvent = {
 const DEFAULT_PROFILE: Profile = {
   alumno: "",
   ci: "",
-  carrera: CARRERAS[0],
-  malla: "2023",
+  carrera: "",
+  malla: "",
   ingreso: "",
 };
 
@@ -304,6 +304,9 @@ export default function Page() {
   const [profileDraft, setProfileDraft] = useState<Profile>(DEFAULT_PROFILE);
   const [savingProfile, setSavingProfile] = useState(false);
   const [toastProfile, setToastProfile] = useState("");
+  const [profileEditMode, setProfileEditMode] = useState(false);
+  const [profileHasData, setProfileHasData] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   /* =======================================================
      ESTADOS MATERIAS
@@ -376,6 +379,11 @@ export default function Page() {
       if (profileData) {
         setProfile(profileData);
         setProfileDraft(profileData);
+        setProfileHasData(true);
+        setProfileEditMode(false);
+      } else {
+        setProfileHasData(false);
+        setProfileEditMode(true);
       }
 
       /* --- cargar materias desde Supabase --- */
@@ -532,6 +540,12 @@ export default function Page() {
   const onGuardarPerfil = async () => {
     if (!userId) return;
 
+    // Validación de campos obligatorios
+    if (!profileDraft.alumno || !profileDraft.ci || !profileDraft.carrera || !profileDraft.malla || !profileDraft.ingreso) {
+      setToastProfile("❌ Por favor completa todos los campos");
+      return;
+    }
+
     setSavingProfile(true);
     setToastProfile("");
 
@@ -562,6 +576,8 @@ const { error } = await supabase
       setToastProfile("❌ No se pudo guardar el perfil");
     } else {
       setProfile(profileDraft);
+      setProfileEditMode(false);
+      setProfileHasData(true);
       setToastProfile("✅ Datos guardados");
       setTimeout(() => setToastProfile(""), 2500);
     }
@@ -712,14 +728,52 @@ const { error } = await supabase
           <Card
             title={<span className="sectionLabel">🎓 PERFIL DEL ESTUDIANTE</span>}
             right={
-              <button
-                className="btn btnPrimary"
-                onClick={onGuardarPerfil}
-                disabled={savingProfile}
-                style={{ padding: "8px 10px", fontWeight: 950 }}
-              >
-                {savingProfile ? "Guardando…" : "Guardar"}
-              </button>
+              profileHasData && !profileEditMode && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    className="btn"
+                    onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                    style={{ padding: "8px 10px", fontSize: "18px", fontWeight: "bold" }}
+                  >
+                    {profileMenuOpen ? "∨" : ">"}
+                  </button>
+                  {profileMenuOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        right: 0,
+                        background: "white",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        marginTop: "4px",
+                        minWidth: "100px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                        zIndex: 100,
+                      }}
+                    >
+                      <button
+                        className="btn btnPrimary"
+                        onClick={() => {
+                          setProfileEditMode(true);
+                          setProfileMenuOpen(false);
+                        }}
+                        style={{
+                          width: "100%",
+                          padding: "10px",
+                          fontWeight: "600",
+                          border: "none",
+                          background: "none",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        ✎ Editar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
             }
           >
             <div className="smallRow">
@@ -731,6 +785,7 @@ const { error } = await supabase
                   setProfileDraft((p) => ({ ...p, alumno: e.target.value }))
                 }
                 placeholder="Nombre y apellido"
+                disabled={!profileEditMode}
               />
             </div>
 
@@ -744,6 +799,7 @@ const { error } = await supabase
                 }
                 placeholder="CI"
                 inputMode="numeric"
+                disabled={!profileEditMode}
               />
             </div>
 
@@ -756,7 +812,9 @@ const { error } = await supabase
                   onChange={(e) =>
                     setProfileDraft((p) => ({ ...p, carrera: e.target.value }))
                   }
+                  disabled={!profileEditMode}
                 >
+                  <option value="">Selecciona tu carrera</option>
                   {CARRERAS.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -776,7 +834,9 @@ const { error } = await supabase
                   onChange={(e) =>
                     setProfileDraft((p) => ({ ...p, malla: e.target.value }))
                   }
+                  disabled={!profileEditMode}
                 >
+                  <option value="">Selecciona la malla</option>
                   <option value="2013">2013</option>
                   <option value="2023">2023</option>
                 </select>
@@ -794,12 +854,38 @@ const { error } = await supabase
                 }
                 placeholder="Año (ej: 2026)"
                 inputMode="numeric"
+                disabled={!profileEditMode}
               />
             </div>
 
             {toastProfile && (
               <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
                 {toastProfile}
+              </div>
+            )}
+
+            {profileEditMode && (
+              <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                <button
+                  className="btn btnPrimary"
+                  onClick={onGuardarPerfil}
+                  disabled={savingProfile}
+                  style={{ flex: 1, fontWeight: 950, padding: "10px" }}
+                >
+                  {savingProfile ? "Guardando…" : "Guardar"}
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setProfileEditMode(false);
+                    setProfileDraft(profile);
+                    setToastProfile("");
+                  }}
+                  disabled={savingProfile}
+                  style={{ fontWeight: 950, padding: "10px 16px" }}
+                >
+                  Cancelar
+                </button>
               </div>
             )}
           </Card>

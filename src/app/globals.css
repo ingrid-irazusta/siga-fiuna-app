@@ -870,12 +870,20 @@ button, input, select { font: inherit; }
   font-weight: 800;
   color: inherit;
   appearance: none;
+  flex: 1;
+  padding: 0;
 }
 .fakeSelect{
   display:flex;
   align-items:center;
   justify-content: space-between;
   gap: 8px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.85);
+  min-height: 34px;
 }
 .checkMini{
   display:inline-flex;
@@ -1712,9 +1720,6 @@ button, input, select { font: inherit; }
   padding-bottom: 0.5rem;
   border-bottom: 2px solid #ddd;
   margin-bottom: 0.5rem;
-}
-
-.calCorner {
 }
 
 .calHeadCell {
