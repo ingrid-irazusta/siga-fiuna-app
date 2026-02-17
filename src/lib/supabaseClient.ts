@@ -18,7 +18,13 @@ export const getSupabase = (): SupabaseClient => {
       );
     }
 
-    supabase = createClient(url, key);
+    supabase = createClient(url, key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    });
   }
 
   return supabase;
