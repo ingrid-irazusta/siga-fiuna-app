@@ -54,7 +54,7 @@ async function loadAprobadasFromDB(userId: string): Promise<Set<string>> {
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
-      .from("student_courses")
+      .from("malla_approved_courses")
       .select("materia")
       .eq("user_id", userId);
 
@@ -82,7 +82,7 @@ async function saveAprobadasToDB(userId: string, materia: string, approved: bool
     if (approved) {
       // Insert
       const { error } = await supabase
-        .from("student_courses")
+        .from("malla_approved_courses")
         .insert({ user_id: userId, materia: materiaKey });
       if (error && !error.message.includes("duplicate")) {
         console.error("Error saving materia:", error);
@@ -90,7 +90,7 @@ async function saveAprobadasToDB(userId: string, materia: string, approved: bool
     } else {
       // Delete
       const { error } = await supabase
-        .from("student_courses")
+        .from("malla_approved_courses")
         .delete()
         .eq("user_id", userId)
         .eq("materia", materiaKey);
