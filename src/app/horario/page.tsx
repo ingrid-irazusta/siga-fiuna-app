@@ -288,6 +288,8 @@ export default function HorarioPage() {
     id: "",
   });
 
+  const [courses, setCourses] = useState<{ id: string; materia: string }[]>([]);
+
   // --- Load userId and schedule on mount ---
   useEffect(() => {
     const load = async () => {
@@ -314,6 +316,16 @@ export default function HorarioPage() {
         // Load schedule from DB
         const schedule = await loadScheduleFromDB(uid);
         setSchedule(schedule);
+
+        // Load courses from DB
+        const { data: coursesData } = await supabase
+          .from("student_courses")
+          .select("id, materia")
+          .eq("user_id", uid);
+
+        if (coursesData) {
+          setCourses(coursesData);
+        }
       } catch (error) {
         console.error("Error loading initial data:", error);
       } finally {
@@ -391,7 +403,7 @@ export default function HorarioPage() {
   const save = async () => {
     // Validation
     if (!form.materia.trim()) {
-      alert("Escribí el nombre de la materia.");
+      alert("Selecciona una materia de tus cursos en curso.");
       return;
     }
     
@@ -711,14 +723,18 @@ export default function HorarioPage() {
             ))}
           </select>
 
-          <label className="calLbl">Materia (Nombre exacto, según Distribución de Aulas)</label>
-          <input 
+          <label className="calLbl">Materia (de tus cursos en curso)</label>
+          <select 
             className="calInp" 
             value={form.materia} 
             onChange={(e) => setForm((f) => ({ ...f, materia: e.target.value }))} 
-            placeholder="Ej: Física 1"
             disabled={saving}
-          />
+          >
+            <option value="">Selecciona una materia</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.materia}>{c.materia}</option>
+            ))}
+          </select>
 
           <div className="calRow2">
             <div>

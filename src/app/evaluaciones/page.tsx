@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Card from "../../components/Card";
+import { getSupabase } from "../../lib/supabaseClient";
+import { Session } from "@supabase/supabase-js";
 
 const CURRENT_COURSES_KEY = "fiuna_os_current_courses_v1";
 const EVAL_KEY = "fiuna_os_evaluaciones_v1";
@@ -137,6 +140,10 @@ function buildFromInicioCourses(): Row[] {
 }
 
 export default function EvaluacionesPage(): React.ReactNode {
+  const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
+  const [userId, setUserId] = useState<string>("");
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loaded, setLoaded] = useState<boolean>(false);
 
@@ -151,46 +158,146 @@ export default function EvaluacionesPage(): React.ReactNode {
     setClientNow(new Date());
   }, []);
 
+  // Autenticación
   useEffect(() => {
-    try {
-      const rawToggle = localStorage.getItem(EVAL_EDITOR_OPEN_KEY);
-      const hasToggle = rawToggle !== null;
-      const toggleVal = rawToggle === "1";
+    const loadSession = async () => {
+      const supabase = getSupabase();
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.push("/auth");
+        return;
+      }
+      setSession(data.session);
+      setUserId(data.session.user.id);
+    };
+    loadSession();
 
-      const saved = JSON.parse(localStorage.getItem(EVAL_KEY) || "null") as Row[] | null;
-      if (Array.isArray(saved) && saved.length) {
-        setRows(saved);
-        if (!hasToggle) {
-          const any = saved.some((r) =>
-            TYPES.some((t) => {
-              const c = r?.[t.key as keyof Row] as EvalCell | undefined;
-              return Boolean((c?.fecha || "").trim() || (c?.hora || "").trim());
-            })
-          );
-          setShowEditor(!any);
-        } else {
-          setShowEditor(toggleVal);
+    const { data: authListener } = getSupabase().auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_OUT") {
+          router.push("/auth");
         }
-      } else {
+        setSession(session);
+        setUserId(session?.user.id || "");
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  // Cargar exámenes desde Supabase
+  useEffect(() => {
+    if (!userId) return;
+
+    const loadExams = async () => {
+      try {
+        const supabase = getSupabase();
+        const { data: exams } = await supabase
+          .from("student_exams")
+          .select("materia, tipo, fecha, hora")
+          .eq("user_id", userId);
+
+        if (exams && exams.length > 0) {
+          // Convertir a formato Row
+          const rowMap = new Map<string, Row>();
+          for (const exam of exams) {
+            const materia = exam.materia;
+            if (!rowMap.has(materia)) {
+              rowMap.set(materia, {
+                materia,
+                p1: { fecha: "", hora: "" },
+                p2: { fecha: "", hora: "" },
+                f1: { fecha: "", hora: "" },
+                f2: { fecha: "", hora: "" },
+                f3: { fecha: "", hora: "" },
+              });
+            }
+            const row = rowMap.get(materia)!;
+            const typeKey = TYPES.find(t => t.label === exam.tipo)?.key;
+            if (typeKey) {
+              (row as any)[typeKey] = { fecha: exam.fecha, hora: exam.hora };
+            }
+          }
+          setRows(Array.from(rowMap.values()));
+        } else {
+          // Fallback a localStorage o cursos
+          const fromInicio = buildFromInicioCourses();
+          setRows(fromInicio);
+        }
+      } catch (error) {
+        console.error("Error loading exams:", error);
         const fromInicio = buildFromInicioCourses();
         setRows(fromInicio);
-        if (!hasToggle) setShowEditor(true);
-        else setShowEditor(toggleVal);
+      } finally {
+        setLoaded(true);
       }
-    } catch {
-      const fromInicio = buildFromInicioCourses();
-      setRows(fromInicio);
-      try {
-        const rawToggle = localStorage.getItem(EVAL_EDITOR_OPEN_KEY);
-        if (rawToggle !== null) setShowEditor(rawToggle === "1");
-        else setShowEditor(true);
-      } catch {
-        setShowEditor(true);
-      }
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
+    };
+
+    loadExams();
+  }, [userId]);
+
+  // Suscripción en tiempo real
+  useEffect(() => {
+    if (!userId) return;
+
+    const supabase = getSupabase();
+    const subscription = supabase
+      .channel(`student_exams_${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "student_exams",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("Real-time exam update:", payload);
+          // Recargar exámenes
+          const loadExams = async () => {
+            try {
+              const { data: exams } = await supabase
+                .from("student_exams")
+                .select("materia, tipo, fecha, hora")
+                .eq("user_id", userId);
+
+              if (exams && exams.length > 0) {
+                const rowMap = new Map<string, Row>();
+                for (const exam of exams) {
+                  const materia = exam.materia;
+                  if (!rowMap.has(materia)) {
+                    rowMap.set(materia, {
+                      materia,
+                      p1: { fecha: "", hora: "" },
+                      p2: { fecha: "", hora: "" },
+                      f1: { fecha: "", hora: "" },
+                      f2: { fecha: "", hora: "" },
+                      f3: { fecha: "", hora: "" },
+                    });
+                  }
+                  const row = rowMap.get(materia)!;
+                  const typeKey = TYPES.find(t => t.label === exam.tipo)?.key;
+                  if (typeKey) {
+                    (row as any)[typeKey] = { fecha: exam.fecha, hora: exam.hora };
+                  }
+                }
+                setRows(Array.from(rowMap.values()));
+              }
+            } catch (error) {
+              console.error("Error reloading exams:", error);
+            }
+          };
+          loadExams();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -221,14 +328,49 @@ export default function EvaluacionesPage(): React.ReactNode {
   }, [loaded]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !userId) return;
+
+    // Guardar en Supabase
+    const saveToDB = async () => {
+      try {
+        const supabase = getSupabase();
+        // Primero, eliminar todos los exámenes existentes para este usuario
+        await supabase.from("student_exams").delete().eq("user_id", userId);
+
+        // Insertar los nuevos
+        const examsToInsert = [];
+        for (const row of rows) {
+          for (const t of TYPES) {
+            const cell = row[t.key as keyof Row] as EvalCell;
+            if (cell.fecha && cell.hora) {
+              examsToInsert.push({
+                user_id: userId,
+                materia: row.materia,
+                tipo: t.label,
+                fecha: cell.fecha,
+                hora: cell.hora,
+              });
+            }
+          }
+        }
+        if (examsToInsert.length > 0) {
+          await supabase.from("student_exams").insert(examsToInsert);
+        }
+      } catch (error) {
+        console.error("Error saving exams to DB:", error);
+      }
+    };
+
+    saveToDB();
+
+    // También guardar en localStorage para compatibilidad
     try {
       localStorage.setItem(EVAL_KEY, JSON.stringify(rows));
       try { window.dispatchEvent(new Event("fiuna_evaluaciones_updated")); } catch {}
     } catch {
       // ignore
     }
-  }, [rows, loaded]);
+  }, [rows, loaded, userId]);
 
   useEffect(() => {
     if (!loaded) return;

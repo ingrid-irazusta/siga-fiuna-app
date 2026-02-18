@@ -247,7 +247,7 @@ async function computeNextExam(userId: string): Promise<{
       materia: best.materia,
       tipo: best.tipo,
       fecha: formatDMY(best.fecha),
-      hora: best.hora || "â€”",
+      hora: best.hora || "—",
       dias: best.dias,
     };
   } catch {
@@ -533,6 +533,34 @@ export default function Page() {
       };
     }
   }, [userId, profile.carrera]);
+
+  /* =======================================================
+     EFECTO: REFRESCAR PRÓXIMO EXAMEN CUANDO CAMBIEN EXÁMENES EN BD
+  ======================================================== */
+  useEffect(() => {
+    if (!userId) return;
+
+    const supabase = getSupabase();
+    const subscription = supabase
+      .channel(`student_exams_${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "student_exams",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          computeNextExam(userId).then(setNextExam);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [userId]);
 
   /* =======================================================
      FUNCIONES PERFIL
@@ -902,7 +930,7 @@ const { error } = await supabase
             <div style={{ display: "grid", gap: 6 }}>
               <div style={{ fontWeight: 950 }}>📌 {nextExam ? nextExam.tipo : "Sin examen"}</div>
               <div style={{ fontWeight: 900, textTransform: "lowercase" }}>
-                {(nextExam ? nextExam.materia : "Cargá tus fechas en Horario de Exámenes").toLowerCase()}
+                {(nextExam ? nextExam.materia : "Cargá tus fechas en Evaluaciones").toLowerCase()}
               </div>
               <div className="metaLine">
                 <span>🗓️ {nextExam ? nextExam.fecha : "—"}</span>
@@ -912,96 +940,16 @@ const { error } = await supabase
           </Card>
         </div>
         {/* ===============================================
-            MATERIAS EN CURSO
+            AVISOS
         ================================================ */}
-        <div className="blockMaterias">
-          <Card
-            title={<span className="sectionLabel"> 📚 Materias en curso</span>}
-            right={
-              <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn" onClick={addRow}>
-                  + Agregar
-                </button>
-                <button className="btn btnPrimary" onClick={saveCourses}>
-                  Guardar
-                </button>
-              </div>
-            }
-          >
-            {loadingCourses ? (
-              <div className="muted">Cargando materias…</div>
-            ) : (
-              <>
-                <table className="tableMini">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 90 }}>Semestre</th>
-                      <th>Materia</th>
-                      <th style={{ width: 120 }}>Firma</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courses.map((c, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <input
-                            className="fakeInput"
-                            value={c.semestre}
-                            onChange={(e) =>
-                              updateRow(idx, { semestre: e.target.value })
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="fakeInput"
-                            value={c.materia}
-                            onChange={(e) =>
-                              updateRow(idx, { materia: e.target.value })
-                            }
-                          />
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <select
-                              className="fakeInput"
-                              value={c.firma}
-                              onChange={(e) =>
-                                updateRow(idx, { firma: e.target.value })
-                              }
-                            >
-                              <option value="">—</option>
-                              <option value="SI">SI</option>
-                              <option value="NO">NO</option>
-                            </select>
-                            <button
-                              className="btn"
-                              onClick={() => removeRow(idx)}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {!courses.length && (
-                  <div className="muted" style={{ marginTop: 10 }}>
-                    Aún no cargaste materias.
-                  </div>
-                )}
-
-                {toastCourses && (
-                  <div className="muted" style={{ marginTop: 10 }}>
-                    {toastCourses}
-                  </div>
-                )}
-              </>
-            )}
+        <div className="blockAvisos">
+          <Card className="fullWidth" title={<span className="sectionLabel">🧭 AVISOS</span>}>
+            <div className="avisosBox">
+              (Espacio reservado para avisos / recordatorios)
+            </div>
           </Card>
         </div>
+
         {/* ===============================================
             AVANCE ACADÉMICO
         ================================================ */}
@@ -1137,13 +1085,94 @@ const { error } = await supabase
         </div>
 
         {/* ===============================================
-            AVISOS
+            MATERIAS EN CURSO
         ================================================ */}
-        <div className="blockAvisos">
-          <Card className="fullWidth" title={<span className="sectionLabel">🧭 AVISOS</span>}>
-            <div className="avisosBox">
-              (Espacio reservado para avisos / recordatorios)
-            </div>
+        <div className="blockMaterias">
+          <Card
+            title={<span className="sectionLabel"> 📚 Materias en curso</span>}
+            right={
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="btn" onClick={addRow}>
+                  + Agregar
+                </button>
+                <button className="btn btnPrimary" onClick={saveCourses}>
+                  Guardar
+                </button>
+              </div>
+            }
+          >
+            {loadingCourses ? (
+              <div className="muted">Cargando materias…</div>
+            ) : (
+              <>
+                <table className="tableMini">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 90 }}>Semestre</th>
+                      <th>Materia</th>
+                      <th style={{ width: 120 }}>Firma</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courses.map((c, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <input
+                            className="fakeInput"
+                            value={c.semestre}
+                            onChange={(e) =>
+                              updateRow(idx, { semestre: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="fakeInput"
+                            value={c.materia}
+                            onChange={(e) =>
+                              updateRow(idx, { materia: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <select
+                              className="fakeInput"
+                              value={c.firma}
+                              onChange={(e) =>
+                                updateRow(idx, { firma: e.target.value })
+                              }
+                            >
+                              <option value="">—</option>
+                              <option value="SI">SI</option>
+                              <option value="NO">NO</option>
+                            </select>
+                            <button
+                              className="btn"
+                              onClick={() => removeRow(idx)}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {!courses.length && (
+                  <div className="muted" style={{ marginTop: 10 }}>
+                    Aún no cargaste materias.
+                  </div>
+                )}
+
+                {toastCourses && (
+                  <div className="muted" style={{ marginTop: 10 }}>
+                    {toastCourses}
+                  </div>
+                )}
+              </>
+            )}
           </Card>
         </div>
 
