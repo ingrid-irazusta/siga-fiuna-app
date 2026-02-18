@@ -296,6 +296,7 @@ export default function Page() {
   ======================================================== */
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   /* =======================================================
      ESTADOS PERFIL
@@ -357,63 +358,72 @@ export default function Page() {
   ======================================================== */
   useEffect(() => {
     const load = async () => {
-      const supabase = getSupabase();
-      const { data } = await supabase.auth.getSession();
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase.auth.getSession();
 
-      if (!data.session) {
+        if (error || !data.session) {
+          if (error) console.error("Auth error:", error);
+          router.push("/auth");
+          return;
+        }
+
+        setSession(data.session);
+
+        const uid = data.session.user.id;
+
+        /* --- cargar perfil desde Supabase --- */
+        const { data: profileData } = await supabase
+          .from("user_profiles")
+          .select("alumno, ci, carrera, malla, ingreso, user_id")
+          .eq("user_id", uid)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+          setProfileDraft(profileData);
+          setProfileHasData(true);
+          setProfileEditMode(false);
+        } else {
+          setProfileHasData(false);
+          setProfileEditMode(true);
+        }
+
+        /* --- cargar materias desde Supabase --- */
+        const { data: coursesData } = await supabase
+          .from("student_courses")
+          .select("id, semestre, materia, firma")
+          .eq("user_id", uid)
+          .order("semestre", { ascending: true });
+
+        if (coursesData) {
+          setCourses(
+            coursesData.map((c) => ({
+              id: c.id,
+              semestre: String(c.semestre ?? ""),
+              materia: c.materia ?? "",
+              firma: c.firma ?? "",
+            }))
+          );
+        }
+
+        // Set initial loading to false after basic data
+        setLoading(false);
+        setLoadingCourses(false);
+        setIsInitialLoading(false);
+
+        /* --- cargar próximo examen --- */
+        const nextExamData = await computeNextExam(uid);
+        setNextExam(nextExamData);
+
+        /* --- cargar KPIs de notas --- */
+        const kpis = await computeNotasKpis(uid, profileData?.carrera || "", profileData?.malla || DEFAULT_PROFILE.malla);
+        setNotasKpis(kpis);
+
+      } catch (err) {
+        console.error("Error loading data:", err);
         router.push("/auth");
-        return;
       }
-
-      setSession(data.session);
-
-      const uid = data.session.user.id;
-
-      /* --- cargar perfil desde Supabase --- */
-      const { data: profileData } = await supabase
-        .from("user_profiles")
-        .select("alumno, ci, carrera, malla, ingreso, user_id")
-        .eq("user_id", uid)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData);
-        setProfileDraft(profileData);
-        setProfileHasData(true);
-        setProfileEditMode(false);
-      } else {
-        setProfileHasData(false);
-        setProfileEditMode(true);
-      }
-
-      /* --- cargar materias desde Supabase --- */
-      const { data: coursesData } = await supabase
-        .from("student_courses")
-        .select("id, semestre, materia, firma")
-        .eq("user_id", uid)
-        .order("semestre", { ascending: true });
-
-      if (coursesData) {
-        setCourses(
-          coursesData.map((c) => ({
-            id: c.id,
-            semestre: String(c.semestre ?? ""),
-            materia: c.materia ?? "",
-            firma: c.firma ?? "",
-          }))
-        );
-      }
-
-      /* --- cargar próximo examen --- */
-      const nextExamData = await computeNextExam(uid);
-      setNextExam(nextExamData);
-
-      /* --- cargar KPIs de notas --- */
-      const kpis = await computeNotasKpis(uid, profileData?.carrera || "", profileData?.malla || DEFAULT_PROFILE.malla);
-      setNotasKpis(kpis);
-
-      setLoading(false);
-      setLoadingCourses(false);
     };
 
     load();
@@ -743,7 +753,27 @@ const { error } = await supabase
   /* =======================================================
      RENDER
   ======================================================== */
-  if (loading) return <div>Cargando...</div>;
+  if (isInitialLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        color: 'var(--text)',
+        fontSize: '18px',
+        fontWeight: '600'
+      }}>
+        <div style={{ marginBottom: '20px' }}>🔄</div>
+        <div>Cargando SIGA FIUNA...</div>
+        <div style={{ fontSize: '14px', color: 'var(--muted)', marginTop: '10px' }}>
+          Preparando tu dashboard académico
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid" style={{ gap: 14 }}>

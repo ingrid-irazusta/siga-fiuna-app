@@ -834,6 +834,15 @@ button, input, select { font: inherit; }
   align-items:center;
   font-size: 13px;
 }
+@media (max-width: 720px){
+  .smallRow{
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .smallKey{
+    font-weight: 900;
+  }
+}
 .smallKey{ color: rgba(15,23,42,0.65); font-weight: 800; }
 .fakeInput{
   border: 1px solid var(--border);
@@ -899,6 +908,11 @@ button, input, select { font: inherit; }
   text-align: center;
   color: var(--primary);
 }
+@media (max-width: 720px){
+  .bigDays{
+    font-size: 36px;
+  }
+}
 .centerNote{
   text-align:center;
   color: rgba(15,23,42,0.65);
@@ -917,6 +931,13 @@ button, input, select { font: inherit; }
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255,255,255,0.75);
+}
+@media (max-width: 720px){
+  .classItem{
+    grid-template-columns: 70px 1fr;
+    gap: 8px;
+    padding: 8px 8px;
+  }
 }
 .timeCol{ font-weight: 950; }
 .metaLine{
@@ -949,6 +970,12 @@ button, input, select { font: inherit; }
 .tableMini th, .tableMini td{
   border-bottom: 1px solid var(--border);
   padding: 10px 10px;
+}
+@media (max-width: 720px){
+  .tableMini th, .tableMini td{
+    padding: 8px 6px;
+    font-size: 12px;
+  }
 }
 .tableMini th{ text-align:left; color: rgba(15,23,42,0.65); font-weight: 950; }
 .tableMini td{ font-weight: 850; }
@@ -991,7 +1018,7 @@ button, input, select { font: inherit; }
 
 @media (max-width: 720px){
   .dashGrid{
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 }
