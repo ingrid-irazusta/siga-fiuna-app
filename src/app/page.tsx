@@ -273,12 +273,21 @@ async function loadScheduleForDay(userId: string, dayId: number): Promise<ClassR
   try {
     const supabase = getSupabase();
     const { data: classes } = await supabase
-      .from("student_schedule")
-      .select("id, dia, materia, tipo, seccion, horaInicio, horaFin, profesor")
+      .from("student_classes")
+      .select("id, day_id, materia, tipo, seccion, inicio, fin, prof")
       .eq("user_id", userId)
-      .eq("dia", dayId);
+      .eq("day_id", dayId);
 
-    return (classes || []) as ClassRow[];
+    return (classes || []).map(c => ({
+      id: c.id,
+      dia: c.day_id,
+      materia: c.materia,
+      tipo: c.tipo,
+      seccion: c.seccion,
+      horaInicio: c.inicio,
+      horaFin: c.fin,
+      profesor: c.prof,
+    })) as ClassRow[];
   } catch {
     return [];
   }
@@ -644,7 +653,7 @@ const { error } = await supabase
 
       const payload = {
         classes: classesForDay.map((c) => ({
-          key: `${c.horaInicio}|${c.horaFin}|${c.materia}|${c.tipo}-${c.seccion}`,
+          key: `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`,
           materia: c.materia,
           tipo: c.tipo,
           seccion: c.seccion,
@@ -1086,7 +1095,7 @@ const { error } = await supabase
                 </div>
               )}
               {classesForDay.map((c, idx) => {
-                const key = `${c.horaInicio}|${c.horaFin}|${c.materia}|${c.tipo}-${c.seccion}`;
+                const key = `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`;
                 const info = aulasInfo[key];
                 const aula = aulasOn ? (info?.found ? info.aula : "—") : "—";
                 const estado = aulasOn ? (info?.found ? info.estado : { icon: "ℹ️ ", text: "Sin coincidencia", code: "NC" }) : null;
