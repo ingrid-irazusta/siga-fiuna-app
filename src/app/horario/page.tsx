@@ -31,7 +31,7 @@ type DayId = 1 | 2 | 3 | 4 | 5 | 6;
 type ScheduleEvent = {
   id: string;
   materia: string;
-  tipo: "T" | "P";
+  tipo: "T" | "P" | "LAB";
   seccion?: string;
   inicio: string;
   fin: string;
@@ -39,6 +39,13 @@ type ScheduleEvent = {
 };
 
 type Schedule = Record<DayId, ScheduleEvent[]>;
+
+const getTipoClass = (tipo: string) => {
+  if (tipo === "T") return "teo";
+  if (tipo === "P") return "prac";
+  if (tipo === "LAB") return "lab";
+  return "";
+};
 
 const seed: Schedule = {
   1: [],
@@ -229,15 +236,14 @@ async function deleteScheduleEventFromDB(eventId: string): Promise<boolean> {
 
 // --- COMPONENTS ---
 type BadgeProps = {
-  tipo: "T" | "P";
+  tipo: "T" | "P" | "LAB";
   seccion?: string;
 };
 
 function Badge({ tipo, seccion }: BadgeProps) {
-  const isTeo = tipo === "T";
   return (
     <div className="calBadges">
-      <span className={`calBadge ${isTeo ? "teo" : "prac"}`}>{tipo}</span>
+      <span className={`calBadge ${getTipoClass(tipo)}`}>{tipo}</span>
       {seccion ? <span className="calBadge sec">Sec. {seccion}</span> : null}
     </div>
   );
@@ -616,7 +622,7 @@ export default function HorarioPage() {
                     {(schedule[d.id as DayId] || []).map((ev) => (
                       <button
                         key={ev.id}
-                        className={`calEvent ${ev.tipo === "P" ? "prac" : "teo"}`}
+                        className={`calEvent ${getTipoClass(ev.tipo)}`}
                         style={{
                           top: `${topFor(ev.inicio)}%`,
                           height: `${heightFor(ev.inicio, ev.fin)}%`,
@@ -669,7 +675,7 @@ export default function HorarioPage() {
               (schedule[activeDay] || []).map((ev) => (
                 <div
                   key={ev.id}
-                  className={`calCardItem ${ev.tipo === "P" ? "prac" : "teo"}`}
+                  className={`calCardItem ${getTipoClass(ev.tipo)}`}
                 >
                   <div className="calCardLeft">
                     <div className="calCardTime">
@@ -679,7 +685,7 @@ export default function HorarioPage() {
                     </div>
                     <div className="calCardTitle">{ev.materia}</div>
                     <div className="calCardSub">
-                      <span className={`calMiniBadge ${ev.tipo === "P" ? "prac" : "teo"}`}>
+                      <span className={`calMiniBadge ${getTipoClass(ev.tipo)}`}>
                         {ev.tipo}
                       </span>
                       {ev.seccion && (
@@ -755,6 +761,14 @@ export default function HorarioPage() {
                   disabled={saving}
                 >
                   P
+                </button>
+                <button 
+                  className={`calSegBtn ${form.tipo === "LAB" ? "on" : ""}`} 
+                  onClick={() => setForm((f) => ({ ...f, tipo: "LAB" }))} 
+                  type="button"
+                  disabled={saving}
+                >
+                  LAB
                 </button>
               </div>
             </div>

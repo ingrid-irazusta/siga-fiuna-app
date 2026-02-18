@@ -1841,6 +1841,12 @@ button, input, select { font: inherit; }
   color: #6a1b9a;
 }
 
+.calEvent.lab {
+  background: #fff9c4;
+  border: 1px solid #fff59d;
+  color: #f57f17;
+}
+
 .calEvent:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: scale(1.02);
@@ -1868,6 +1874,11 @@ button, input, select { font: inherit; }
 .calBadge.prac {
   background: rgba(106, 27, 154, 0.3);
   color: #6a1b9a;
+}
+
+.calBadge.lab {
+  background: rgba(245, 127, 23, 0.3);
+  color: #f57f17;
 }
 
 .calBadge.sec {
@@ -1954,6 +1965,11 @@ button, input, select { font: inherit; }
   border-color: #e1bee7;
 }
 
+.calCardItem.lab {
+  background: #fffde7;
+  border-color: #fff59d;
+}
+
 .calCardItem:hover {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
@@ -1999,6 +2015,11 @@ button, input, select { font: inherit; }
 .calMiniBadge.prac {
   background: rgba(106, 27, 154, 0.2);
   color: #6a1b9a;
+}
+
+.calMiniBadge.lab {
+  background: rgba(245, 127, 23, 0.2);
+  color: #f57f17;
 }
 
 .calCardMeta {
