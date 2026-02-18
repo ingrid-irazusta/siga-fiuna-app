@@ -212,6 +212,7 @@ async function computeNextExam(userId: string): Promise<{
   fecha: string;
   hora: string;
   dias: number;
+  horasRestantes?: number;
 } | null> {
   try {
     const supabase = getSupabase();
@@ -222,33 +223,58 @@ async function computeNextExam(userId: string): Promise<{
 
     if (!exams || exams.length === 0) return null;
 
-    const TIPOS_ORDER: { [key: string]: number } = {
-      "1er Parcial": 1,
-      "2do Parcial": 2,
-      "Final 1": 3,
-      "Final 2": 4,
-      "Final 3": 5,
-    };
+    const now = new Date();
 
-    let best: any = null;
+    // Obtener todos los exámenes futuros o de hoy que aún no pasaron
+    const futureExams: any[] = [];
     for (const exam of exams) {
       const dt = parseDateTime(exam.fecha, exam.hora);
       if (!dt) continue;
+
       const dias = daysDiffFromToday(dt);
+
+      // Si ya pasó (días negativos), saltar
       if (dias < 0) continue;
 
-      const cand = { materia: exam.materia, tipo: exam.tipo, fecha: exam.fecha, hora: exam.hora, dt, dias };
-      if (!best || cand.dt.getTime() < best.dt.getTime()) best = cand;
+      // Si es hoy, verificar que la hora no haya pasado
+      if (dias === 0) {
+        const examTime = dt.getTime();
+        const currentTime = now.getTime();
+        if (examTime <= currentTime) continue; // Ya pasó, saltar
+      }
+
+      futureExams.push({
+        materia: exam.materia,
+        tipo: exam.tipo,
+        fecha: exam.fecha,
+        hora: exam.hora,
+        dt,
+        dias
+      });
     }
 
-    if (!best) return null;
+    if (futureExams.length === 0) return null;
+
+    // Ordenar por fecha/hora ascendente (el más cercano primero)
+    futureExams.sort((a, b) => a.dt.getTime() - b.dt.getTime());
+
+    // Tomar el más cercano
+    const nextExam = futureExams[0];
+
+    // Si es hoy, calcular horas restantes
+    let horasRestantes: number | undefined;
+    if (nextExam.dias === 0) {
+      const diffMs = nextExam.dt.getTime() - now.getTime();
+      horasRestantes = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60))); // Convertir a horas y redondear hacia arriba
+    }
 
     return {
-      materia: best.materia,
-      tipo: best.tipo,
-      fecha: formatDMY(best.fecha),
-      hora: best.hora || "—",
-      dias: best.dias,
+      materia: nextExam.materia,
+      tipo: nextExam.tipo,
+      fecha: formatDMY(nextExam.fecha),
+      hora: nextExam.hora || "—",
+      dias: nextExam.dias,
+      horasRestantes,
     };
   } catch {
     return null;
@@ -334,6 +360,7 @@ export default function Page() {
     fecha: string;
     hora: string;
     dias: number;
+    horasRestantes?: number;
   } | null>(null);
   const [notasKpis, setNotasKpis] = useState({
     promedioStr: "0,00",
@@ -1108,13 +1135,21 @@ const { error } = await supabase
         ================================================ */}
         <div className="blockProximo">
           <Card title={<span className="sectionLabel">⏳ PRÓXIMO EXAMEN</span>}>
-            <div className="bigDays">{nextExam ? `${nextExam.dias} días` : "—"}</div>
-            <div className="centerNote">Días Restantes</div>
+            <div className="bigDays">
+              {nextExam
+                ? (nextExam.horasRestantes !== undefined
+                    ? `${nextExam.horasRestantes} horas`
+                    : `${nextExam.dias} días`)
+                : "—"}
+            </div>
+            <div className="centerNote">
+              {nextExam && nextExam.horasRestantes !== undefined ? "Horas Restantes" : "Días Restantes"}
+            </div>
             <div style={{ height: 10 }} />
             <div style={{ display: "grid", gap: 6 }}>
               <div style={{ fontWeight: 950 }}>📌 {nextExam ? nextExam.tipo : "Sin examen"}</div>
-              <div style={{ fontWeight: 900, textTransform: "lowercase" }}>
-                {(nextExam ? nextExam.materia : "Cargá tus fechas en Evaluaciones").toLowerCase()}
+              <div style={{ fontWeight: 900 }}>
+                {nextExam ? nextExam.materia : "Cargá tus fechas en Evaluaciones"}
               </div>
               <div className="metaLine">
                 <span>🗓️ {nextExam ? nextExam.fecha : "—"}</span>
