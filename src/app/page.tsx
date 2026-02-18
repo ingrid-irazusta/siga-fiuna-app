@@ -793,7 +793,7 @@ const { error } = await supabase
                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                     style={{ padding: "8px 10px", fontSize: "18px", fontWeight: "bold" }}
                   >
-                    {profileMenuOpen ? "∨" : ">"}
+                    {profileMenuOpen ? "✎" : "✎"}
                   </button>
                   {profileMenuOpen && (
                     <div
@@ -826,7 +826,7 @@ const { error } = await supabase
                           textAlign: "left",
                         }}
                       >
-                        ✎ Editar
+                        Editar
                       </button>
                     </div>
                   )}
