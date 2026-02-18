@@ -194,17 +194,40 @@ export default function EvaluacionesPage(): React.ReactNode {
     const loadExams = async () => {
       try {
         const supabase = getSupabase();
+        
+        // Cargar cursos desde student_courses
+        const { data: coursesData } = await supabase
+          .from("student_courses")
+          .select("id, materia")
+          .eq("user_id", userId);
+        
+        const courses = coursesData ? coursesData.map(c => c.materia) : [];
+        
+        // Cargar exámenes desde student_exams
         const { data: exams } = await supabase
           .from("student_exams")
           .select("materia, tipo, fecha, hora")
           .eq("user_id", userId);
 
+        // Crear filas para todas las materias en curso
+        const rowMap = new Map<string, Row>();
+        for (const materia of courses) {
+          rowMap.set(materia, {
+            materia,
+            p1: { fecha: "", hora: "" },
+            p2: { fecha: "", hora: "" },
+            f1: { fecha: "", hora: "" },
+            f2: { fecha: "", hora: "" },
+            f3: { fecha: "", hora: "" },
+          });
+        }
+
+        // Rellenar con exámenes existentes
         if (exams && exams.length > 0) {
-          // Convertir a formato Row
-          const rowMap = new Map<string, Row>();
           for (const exam of exams) {
             const materia = exam.materia;
             if (!rowMap.has(materia)) {
+              // Si hay examen para materia no en cursos, agregarla
               rowMap.set(materia, {
                 materia,
                 p1: { fecha: "", hora: "" },
@@ -220,16 +243,13 @@ export default function EvaluacionesPage(): React.ReactNode {
               (row as any)[typeKey] = { fecha: exam.fecha, hora: exam.hora };
             }
           }
-          setRows(Array.from(rowMap.values()));
-        } else {
-          // Fallback a localStorage o cursos
-          const fromInicio = buildFromInicioCourses();
-          setRows(fromInicio);
         }
+
+        setRows(Array.from(rowMap.values()));
       } catch (error) {
         console.error("Error loading exams:", error);
-        const fromInicio = buildFromInicioCourses();
-        setRows(fromInicio);
+        // Fallback vacío si hay error
+        setRows([]);
       } finally {
         setLoaded(true);
       }
