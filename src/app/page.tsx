@@ -86,8 +86,24 @@ const DEFAULT_PROFILE: Profile = {
 /* =========================================================
    FUNCIONES HELPER
 ========================================================= */
+function stripDiacritics(s?: string): string {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function romanToArabicTokens(s: string): string {
+  const map: Record<string, string> = {
+    "X": "10", "IX": "9", "VIII": "8", "VII": "7",
+    "VI": "6", "V": "5", "IV": "4", "III": "3",
+    "II": "2", "I": "1",
+  };
+  return s.replace(/\b(X|IX|VIII|VII|VI|V|IV|III|II|I)\b/g, (m) => map[m] || m);
+}
+
 function normText(s: string): string {
-  return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return romanToArabicTokens(stripDiacritics(String(s)))
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseDateTime(dateYMD: string, timeHM: string): Date | null {
@@ -1159,7 +1175,6 @@ const { error } = await supabase
           </Card>
         </div>
 
-
         {/* ===============================================
             MATERIAS EN CURSO
         ================================================ */}
@@ -1251,8 +1266,6 @@ const { error } = await supabase
             )}
           </Card>
         </div>
-
-
 
         <div className="blockLinks footerLinks fullWidth linksBox">🔗 Enlaces útiles</div>
       </div>
