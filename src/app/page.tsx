@@ -959,63 +959,6 @@ const { error } = await supabase
         </div>
 
         {/* ===============================================
-            PRÓXIMO EXAMEN
-        ================================================ */}
-        <div className="blockProximo">
-          <Card title={<span className="sectionLabel">⏳ PRÓXIMO EXAMEN</span>}>
-            <div className="bigDays">{nextExam ? `${nextExam.dias} días` : "—"}</div>
-            <div className="centerNote">Días Restantes</div>
-            <div style={{ height: 10 }} />
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontWeight: 950 }}>📌 {nextExam ? nextExam.tipo : "Sin examen"}</div>
-              <div style={{ fontWeight: 900, textTransform: "lowercase" }}>
-                {(nextExam ? nextExam.materia : "Cargá tus fechas en Evaluaciones").toLowerCase()}
-              </div>
-              <div className="metaLine">
-                <span>🗓️ {nextExam ? nextExam.fecha : "—"}</span>
-                <span>⏰ {nextExam ? nextExam.hora : "—"}</span>
-              </div>
-            </div>
-          </Card>
-        </div>
-        {/* ===============================================
-            AVISOS
-        ================================================ */}
-        <div className="blockAvisos">
-          <Card className="fullWidth" title={<span className="sectionLabel">🧭 AVISOS</span>}>
-            <div className="avisosBox">
-              (Espacio reservado para avisos / recordatorios)
-            </div>
-          </Card>
-        </div>
-
-        {/* ===============================================
-            AVANCE ACADÉMICO
-        ================================================ */}
-        <div className="blockAvance">
-          <Card
-            title={<span className="sectionLabel">🚀 AVANCE ACADÉMICO</span>}
-            right={<span className="pill mono">Promedio&nbsp;{notasKpis.promedioStr}</span>}
-          >
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                <div style={{ fontWeight: 900, color: "rgba(15,23,42,0.7)" }}>Aprobadas</div>
-                <div style={{ fontWeight: 950, fontSize: 18 }}>{notasKpis.aprobadas}/{notasKpis.total}</div>
-              </div>
-
-              <div className="progressBar" aria-label="Barra de progreso">
-                <div className="progressFill" style={{ width: `${Math.round(notasKpis.progresoPct || 0)}%` }} />
-              </div>
-
-              <div className="metaLine" style={{ justifyContent: "space-between" }}>
-                <span>Progreso: <span className="mono">{Math.round(notasKpis.progresoPct || 0)}%</span></span>
-                <span>Faltan: <span className="mono">{notasKpis.faltan}</span></span>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* ===============================================
             CLASES DE HOY
         ================================================ */}
         <div className="blockClases" id="clases-hoy">
@@ -1124,6 +1067,65 @@ const { error } = await supabase
         </div>
 
         {/* ===============================================
+            AVISOS
+        ================================================ */}
+        <div className="blockAvisos">
+          <Card className="fullWidth" title={<span className="sectionLabel">🧭 AVISOS</span>}>
+            <div className="avisosBox">
+              (Espacio reservado para avisos / recordatorios)
+            </div>
+          </Card>
+        </div>
+
+        {/* ===============================================
+            AVANCE ACADÉMICO
+        ================================================ */}
+        <div className="blockAvance">
+          <Card
+            title={<span className="sectionLabel">🚀 AVANCE ACADÉMICO</span>}
+            right={<span className="pill mono">Promedio&nbsp;{notasKpis.promedioStr}</span>}
+          >
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                <div style={{ fontWeight: 900, color: "rgba(15,23,42,0.7)" }}>Aprobadas</div>
+                <div style={{ fontWeight: 950, fontSize: 18 }}>{notasKpis.aprobadas}/{notasKpis.total}</div>
+              </div>
+
+              <div className="progressBar" aria-label="Barra de progreso">
+                <div className="progressFill" style={{ width: `${Math.round(notasKpis.progresoPct || 0)}%` }} />
+              </div>
+
+              <div className="metaLine" style={{ justifyContent: "space-between" }}>
+                <span>Progreso: <span className="mono">{Math.round(notasKpis.progresoPct || 0)}%</span></span>
+                <span>Faltan: <span className="mono">{notasKpis.faltan}</span></span>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* ===============================================
+            PRÓXIMO EXAMEN
+        ================================================ */}
+        <div className="blockProximo">
+          <Card title={<span className="sectionLabel">⏳ PRÓXIMO EXAMEN</span>}>
+            <div className="bigDays">{nextExam ? `${nextExam.dias} días` : "—"}</div>
+            <div className="centerNote">Días Restantes</div>
+            <div style={{ height: 10 }} />
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontWeight: 950 }}>📌 {nextExam ? nextExam.tipo : "Sin examen"}</div>
+              <div style={{ fontWeight: 900, textTransform: "lowercase" }}>
+                {(nextExam ? nextExam.materia : "Cargá tus fechas en Evaluaciones").toLowerCase()}
+              </div>
+              <div className="metaLine">
+                <span>🗓️ {nextExam ? nextExam.fecha : "—"}</span>
+                <span>⏰ {nextExam ? nextExam.hora : "—"}</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+
+        {/* ===============================================
             MATERIAS EN CURSO
         ================================================ */}
         <div className="blockMaterias">
@@ -1214,6 +1216,8 @@ const { error } = await supabase
             )}
           </Card>
         </div>
+
+
 
         <div className="blockLinks footerLinks fullWidth linksBox">🔗 Enlaces útiles</div>
       </div>
