@@ -395,14 +395,15 @@ export default function Page() {
   const [useTestDate, setUseTestDate] = useState(false);
   const [testDateISO, setTestDateISO] = useState("");
 
-  /* =======================================================
-     ESTADOS AULAS
-  ======================================================== */
-  const [aulasOn, setAulasOn] = useState(false);
-  const [aulasLoading, setAulasLoading] = useState(false);
-  const [aulasInfo, setAulasInfo] = useState<{ [key: string]: any }>({});
-  const [aulasError, setAulasError] = useState("");
-  const [aulasBtnState, setAulasBtnState] = useState<"idle" | "loading" | "success">("idle");
+    /* =======================================================
+      ESTADOS AULAS
+    ======================================================== */
+    const [aulasOn, setAulasOn] = useState(false);
+    const [aulasLoading, setAulasLoading] = useState(false);
+    const [aulasInfo, setAulasInfo] = useState<{ [key: string]: any }>({});
+    const [aulasError, setAulasError] = useState("");
+    // Elimina el estado del botón
+    const [aulasCountdown, setAulasCountdown] = useState(30);
 
   
   /* =======================================================
@@ -676,24 +677,18 @@ const { error } = await supabase
   };
 
   /* =======================================================
-     FUNCIÓN: REFRESCAR AULAS
+     FUNCIÓN: REFRESCAR AULAS (ahora para polling)
   ======================================================== */
   const refreshAulas = async () => {
     const startedAt = Date.now();
-    let shouldShowSuccess = false;
-
     try {
       setAulasError("");
       setAulasLoading(true);
-      setAulasBtnState("loading");
-
       if (classesForDay.length === 0) {
         const msg = "Hoy no hay clases cargadas en tu Horario, por eso no se consultan aulas.";
         setAulasError(msg);
-        if (typeof window !== "undefined") window.alert(msg);
         return;
       }
-
       const payload = {
         classes: classesForDay.map((c) => ({
           key: `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`,
@@ -703,57 +698,61 @@ const { error } = await supabase
           horaInicio: c.horaInicio,
         })),
       };
-
       const r = await fetch("/api/aulas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       let data = null;
       try {
         data = await r.json();
       } catch {
         data = null;
       }
-
       if (!r.ok || data?.ok === false) {
         const base = data?.error || data?.message || "No se pudo conectar a la BD de aulas";
         const msg = `${base}\n\nPosibles causas:\n• Tu Google Sheet NO está público\n• El gid no corresponde\n• Problema de red`;
         setAulasError(msg);
-        if (typeof window !== "undefined") window.alert(msg);
         return;
       }
-
       if (data?.results && typeof data.results === "object") setAulasInfo(data.results);
-
-      shouldShowSuccess = true;
       setAulasOn(true);
     } catch (e) {
       const msg = `No se pudo conectar a la BD de aulas.\nDebug: ${e instanceof Error ? e.message : "Error"}`;
       setAulasError(msg);
       console.error(e);
-      if (typeof window !== "undefined") window.alert(msg);
     } finally {
       const elapsed = Date.now() - startedAt;
       const wait = Math.max(0, 3000 - elapsed);
       if (wait) await new Promise((res) => setTimeout(res, wait));
-
       setAulasLoading(false);
-
-      if (shouldShowSuccess) {
-        setAulasBtnState("success");
-        if (typeof window !== "undefined") {
-          window.clearTimeout((window as any).__fiunaAulasBtnT);
-          (window as any).__fiunaAulasBtnT = window.setTimeout(() => setAulasBtnState("idle"), 2000);
-        } else {
-          setAulasBtnState("idle");
-        }
-      } else {
-        setAulasBtnState("idle");
-      }
     }
   };
+  /* =======================================================
+     EFECTO: POLLING AUTOMÁTICO DE AULAS
+  ======================================================== */
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    let countdownInterval: NodeJS.Timeout;
+    if (userId && classesForDay.length > 0) {
+      // Refresca al cargar
+      refreshAulas();
+      // Polling cada 30 segundos
+      interval = setInterval(() => {
+        refreshAulas();
+        setAulasCountdown(30);
+      }, 30000);
+      // Cuenta regresiva
+      setAulasCountdown(30);
+      countdownInterval = setInterval(() => {
+        setAulasCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+      if (countdownInterval) clearInterval(countdownInterval);
+    };
+  }, [userId, classesForDay.length]);
 
   /* =======================================================
      FUNCIONES MATERIAS
@@ -1008,15 +1007,10 @@ const { error } = await supabase
           <Card
             title={<span className="sectionLabel">📅 CLASES DE HOY</span>}
             right={
-              <button
-                className={`btn btnPrimary${aulasBtnState === "success" ? " btnSuccess" : ""}`}
-                onClick={refreshAulas}
-                disabled={aulasLoading}
-                style={{ padding: "8px 10px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8 }}
-              >
+              <span style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8 }}>
                 {aulasLoading ? <span className="miniSpinner" aria-hidden /> : null}
-                <span>Actualizar</span>
-              </button>
+                <span>Actualizando en {aulasCountdown}s</span>
+              </span>
             }
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
