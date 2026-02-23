@@ -149,6 +149,8 @@ export async function POST(req: Request) {
       .select("dias, updated_at")
       .single();
 
+    console.log("aulasCache:", data);
+
     if(error || !data?.dias) {
       return Response.json({ok:false, error:"Sin datos de aulas en cache"}, {status:503});
     }

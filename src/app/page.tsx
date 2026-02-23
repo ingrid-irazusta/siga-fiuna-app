@@ -700,7 +700,7 @@ const { error } = await supabase
       const payload = {
         fecha: testDateISO, // ya la tenés como estado
         classes: classesForDay.map((c) => ({
-          key: `...`,
+          key: `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`,
           materia: c.materia,
           tipo: c.tipo,
           seccion: c.seccion,
@@ -724,7 +724,10 @@ const { error } = await supabase
         setAulasError(msg);
         return;
       }
-      if (data?.results && typeof data.results === "object") setAulasInfo(data.results);
+      if (data?.results && typeof data.results === "object") {
+        setAulasInfo(data.results);
+        console.log("aulasInfo:", data.results);
+      }
       setAulasOn(true);
     } catch (e) {
       const msg = `No se pudo conectar a la BD de aulas.\nDebug: ${e instanceof Error ? e.message : "Error"}`;
@@ -1117,7 +1120,7 @@ const { error } = await supabase
 
         {/* ===============================================
             AVISOS
-        ================================================ */}
+        ================================================ 
         <div className="blockAvisos">
           <Card className="fullWidth" title={<span className="sectionLabel">🧭 AVISOS</span>}>
             <div className="avisosBox">
@@ -1125,6 +1128,7 @@ const { error } = await supabase
             </div>
           </Card>
         </div>
+        */}
 
         {/* ===============================================
             AVANCE ACADÉMICO
@@ -1278,3 +1282,4 @@ const { error } = await supabase
     </div>
   );
 }
+ 
