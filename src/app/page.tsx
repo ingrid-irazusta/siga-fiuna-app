@@ -481,7 +481,15 @@ export default function Page() {
 
     load();
 
-    // ✅ AGREGAR LISTENER DE SESIÓN
+    return () => {
+      // Cleanup will be handled by separate useEffect
+    };
+  }, [router]);
+
+  /* =======================================================
+     EFECTO: LISTENER DE AUTENTICACIÓN
+  ======================================================== */
+  useEffect(() => {
     const { data: authListener } = getSupabase().auth.onAuthStateChange(
       (event, session) => {
         if (event === "SIGNED_OUT") {
@@ -690,8 +698,9 @@ const { error } = await supabase
         return;
       }
       const payload = {
+        fecha: testDateISO, // ya la tenés como estado
         classes: classesForDay.map((c) => ({
-          key: `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`,
+          key: `...`,
           materia: c.materia,
           tipo: c.tipo,
           seccion: c.seccion,
@@ -729,31 +738,34 @@ const { error } = await supabase
     }
   };
   /* =======================================================
-     EFECTO: POLLING AUTOMÁTICO DE AULAS
+     EFECTO: SUSCRIPCIÓN EN TIEMPO REAL DE AULAS
   ======================================================== */
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    let countdownInterval: NodeJS.Timeout;
-    if (userId && classesForDay.length > 0) {
-      // Refresca al cargar
-      refreshAulas();
-      // Polling cada 30 segundos
-      interval = setInterval(() => {
-        refreshAulas();
-        setAulasCountdown(30);
-      }, 30000);
-      // Cuenta regresiva
-      setAulasCountdown(30);
-      countdownInterval = setInterval(() => {
-        setAulasCountdown((prev) => (prev > 0 ? prev - 1 : 0));
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-      if (countdownInterval) clearInterval(countdownInterval);
-    };
-  }, [userId, classesForDay.length]);
+    if(userId && classesForDay.length > 0 && testDateISO) {
+      refreshAulas(); // Carga inicial
 
+      // Suscripción a cambios en tiempo real
+      const supabase = getSupabase();
+      const subscription = supabase
+        .channel('aulas_cache_realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'aulas_cache',
+          },
+          () => {
+            refreshAulas();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [userId, classesForDay.length, testDateISO]);
   /* =======================================================
      FUNCIONES MATERIAS
   ======================================================== */
