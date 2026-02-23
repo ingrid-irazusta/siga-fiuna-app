@@ -48,8 +48,11 @@ export const initSupabase = (): void => {
 // Para uso en API routes (server-side)
 export const getSupabaseServer = (): SupabaseClient => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  if (!key) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY no está definida en el entorno");
+  }
   if (!url || !key) {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL y clave de Supabase no están definidas');
   }
