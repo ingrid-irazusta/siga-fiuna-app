@@ -770,6 +770,16 @@ button, input, select { font: inherit; }
   .blockLinks{ order: 7; }
 }
 
+/* Ajustes adicionales para móviles muy pequeños */
+@media (max-width: 520px){
+  .dashGrid{
+    gap: 10px;
+  }
+  .cardPad{
+    padding: 16px;
+  }
+}
+
 /* Algunos móviles (según navegador/zoom) pueden reportar un ancho CSS grande y
    "saltarse" el breakpoint anterior, dejando huecos/espacios raros.
    Regla extra: si es un dispositivo táctil, forzamos el layout móvil siempre. */
@@ -834,7 +844,7 @@ button, input, select { font: inherit; }
   align-items:center;
   font-size: 13px;
 }
-@media (max-width: 720px){
+@media (max-width: 600px){
   .smallRow{
     grid-template-columns: 1fr;
     gap: 6px;
@@ -913,6 +923,11 @@ button, input, select { font: inherit; }
     font-size: 36px;
   }
 }
+@media (max-width: 520px){
+  .bigDays{
+    font-size: 28px;
+  }
+}
 .centerNote{
   text-align:center;
   color: rgba(15,23,42,0.65);
@@ -939,6 +954,17 @@ button, input, select { font: inherit; }
     padding: 8px 8px;
   }
 }
+@media (max-width: 520px){
+  .classItem{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .timeCol{
+    align-self: flex-start;
+  }
+}
 .timeCol{ font-weight: 950; }
 .metaLine{
   display:flex;
@@ -948,6 +974,12 @@ button, input, select { font: inherit; }
   color: rgba(15,23,42,0.75);
   font-weight: 800;
   font-size: 12px;
+}
+@media (max-width: 520px){
+  .metaLine{
+    font-size: 11px;
+    gap: 6px;
+  }
 }
 .badgeWarn{
   display:inline-flex;
