@@ -747,27 +747,27 @@ button, input, select { font: inherit; }
 .blockProfile, .blockProximo, .blockMaterias{ grid-column: 1; }
 .blockAvance, .blockClases, .blockAvisos, .blockLinks{ grid-column: 2; }
 
-/* En celular/tablet: 1 columna + orden limpio
-   (subimos el breakpoint para evitar “huecos” en algunos móviles que reportan ancho grande) */
-@media (max-width: 980px){
+/* En celular/tablet: fila horizontal scrolleable como en horario */
+@media (max-width: 768px){
   .dashGrid{
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 12px;
     align-items: stretch;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px; /* espacio para scroll bar */
   }
 
-  /* En móvil: todas las cards exactamente el mismo ancho (evita “deformado”) */
-  .dashGrid > *{ width: 100%; }
-  .dashGrid .card{ width: 100%; }
-
-  .blockProfile{ order: 1; }
-  .blockAvance{ order: 2; }
-  .blockClases{ order: 3; }
-  .blockProximo{ order: 4; }
-  .blockAvisos{ order: 5; }
-  .blockMaterias{ order: 6; }
-  .blockLinks{ order: 7; }
+  /* En móvil: cards con ancho fijo para scroll horizontal */
+  .dashGrid > *{ 
+    flex-shrink: 0;
+    width: 280px;
+    min-width: 280px;
+  }
+  .dashGrid .card{ 
+    width: 100%;
+  }
 }
 
 /* Ajustes adicionales para móviles muy pequeños */
