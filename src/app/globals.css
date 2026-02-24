@@ -778,6 +778,15 @@ button, input, select { font: inherit; }
   .cardPad{
     padding: 16px;
   }
+  .profileCard .cardPad{
+    padding: 12px;
+  }
+  .profileCard .smallRow{
+    gap: 4px;
+  }
+  .profileCard .profileField{
+    padding: 6px 8px;
+  }
 }
 
 /* Algunos móviles (según navegador/zoom) pueden reportar un ancho CSS grande y

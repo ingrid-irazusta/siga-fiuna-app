@@ -851,6 +851,7 @@ const { error } = await supabase
         ================================================ */}
         <div className="blockProfile">
           <Card
+            className="profileCard"
             title={<span className="sectionLabel">🎓 PERFIL DEL ESTUDIANTE</span>}
             right={
               profileHasData && !profileEditMode && (
