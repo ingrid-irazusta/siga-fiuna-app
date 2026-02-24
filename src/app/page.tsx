@@ -1022,14 +1022,8 @@ const { error } = await supabase
         <div className="blockClases" id="clases-hoy">
           <Card
             title={<span className="sectionLabel">📅 CLASES DE HOY</span>}
-            right={
-              <span style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                {aulasLoading ? <span className="miniSpinner" aria-hidden /> : null}
-                <span>Actualizando en {aulasCountdown}s</span>
-              </span>
-            }
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+            <div style={{ marginBottom: 10 }}>
               <div style={{ fontStyle: "italic", textAlign: "left", fontWeight: 900 }}>
                 {new Date(`${useTestDate ? testDateISO : testDateISO}T00:00:00`).toLocaleDateString("es-PY", {
                   weekday: "long",
@@ -1037,25 +1031,6 @@ const { error } = await supabase
                   month: "long",
                   day: "numeric",
                 })}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--muted)" }}>
-                  <input
-                    type="checkbox"
-                    checked={useTestDate}
-                    onChange={(e) => setUseTestDate(e.target.checked)}
-                  />
-                  Modo prueba
-                </label>
-                {useTestDate && (
-                  <input
-                    type="date"
-                    value={testDateISO}
-                    onChange={(e) => setTestDateISO(e.target.value)}
-                    className="input"
-                    style={{ maxWidth: 160, padding: "8px 10px" }}
-                  />
-                )}
               </div>
             </div>
 
