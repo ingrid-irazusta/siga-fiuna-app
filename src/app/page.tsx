@@ -538,6 +538,7 @@ export default function Page() {
       /* --- cargar clases del día --- */
       const dayId = dayIdFromISO(useTestDate ? testDateISO : testDateISO);
       const classes = await loadScheduleForDay(userId, dayId);
+      classes.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
       setClassesForDay(classes);
 
       setLoadingClasses(false);
@@ -1096,7 +1097,7 @@ const { error } = await supabase
                 const estado = aulasOn ? (info?.found ? info.estado : { icon: "ℹ️ ", text: "Sin coincidencia", code: "NC" }) : null;
                 return (
                   <div className="classItem" key={idx}>
-                    <div className="timeCol">{c.horaInicio} - {c.horaFin}</div>
+                    <div className="timeCol">{c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}</div>
                     <div style={{ display: "grid", gap: 4 }}>
                       <div style={{ fontWeight: 950 }}>{c.materia} <span className="muted">({c.tipo}-{c.seccion})</span></div>
                       <div className="metaLine">

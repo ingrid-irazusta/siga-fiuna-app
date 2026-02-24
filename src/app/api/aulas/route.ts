@@ -149,8 +149,6 @@ export async function POST(req: Request) {
       .select("dias, updated_at")
       .single();
 
-    console.log("aulasCache:", data);
-
     if(error || !data?.dias) {
       return Response.json({ok:false, error:"Sin datos de aulas en cache"}, {status:503});
     }
@@ -171,18 +169,21 @@ export async function POST(req: Request) {
       return Response.json({ok:false, error:`Sin datos para ${diaKey}`}, {status:404});
     }
 
+    console.log("Datos del día", diaKey, ":", diaData);
+
     // Procesar lista de clases
     if(Array.isArray(body?.classes)) {
       const results: Record<string, MatchResult> = {};
       for(const item of body.classes) {
         const key = String(item?.key||"");
-        results[key] = matchEnDia(
-          diaData,
-          normalizeText(item?.materia),
-          normalizeText(item?.seccion),
-          normalizeText(item?.tipo),
-          normTime(item?.horaInicio)
-        );
+        const qMateria = normalizeText(item?.materia);
+        const qSeccion = normalizeText(item?.seccion);
+        const qTipo = normalizeText(item?.tipo);
+        const qHora = normTime(item?.horaInicio);
+        console.log(`Buscando clase: key=${key}, materia=${qMateria}, seccion=${qSeccion}, tipo=${qTipo}, hora=${qHora}`);
+        const match = matchEnDia(diaData, qMateria, qSeccion, qTipo, qHora);
+        console.log(`Resultado para ${key}:`, match);
+        results[key] = match;
       }
       return Response.json({ok:true, fromCache:true, updatedAt: data.updated_at, results});
     }
