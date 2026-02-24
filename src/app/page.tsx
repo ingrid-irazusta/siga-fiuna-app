@@ -1253,7 +1253,6 @@ const { error } = await supabase
           </Card>
         </div>
 
-        <div className="blockLinks footerLinks fullWidth linksBox">🔗 Enlaces útiles</div>
       </div>
     </div>
   );
