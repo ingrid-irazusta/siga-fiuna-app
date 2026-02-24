@@ -797,7 +797,7 @@ button, input, select { font: inherit; }
 
 /* En PC: evitamos el “desfasado” (columna vacía debajo) usando layout tipo masonry.
    Así no queda un bloque enorme de fondo gris cuando una columna es más corta. */
-@media (min-width: 981px){
+@media (min-width: 769px){
   .dashGrid{
     display: block;
     column-count: 2;
@@ -976,9 +976,13 @@ button, input, select { font: inherit; }
     padding: 8px 6px;
     font-size: 12px;
   }
+  .tableMini .semestre{ width: 70px !important; }
+  .tableMini .firma{ width: 100px !important; }
 }
 .tableMini th{ text-align:left; color: rgba(15,23,42,0.65); font-weight: 950; }
 .tableMini td{ font-weight: 850; }
+.tableMini .semestre{ width: 90px; }
+.tableMini .firma{ width: 120px; }
 .footerLinks{
   text-align:center;
   padding: 18px 10px 6px;

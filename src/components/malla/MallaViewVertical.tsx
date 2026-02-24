@@ -405,18 +405,6 @@ export default function MallaViewVertical() {
             Modo: {mode === "estricto" ? "Estricto" : "Flexible"}
           </button>
 
-          <label
-            className="checkMini"
-            style={{ cursor: "pointer", userSelect: "none" }}
-          >
-            <input
-              type="checkbox"
-              checked={blockPlaceholders}
-              onChange={(e) => setBlockPlaceholders(e.target.checked)}
-              style={{ marginRight: 6 }}
-            />
-            Placeholders bloquean
-          </label>
         </div>
       </div>
 

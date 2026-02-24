@@ -1182,60 +1182,62 @@ const { error } = await supabase
               <div className="muted">Cargando materias…</div>
             ) : (
               <>
-                <table className="tableMini">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 90 }}>Semestre</th>
-                      <th>Materia</th>
-                      <th style={{ width: 120 }}>Firma</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courses.map((c, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <input
-                            className="fakeInput"
-                            value={c.semestre}
-                            onChange={(e) =>
-                              updateRow(idx, { semestre: e.target.value })
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="fakeInput"
-                            value={c.materia}
-                            onChange={(e) =>
-                              updateRow(idx, { materia: e.target.value })
-                            }
-                          />
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <select
-                              className="fakeInput"
-                              value={c.firma}
-                              onChange={(e) =>
-                                updateRow(idx, { firma: e.target.value })
-                              }
-                            >
-                              <option value="">—</option>
-                              <option value="SI">SI</option>
-                              <option value="NO">NO</option>
-                            </select>
-                            <button
-                              className="btn"
-                              onClick={() => removeRow(idx)}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </td>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="tableMini">
+                    <thead>
+                      <tr>
+                        <th className="semestre">Semestre</th>
+                        <th>Materia</th>
+                        <th className="firma">Firma</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {courses.map((c, idx) => (
+                        <tr key={idx}>
+                          <td>
+                            <input
+                              className="fakeInput"
+                              value={c.semestre}
+                              onChange={(e) =>
+                                updateRow(idx, { semestre: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="fakeInput"
+                              value={c.materia}
+                              onChange={(e) =>
+                                updateRow(idx, { materia: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <select
+                                className="fakeInput"
+                                value={c.firma}
+                                onChange={(e) =>
+                                  updateRow(idx, { firma: e.target.value })
+                                }
+                              >
+                                <option value="">—</option>
+                                <option value="SI">SI</option>
+                                <option value="NO">NO</option>
+                              </select>
+                              <button
+                                className="btn"
+                                onClick={() => removeRow(idx)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
                 {!courses.length && (
                   <div className="muted" style={{ marginTop: 10 }}>
@@ -1257,4 +1259,3 @@ const { error } = await supabase
     </div>
   );
 }
- 

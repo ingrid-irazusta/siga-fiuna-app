@@ -76,7 +76,7 @@ export default function AppShell({ children }: AppShellProps) {
     setMounted(true);
     try {
       const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-      const narrow = window.innerWidth <= 980;
+      const narrow = window.innerWidth <= 768;
       const ua = navigator.userAgent || '';
       const mobileUA = /Mobi|Android|iPhone|iPad|iPod/.test(ua);
       const touchCapable = ('ontouchstart' in window) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
