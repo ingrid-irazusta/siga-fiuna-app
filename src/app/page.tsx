@@ -364,8 +364,10 @@ export default function Page() {
      ESTADOS MATERIAS
   ======================================================== */
   const [courses, setCourses] = useState<CourseRow[]>([]);
+  const [coursesDraft, setCoursesDraft] = useState<CourseRow[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [toastCourses, setToastCourses] = useState("");
+  const [coursesEditMode, setCoursesEditMode] = useState(false);
 
   /* =======================================================
      ESTADOS EXAMENES Y NOTAS
@@ -450,14 +452,14 @@ export default function Page() {
           .order("semestre", { ascending: true });
 
         if (coursesData) {
-          setCourses(
-            coursesData.map((c) => ({
-              id: c.id,
-              semestre: String(c.semestre ?? ""),
-              materia: c.materia ?? "",
-              firma: c.firma ?? "",
-            }))
-          );
+          const loaded = coursesData.map((c) => ({
+            id: c.id,
+            semestre: String(c.semestre ?? ""),
+            materia: c.materia ?? "",
+            firma: c.firma ?? "",
+          }));
+          setCourses(loaded);
+          setCoursesDraft(loaded);
         }
 
         // Set initial loading to false after basic data
@@ -773,24 +775,37 @@ const { error } = await supabase
   /* =======================================================
      FUNCIONES MATERIAS
   ======================================================== */
+  // Materias en curso: edición amigable
   const addRow = () => {
-    setCourses((prev) => [...prev, { semestre: "", materia: "", firma: "" }]);
+    setCoursesDraft((prev) => [...prev, { semestre: "", materia: "", firma: "" }]);
   };
 
   const updateRow = (idx: number, patch: Partial<CourseRow>) => {
-    setCourses((prev) =>
+    setCoursesDraft((prev) =>
       prev.map((r, i) => (i === idx ? { ...r, ...patch } : r))
     );
   };
 
   const removeRow = (idx: number) => {
-    setCourses((prev) => prev.filter((_, i) => i !== idx));
+    setCoursesDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const onEditCourses = () => {
+    setCoursesDraft(courses);
+    setCoursesEditMode(true);
+    setToastCourses("");
+  };
+
+  const onCancelCourses = () => {
+    setCoursesDraft(courses);
+    setCoursesEditMode(false);
+    setToastCourses("");
   };
 
   const saveCourses = async () => {
     if (!userId) return;
 
-    const clean = courses
+    const clean = coursesDraft
       .map((c) => ({
         semestre: Number(c.semestre) || null,
         materia: c.materia.trim(),
@@ -798,8 +813,23 @@ const { error } = await supabase
       }))
       .filter((c) => c.materia);
 
-    // borrar y reinsertar
+    // Materias antes de guardar
+    const prevMaterias = new Set(courses.map((c) => c.materia.trim()));
+    const newMaterias = new Set(clean.map((c) => c.materia.trim()));
+    const deletedMaterias = Array.from(prevMaterias).filter((m) => !newMaterias.has(m));
+
     const supabase = getSupabase();
+
+    // Eliminar clases asociadas a materias eliminadas
+    if (deletedMaterias.length > 0) {
+      await supabase
+        .from("student_classes")
+        .delete()
+        .eq("user_id", userId)
+        .in("materia", deletedMaterias);
+    }
+
+    // borrar y reinsertar materias
     await supabase.from("student_courses").delete().eq("user_id", userId);
 
     if (clean.length) {
@@ -807,6 +837,18 @@ const { error } = await supabase
         clean.map((c) => ({ ...c, user_id: userId }))
       );
     }
+
+    setCourses(clean.map((c, i) => ({
+      ...c,
+      semestre: String(c.semestre ?? ""),
+      firma: c.firma ? String(c.firma) : ""
+    })));
+    setCoursesDraft(clean.map((c, i) => ({
+      ...c,
+      semestre: String(c.semestre ?? ""),
+      firma: c.firma ? String(c.firma) : ""
+    })));
+    setCoursesEditMode(false);
 
     setToastCourses(
       clean.length
@@ -1169,14 +1211,23 @@ const { error } = await supabase
           <Card
             title={<span className="sectionLabel"> 📚 Materias en curso</span>}
             right={
-              <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn" onClick={addRow}>
-                  + Agregar
+              coursesEditMode ? (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="btn" onClick={addRow}>
+                    + Agregar
+                  </button>
+                  <button className="btn btnPrimary" onClick={saveCourses}>
+                    Guardar
+                  </button>
+                  <button className="btn" onClick={onCancelCourses}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button className="btn" onClick={onEditCourses}>
+                  ✎ Editar
                 </button>
-                <button className="btn btnPrimary" onClick={saveCourses}>
-                  Guardar
-                </button>
-              </div>
+              )
             }
           >
             {loadingCourses ? (
@@ -1193,45 +1244,59 @@ const { error } = await supabase
                       </tr>
                     </thead>
                     <tbody>
-                      {courses.map((c, idx) => (
+                      {(coursesEditMode ? coursesDraft : courses).map((c, idx) => (
                         <tr key={idx}>
                           <td>
-                            <input
-                              className="fakeInput"
-                              value={c.semestre}
-                              onChange={(e) =>
-                                updateRow(idx, { semestre: e.target.value })
-                              }
-                            />
+                            {coursesEditMode ? (
+                              <input
+                                className="fakeInput"
+                                value={c.semestre}
+                                onChange={(e) =>
+                                  updateRow(idx, { semestre: e.target.value })
+                                }
+                              />
+                            ) : (
+                              <span>{c.semestre}</span>
+                            )}
                           </td>
                           <td>
-                            <input
-                              className="fakeInput"
-                              value={c.materia}
-                              onChange={(e) =>
-                                updateRow(idx, { materia: e.target.value })
-                              }
-                            />
+                            {coursesEditMode ? (
+                              <input
+                                className="fakeInput"
+                                value={c.materia}
+                                onChange={(e) =>
+                                  updateRow(idx, { materia: e.target.value })
+                                }
+                              />
+                            ) : (
+                              <span>{c.materia}</span>
+                            )}
                           </td>
                           <td>
                             <div style={{ display: "flex", gap: 8 }}>
-                              <select
-                                className="fakeInput"
-                                value={c.firma}
-                                onChange={(e) =>
-                                  updateRow(idx, { firma: e.target.value })
-                                }
-                              >
-                                <option value="">—</option>
-                                <option value="SI">SI</option>
-                                <option value="NO">NO</option>
-                              </select>
-                              <button
-                                className="btn"
-                                onClick={() => removeRow(idx)}
-                              >
-                                ✕
-                              </button>
+                              {coursesEditMode ? (
+                                <>
+                                  <select
+                                    className="fakeInput"
+                                    value={c.firma}
+                                    onChange={(e) =>
+                                      updateRow(idx, { firma: e.target.value })
+                                    }
+                                  >
+                                    <option value="">—</option>
+                                    <option value="SI">SI</option>
+                                    <option value="NO">NO</option>
+                                  </select>
+                                  <button
+                                    className="btn"
+                                    onClick={() => removeRow(idx)}
+                                  >
+                                    ✕
+                                  </button>
+                                </>
+                              ) : (
+                                <span>{c.firma || "—"}</span>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1240,7 +1305,7 @@ const { error } = await supabase
                   </table>
                 </div>
 
-                {!courses.length && (
+                {!(coursesEditMode ? coursesDraft.length : courses.length) && (
                   <div className="muted" style={{ marginTop: 10 }}>
                     Aún no cargaste materias.
                   </div>
