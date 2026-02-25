@@ -1113,6 +1113,7 @@ const { error } = await supabase
                 const info = aulasInfo[key];
                 const aula = aulasOn ? (info?.found ? info.aula : "—") : "—";
                 const estado = aulasOn ? (info?.found ? info.estado : { icon: "ℹ️ ", text: "Sin coincidencia", code: "NC" }) : null;
+                const observacion = aulasOn ? info?.observacion : null;
                 return (
                   <div className="classItem" key={idx}>
                     <div className="timeCol">{c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}</div>
@@ -1126,6 +1127,12 @@ const { error } = await supabase
                           </span>
                         ) : null}
                       </div>
+
+                      {observacion && (
+                        <div className="metaLine" style={{ color: "#b45309", fontWeight: 600 }}>
+                          ⚠️ {observacion}
+                        </div>
+                      )}
                       <div className="metaLine">
                         <span> 📅 Aula: <span className="mono">{aula}</span></span>
                       </div>
