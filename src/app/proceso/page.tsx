@@ -447,6 +447,7 @@ export default function ProcesoPage() {
   const [simFinalPctByItem, setSimFinalPctByItem] = useState<Record<string, number>>({});
   const [simUseRecuForFinalByItem, setSimUseRecuForFinalByItem] = useState<Record<string, boolean>>({});
   const [didLoadProceso, setDidLoadProceso] = useState<boolean>(false);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -792,11 +793,24 @@ if (isLoading) {
 
         const realFinalPanelOpen = !!it.realFinalPanelOpen;
 
+        const isExpanded = !!expandedItems[it.id];
+
         return (
           <Card
             key={it.id}
             title={
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div 
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 10, 
+                  flexWrap: "wrap",
+                  cursor: "pointer",
+                  userSelect: "none"
+                }}
+                onClick={() => setExpandedItems(prev => ({ ...prev, [it.id]: !isExpanded }))}
+              >
+                <span style={{ fontSize: 18 }}>{isExpanded ? "▼" : "▶"}</span>
                 <span style={{ fontWeight: 950 }}>{it.nombre}</span>
                 <span className="pill">
                   Semestre: <span className="kbd">{it.semestre}</span>
@@ -804,6 +818,8 @@ if (isLoading) {
               </div>
             }
           >
+            {isExpanded && (
+            <>
             <BigModal
               open={simOpenId === it.id}
               title={`🧪 Simulador — ${it.nombre}`}
@@ -2649,6 +2665,8 @@ if (isLoading) {
                 </div>
               </div>
             </div>
+            </>
+            )}
           </Card>
         );
       })}
