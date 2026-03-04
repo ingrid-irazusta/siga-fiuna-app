@@ -506,7 +506,7 @@ export default function ProcesoPage() {
         const rid = `r:${Date.now()}`;
         return {
           ...it,
-          rows: [...rows, { rid, label: "NUEVA INSTANCIA", peso: 0, min: 0, pct: 0 }],
+          rows: [...rows, { rid, label: "", peso: 0, min: 0, pct: 0 }],
         };
       })
     );
@@ -539,13 +539,13 @@ export default function ProcesoPage() {
             {
               rid: gid,
               isGroup: true,
-              label: "Nuevo grupo",
+              label: "",
               peso: 0,
               min: 0,
               pct: 0,
               children: [
-                { rid: c1, label: "Subfila 1", peso: 0, pct: 0 },
-                { rid: c2, label: "Subfila 2", peso: 0, pct: 0 },
+                { rid: c1, label: "", peso: 0, pct: 0 },
+                { rid: c2, label: "", peso: 0, pct: 0 },
               ],
             },
           ],
@@ -566,7 +566,7 @@ export default function ProcesoPage() {
           const rid = `c:${Date.now()}`;
           return {
             ...r,
-            children: [...kids, { rid, label: `Subfila ${kids.length + 1}`, peso: 0, pct: 0 }],
+            children: [...kids, { rid, label: "", peso: 0, pct: 0 }],
           };
         });
 

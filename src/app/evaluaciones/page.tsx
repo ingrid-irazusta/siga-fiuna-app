@@ -354,27 +354,61 @@ export default function EvaluacionesPage(): React.ReactNode {
     const saveToDB = async () => {
       try {
         const supabase = getSupabase();
-        // Primero, eliminar todos los exámenes existentes para este usuario
-        await supabase.from("student_exams").delete().eq("user_id", userId);
-
-        // Insertar los nuevos
+        
+        // Construir lista de exámenes a insertar
         const examsToInsert = [];
         for (const row of rows) {
           for (const t of TYPES) {
             const cell = row[t.key as keyof Row] as EvalCell;
-            if (cell.fecha && cell.hora) {
+            if (cell.fecha) {
               examsToInsert.push({
                 user_id: userId,
                 materia: row.materia,
                 tipo: t.label,
                 fecha: cell.fecha,
-                hora: cell.hora,
+                hora: cell.hora || "",
               });
             }
           }
         }
-        if (examsToInsert.length > 0) {
-          await supabase.from("student_exams").insert(examsToInsert);
+
+        // Obtener exámenes actuales en la BD
+        const { data: currentExams } = await supabase
+          .from("student_exams")
+          .select("id, materia, tipo, fecha, hora")
+          .eq("user_id", userId);
+
+        // Comparar y solo actualizar si hay cambios
+        const currentSet = new Set(
+          (currentExams || []).map(e => `${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
+        );
+        const newSet = new Set(
+          examsToInsert.map(e => `${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
+        );
+
+        // Solo actualizar si hay diferencias
+        if (currentSet.size !== newSet.size || 
+            ![...currentSet].every(item => newSet.has(item))) {
+          // Eliminar solo los que ya no existen
+          const toDelete = (currentExams || []).filter(
+            e => !newSet.has(`${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
+          );
+          
+          if (toDelete.length > 0) {
+            for (const exam of toDelete) {
+              await supabase.from("student_exams").delete().eq("id", exam.id);
+            }
+          }
+
+          // Insertar nuevos exámenes
+          if (examsToInsert.length > 0) {
+            const toInsert = examsToInsert.filter(
+              e => !currentSet.has(`${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
+            );
+            if (toInsert.length > 0) {
+              await supabase.from("student_exams").insert(toInsert);
+            }
+          }
         }
       } catch (error) {
         console.error("Error saving exams to DB:", error);

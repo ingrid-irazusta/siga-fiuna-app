@@ -1066,81 +1066,102 @@ const { error } = await supabase
           <Card
             title={<span className="sectionLabel">📅 CLASES DE HOY</span>}
           >
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontStyle: "italic", textAlign: "left", fontWeight: 900 }}>
-                {new Date(`${useTestDate ? testDateISO : testDateISO}T00:00:00`).toLocaleDateString("es-PY", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </div>
-            </div>
-
-            {aulasError ? (
-              <div className="metaLine" style={{ marginBottom: 10, opacity: 0.95 }}>
-                <span>⚠️ {aulasError.split("\n")[0]}</span>
-              </div>
-            ) : null}
-
-            <div className="todayList">
-              {!loadingClasses && academicEvents.length > 0 && academicEvents.some((t) => /feriado|suspensi|receso|vacaci|pausa|asºeto|asueto/i.test(t)) && (
-                <div className="classItem" style={{ borderStyle: "dashed", opacity: 0.95 }}>
-                  <div className="timeCol">—</div>
-                  <div style={{ display: "grid", gap: 6 }}>
-                    <div style={{ fontWeight: 950 }}>📅 Hoy no hay clases</div>
-                    <div className="metaLine"><span>{academicEvents.join(" • ")}</span></div>
-                  </div>
-                </div>
-              )}
-              {academicEvents.length > 0 && !academicEvents.some((t) => /feriado|suspensi|receso|vacaci|pausa|asºeto|asueto/i.test(t)) && (
-                <div className="classItem" style={{ opacity: 0.9 }}>
-                  <div className="timeCol">📅</div>
-                  <div className="metaLine"><span><strong>Calendario académico:</strong> {academicEvents.join(" • ")}</span></div>
-                </div>
-              )}
-              {!loadingClasses && classesForDay.length === 0 && academicEvents.length === 0 && (
-                <div className="classItem" style={{ borderStyle: "dashed", opacity: 0.95 }}>
-                  <div className="timeCol">—</div>
-                  <div style={{ display: "grid", gap: 6 }}>
-                    <div style={{ fontWeight: 950 }}>🌿 Día libre</div>
-                    <div className="metaLine"><span>Sin clases</span></div>
-                  </div>
-                </div>
-              )}
-              {classesForDay.map((c, idx) => {
-                const key = `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`;
-                const info = aulasInfo[key];
-                const aula = aulasOn ? (info?.found ? info.aula : "—") : "—";
-                const estado = aulasOn ? (info?.found ? info.estado : { icon: "ℹ️ ", text: "Sin coincidencia", code: "NC" }) : null;
-                const observacion = aulasOn ? info?.observacion : null;
-                return (
-                  <div className="classItem" key={idx}>
-                    <div className="timeCol">{c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}</div>
-                    <div style={{ display: "grid", gap: 4 }}>
-                      <div style={{ fontWeight: 950 }}>{c.materia} <span className="muted">({c.tipo}-{c.seccion})</span></div>
-                      <div className="metaLine">
-                        <span>👤 {c.profesor || "—"}</span>
-                        {estado?.text ? (
-                          <span className={estado.icon === "✅" ? "badgeOk" : estado.icon === "❌" ? "badgeBad" : "badgeWarn"}>
-                            {estado.icon} {estado.text}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {observacion && (
-                        <div className="metaLine" style={{ color: "#b45309", fontWeight: 600 }}>
-                          ⚠️ {observacion}
-                        </div>
-                      )}
-                      <div className="metaLine">
-                        <span> 📅 Aula: <span className="mono">{aula}</span></span>
-                      </div>
+            {(() => {
+              const currentDate = new Date(`${testDateISO}T00:00:00`);
+              const isDomingo = currentDate.getDay() === 0;
+              
+              return (
+                <>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontStyle: "italic", textAlign: "left", fontWeight: 900 }}>
+                      {currentDate.toLocaleDateString("es-PY", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {aulasError && !isDomingo ? (
+                    <div className="metaLine" style={{ marginBottom: 10, opacity: 0.95 }}>
+                      <span>⚠️ {aulasError.split("\n")[0]}</span>
+                    </div>
+                  ) : null}
+
+                  <div className="todayList">
+                    {isDomingo ? (
+                      <div className="classItem" style={{ borderStyle: "dashed", opacity: 0.95 }}>
+                        <div className="timeCol">—</div>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <div style={{ fontWeight: 950 }}>🌿 Domingo - Día libre</div>
+                          <div className="metaLine"><span>Sin clases</span></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {!loadingClasses && academicEvents.length > 0 && academicEvents.some((t) => /feriado|suspensi|receso|vacaci|pausa|asºeto|asueto/i.test(t)) && (
+                          <div className="classItem" style={{ borderStyle: "dashed", opacity: 0.95 }}>
+                            <div className="timeCol">—</div>
+                            <div style={{ display: "grid", gap: 6 }}>
+                              <div style={{ fontWeight: 950 }}>📅 Hoy no hay clases</div>
+                              <div className="metaLine"><span>{academicEvents.join(" • ")}</span></div>
+                            </div>
+                          </div>
+                        )}
+                        {academicEvents.length > 0 && !academicEvents.some((t) => /feriado|suspensi|receso|vacaci|pausa|asºeto|asueto/i.test(t)) && (
+                          <div className="classItem" style={{ opacity: 0.9 }}>
+                            <div className="timeCol">📅</div>
+                            <div className="metaLine"><span><strong>Calendario académico:</strong> {academicEvents.join(" • ")}</span></div>
+                          </div>
+                        )}
+                        {!loadingClasses && classesForDay.length === 0 && academicEvents.length === 0 && (
+                          <div className="classItem" style={{ borderStyle: "dashed", opacity: 0.95 }}>
+                            <div className="timeCol">—</div>
+                            <div style={{ display: "grid", gap: 6 }}>
+                              <div style={{ fontWeight: 950 }}>🌿 Día libre</div>
+                              <div className="metaLine"><span>Sin clases</span></div>
+                            </div>
+                          </div>
+                        )}
+                        {classesForDay.map((c, idx) => {
+                          const key = `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`;
+                          const info = aulasInfo[key];
+                          const aula = aulasOn ? (info?.found ? info.aula : "—") : "—";
+                          const estado = aulasOn ? (info?.found ? info.estado : { icon: "ℹ️ ", text: "Sin coincidencia", code: "NC" }) : null;
+                          const observacion = aulasOn ? info?.observacion : null;
+                          return (
+                            <div className="classItem" key={idx}>
+                              <div className="timeCol">{c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}</div>
+                              <div style={{ display: "grid", gap: 4 }}>
+                                <div style={{ fontWeight: 950 }}>{c.materia} <span className="muted">({c.tipo}-{c.seccion})</span></div>
+                                <div className="metaLine">
+                                  <span>👤 {c.profesor || "—"}</span>
+                                  {estado?.text ? (
+                                    <span className={estado.icon === "✅" ? "badgeOk" : estado.icon === "❌" ? "badgeBad" : "badgeWarn"}>
+                                      {estado.icon} {estado.text}
+                                    </span>
+                                  ) : null}
+                                </div>
+
+                                {observacion && (
+                                  <div className="metaLine" style={{ color: "#b45309", fontWeight: 600 }}>
+                                    ⚠️ {observacion}
+                                  </div>
+                                )}
+                                <div className="metaLine">
+                                  <span> 📅 Aula: <span className="mono">{aula}</span></span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </Card>
         </div>
 
