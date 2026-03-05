@@ -413,6 +413,31 @@ export default function HorarioPage() {
       return;
     }
     
+    if (!form.tipo || !form.tipo.trim()) {
+      alert("Selecciona un tipo de clase (T, P o LAB).");
+      return;
+    }
+    
+    if (!form.seccion || !form.seccion.trim()) {
+      alert("Ingresa el número de sección.");
+      return;
+    }
+    
+    if (!form.inicio || !form.inicio.trim()) {
+      alert("Ingresa la hora de inicio.");
+      return;
+    }
+    
+    if (!form.fin || !form.fin.trim()) {
+      alert("Ingresa la hora de fin.");
+      return;
+    }
+    
+    if (!form.prof || !form.prof.trim()) {
+      alert("Ingresa el nombre del profesor.");
+      return;
+    }
+    
     if (timeToMin(form.fin) <= timeToMin(form.inicio)) {
       alert("La hora fin debe ser mayor a la hora inicio.");
       return;
@@ -729,12 +754,13 @@ export default function HorarioPage() {
             ))}
           </select>
 
-          <label className="calLbl">Materia (de tus cursos en curso)</label>
+          <label className="calLbl">Materia (de tus cursos en curso) <span style={{ color: 'red' }}>*</span></label>
           <select 
             className="calInp" 
             value={form.materia} 
             onChange={(e) => setForm((f) => ({ ...f, materia: e.target.value }))} 
             disabled={saving}
+            required
           >
             <option value="">Selecciona una materia</option>
             {courses.map((c) => (
@@ -773,48 +799,52 @@ export default function HorarioPage() {
               </div>
             </div>
             <div>
-              <label className="calLbl">Sección</label>
+              <label className="calLbl">Sección <span style={{ color: 'red' }}>*</span></label>
               <input 
                 className="calInp" 
                 value={form.seccion ?? ""} 
                 onChange={(e) => setForm((f) => ({ ...f, seccion: e.target.value }))} 
                 placeholder="A"
                 disabled={saving}
+                required
               />
             </div>
           </div>
 
           <div className="calRow2">
             <div>
-              <label className="calLbl">Inicio</label>
+              <label className="calLbl">Inicio <span style={{ color: 'red' }}>*</span></label>
               <input 
                 className="calInp" 
                 type="time" 
                 value={form.inicio} 
                 onChange={(e) => setForm((f) => ({ ...f, inicio: e.target.value }))}
                 disabled={saving}
+                required
               />
             </div>
             <div>
-              <label className="calLbl">Fin</label>
+              <label className="calLbl">Fin <span style={{ color: 'red' }}>*</span></label>
               <input 
                 className="calInp" 
                 type="time" 
                 value={form.fin} 
                 onChange={(e) => setForm((f) => ({ ...f, fin: e.target.value }))}
                 disabled={saving}
+                required
               />
             </div>
           </div>
 
           <div>
-            <label className="calLbl">Profesor</label>
+            <label className="calLbl">Profesor <span style={{ color: 'red' }}>*</span></label>
             <input 
               className="calInp" 
               value={form.prof ?? ""} 
               onChange={(e) => setForm((f) => ({ ...f, prof: e.target.value }))} 
               placeholder="Apellido"
               disabled={saving}
+              required
             />
           </div>
 
