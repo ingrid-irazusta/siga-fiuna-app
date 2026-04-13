@@ -671,7 +671,7 @@ export default function NotasFinalesPage() {
         const list = rows.filter((r) => Number(r.semestre) === sem);
         return (
           <div key={sem} className="nfSemBlock">
-            <div className="nfSemHeader">{sem}ER SEMESTRE</div>
+            <div className="nfSemHeader">{sem}° SEMESTRE</div>
 
             <Card>
               <div className="nfTable nfTable3">
