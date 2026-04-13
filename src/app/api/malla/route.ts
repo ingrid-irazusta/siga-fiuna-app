@@ -5,7 +5,8 @@ const CACHE_TTL_MS = 60_000;
 interface MallaPayload {
   carrera: string;
   plan: string;
-  materias: any[]; // Puedes tipar más si conoces la estructura exacta
+  intensificacion?: string;
+  materias: any[];
 }
 
 interface CacheEntry {
@@ -42,12 +43,29 @@ export async function GET(req: Request): Promise<Response> {
     const { searchParams } = new URL(req.url);
     const carrera = (searchParams.get("carrera") || "").trim();
     const plan = (searchParams.get("plan") || "").trim();
+    const intensificacion = (searchParams.get("intensificacion") || "").trim();
 
     if (!carrera || !plan) {
       return json({ ok: false, error: "Faltan parámetros: carrera y plan" }, 400);
     }
 
-    const key = `${carrera}||${plan}`;
+    const usaIntensificacion =
+      carrera === "Ingeniería Electrónica" && plan === "2023";
+
+    if (usaIntensificacion && !intensificacion) {
+      return json(
+        {
+          ok: false,
+          error: "Falta el parámetro intensificacion para Ingeniería Electrónica 2023",
+        },
+        400
+      );
+    }
+
+    const key = usaIntensificacion
+      ? `${carrera}||${plan}||${intensificacion}`
+      : `${carrera}||${plan}`;
+
     const now = Date.now();
 
     // Limpiar cache si expiró
@@ -62,9 +80,13 @@ export async function GET(req: Request): Promise<Response> {
 
     const base = getBaseUrl();
     const token = process.env.MALLA_TOKEN || "";
-    const url = `${base}?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}${
-      token ? `&token=${encodeURIComponent(token)}` : ""
-    }`;
+
+    const url =
+      `${base}?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}` +
+      (usaIntensificacion
+        ? `&intensificacion=${encodeURIComponent(intensificacion)}`
+        : "") +
+      (token ? `&token=${encodeURIComponent(token)}` : "");
 
     const r = await fetch(url, { method: "GET" });
     const text = await r.text();
@@ -97,6 +119,9 @@ export async function GET(req: Request): Promise<Response> {
     const payload: MallaPayload = {
       carrera: data.carrera || carrera,
       plan: String(data.plan || plan),
+      intensificacion: usaIntensificacion
+        ? String(data.intensificacion || intensificacion)
+        : "",
       materias: Array.isArray(data.materias) ? data.materias : [],
     };
 
