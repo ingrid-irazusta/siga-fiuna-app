@@ -33,7 +33,7 @@ async function loadProfileFromDB(userId: string): Promise<any | null> {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from("user_profiles")
-      .select("carrera, malla, ci")
+      .select("carrera, malla, ci, intensificacion")
       .eq("user_id", userId)
       .single();
 
@@ -120,6 +120,7 @@ export default function MallaView() {
   const [carrera, setCarrera] = useState<string>(CARRERAS[0]);
   const [plan, setPlan] = useState<string>("2023");
   const [ci, setCi] = useState<string>("");
+  const [intensificacion, setIntensificacion] = useState<string>("");
 
   useEffect(() => {
     try {
@@ -150,14 +151,16 @@ export default function MallaView() {
 
     const loadProfile = async () => {
       if (!userId) return;
-      
+
       const p = await loadProfileFromDB(userId);
       if (cancelled) return;
-      
+
       if (!p) return;
       if (CARRERAS.includes(p.carrera)) setCarrera(p.carrera);
       if (p.malla === "2013" || p.malla === "2023") setPlan(p.malla);
       if (typeof p.ci === "string") setCi(p.ci);
+      if (typeof p.intensificacion === "string") setIntensificacion(p.intensificacion);
+      else setIntensificacion("");
     };
 
     loadProfile();
@@ -181,6 +184,8 @@ export default function MallaView() {
               if (CARRERAS.includes(newProfile.carrera)) setCarrera(newProfile.carrera);
               if (newProfile.malla === "2013" || newProfile.malla === "2023") setPlan(newProfile.malla);
               if (typeof newProfile.ci === "string") setCi(newProfile.ci);
+              if (typeof newProfile.intensificacion === "string") setIntensificacion(newProfile.intensificacion);
+              else setIntensificacion("");
             }
           }
         )
@@ -232,7 +237,12 @@ export default function MallaView() {
       setError("");
       setRadarKey("");
 
-      const cacheKey = `${MALLA_CACHE_PREFIX}:${normText(carrera)}:${String(plan)}`;
+      const usaIntensificacion =
+        carrera === "Ingeniería Electrónica" && plan === "2023";
+
+      const cacheKey = usaIntensificacion
+        ? `${MALLA_CACHE_PREFIX}:${normText(carrera)}:${String(plan)}:${normText(intensificacion || "")}`
+        : `${MALLA_CACHE_PREFIX}:${normText(carrera)}:${String(plan)}`;
       let cacheUsed = false;
       let shouldRevalidate = true;
 
@@ -254,7 +264,7 @@ export default function MallaView() {
               }
             }
           }
-        } catch {}
+        } catch { }
       }
 
       if (!cacheUsed) setLoading(true);
@@ -262,9 +272,11 @@ export default function MallaView() {
       try {
         if (!shouldRevalidate && cacheUsed) return;
 
-        const r = await fetch(
-          `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}`
-        );
+        const url = usaIntensificacion
+          ? `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}&intensificacion=${encodeURIComponent(intensificacion || "")}`
+          : `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}`;
+
+        const r = await fetch(url);
         const data = await r.json().catch(() => null);
         if (!r.ok || !data?.ok) {
           throw new Error(data?.error || "No se pudo leer la BD_Malla");
@@ -296,7 +308,7 @@ export default function MallaView() {
               cacheKey,
               JSON.stringify({ ts: Date.now(), items: prepared })
             );
-          } catch {}
+          } catch { }
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "Error inesperado");
@@ -309,7 +321,7 @@ export default function MallaView() {
     return () => {
       cancelled = true;
     };
-  }, [carrera, plan]);
+  }, [carrera, plan, intensificacion]);
 
   const { map: semMap, sems } = useMemo(
     () => groupBySemestre(items),
