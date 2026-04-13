@@ -290,9 +290,7 @@ export default function Page() {
               </table>
             </div>
           </div>
-          <div className="abacoNote">
-            Básicos: 3 (71–80), 4 (81–90), 5 (91–100). Profesionales: 4 (81–90), 5 (91–100).
-          </div>
+
         </details>
       </section>
     </div>
