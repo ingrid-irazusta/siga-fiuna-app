@@ -158,7 +158,7 @@ async function computeNotasKpis(
     let materiasMallaSet = new Set<string>();
     try {
       const query =
-        carrera === "Ingeniería Electrónica"
+        carrera === "Ingeniería Electrónica" && plan === "2023"
           ? `/api/malla?carrera=${encodeURIComponent(carrera || "")}&plan=${encodeURIComponent(plan)}&intensificacion=${encodeURIComponent(intensificacion || "")}`
           : `/api/malla?carrera=${encodeURIComponent(carrera || "")}&plan=${encodeURIComponent(plan)}`;
 
@@ -664,7 +664,11 @@ export default function Page() {
       !profileDraft.carrera ||
       !profileDraft.malla ||
       !profileDraft.ingreso ||
-      (profileDraft.carrera === "Ingeniería Electrónica" && !profileDraft.intensificacion)
+      (
+        profileDraft.carrera === "Ingeniería Electrónica" &&
+        profileDraft.malla === "2023" &&
+        !profileDraft.intensificacion
+      )
     ) {
       setToastProfile("❌ Por favor completa todos los campos");
       return;
@@ -684,15 +688,18 @@ export default function Page() {
         malla: profileDraft.malla,
         ingreso: profileDraft.ingreso,
         intensificacion:
-          profileDraft.carrera === "Ingeniería Electrónica"
+          profileDraft.carrera === "Ingeniería Electrónica" &&
+            profileDraft.malla === "2023"
             ? profileDraft.intensificacion || ""
             : "",
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("user_profiles")
-        .upsert(payload, { onConflict: "user_id" });
+        .update(payload)
+        .eq("user_id", userId)
+        .select();
 
       if (error) {
         console.error("Error guardando perfil:", error);
@@ -700,21 +707,32 @@ export default function Page() {
         return;
       }
 
+      if (!data || data.length === 0) {
+        setToastProfile("❌ No se encontró el perfil para actualizar");
+        return;
+      }
+
+      const perfilActualizado = data[0];
+
       setProfile({
-        ...profileDraft,
-        intensificacion:
-          profileDraft.carrera === "Ingeniería Electrónica"
-            ? profileDraft.intensificacion || ""
-            : "",
+        alumno: perfilActualizado.alumno || "",
+        ci: perfilActualizado.ci || "",
+        carrera: perfilActualizado.carrera || "",
+        malla: perfilActualizado.malla || "",
+        ingreso: perfilActualizado.ingreso || "",
+        intensificacion: perfilActualizado.intensificacion || "",
+        user_id: perfilActualizado.user_id,
       });
 
-      setProfileDraft((prev) => ({
-        ...prev,
-        intensificacion:
-          prev.carrera === "Ingeniería Electrónica"
-            ? prev.intensificacion || ""
-            : "",
-      }));
+      setProfileDraft({
+        alumno: perfilActualizado.alumno || "",
+        ci: perfilActualizado.ci || "",
+        carrera: perfilActualizado.carrera || "",
+        malla: perfilActualizado.malla || "",
+        ingreso: perfilActualizado.ingreso || "",
+        intensificacion: perfilActualizado.intensificacion || "",
+        user_id: perfilActualizado.user_id,
+      });
 
       setProfileEditMode(false);
       setProfileHasData(true);
@@ -727,7 +745,6 @@ export default function Page() {
       setSavingProfile(false);
     }
   };
-
   /* =======================================================
      FUNCIÓN: REFRESCAR AULAS (ahora para polling)
   ======================================================== */
@@ -1022,7 +1039,10 @@ export default function Page() {
                     setProfileDraft((p) => ({
                       ...p,
                       carrera: e.target.value,
-                      intensificacion: e.target.value === "Ingeniería Electrónica" ? p.intensificacion || "" : "",
+                      intensificacion:
+                        e.target.value === "Ingeniería Electrónica" && p.malla === "2023"
+                          ? p.intensificacion || ""
+                          : "",
                     }))
                   }
                   disabled={!profileEditMode}
@@ -1037,7 +1057,7 @@ export default function Page() {
                 <span className="muted">▼</span>
               </div>
             </div>
-            {profileDraft.carrera === "Ingeniería Electrónica" && (
+            {profileDraft.carrera === "Ingeniería Electrónica" && profileDraft.malla === "2023" && (
               <div className="smallRow">
                 <div className="smallKey">Intensificación:</div>
                 <div className="fakeInput fakeSelect">
@@ -1070,7 +1090,14 @@ export default function Page() {
                   className="profileSelect"
                   value={profileDraft.malla}
                   onChange={(e) =>
-                    setProfileDraft((p) => ({ ...p, malla: e.target.value }))
+                    setProfileDraft((p) => ({
+                      ...p,
+                      malla: e.target.value,
+                      intensificacion:
+                        p.carrera === "Ingeniería Electrónica" && e.target.value === "2023"
+                          ? p.intensificacion || ""
+                          : "",
+                    }))
                   }
                   disabled={!profileEditMode}
                 >
