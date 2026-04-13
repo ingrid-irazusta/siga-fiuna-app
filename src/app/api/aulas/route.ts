@@ -1,5 +1,12 @@
 export const dynamic = "force-dynamic";
 import { getSupabaseServer } from "@/lib/supabaseClient";
+type DiasData = Record<string, { cabeceras: any[]; filas: any[][] }>;
+
+let memoriaDias: DiasData | null = null;
+let memoriaUpdatedAt: string | null = null;
+let memoriaUltimaLectura = 0;
+
+const TTL_MS = 60 * 1000; // 1 minuto
 
 // --- Tipos ---
 interface EstadoInfo { icon: string; text: string; code: string; }
@@ -141,55 +148,102 @@ function getDiaKey(isoDate?: string): string {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const ahora = Date.now();
 
-    // Leer de Supabase
-    const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from("aulas_cache")
-      .select("dias, updated_at")
-      .single();
+    // 1. Usar memoria si todavía no venció
+    if (!memoriaDias || (ahora - memoriaUltimaLectura) > TTL_MS) {
+      console.log("🔄 Leyendo aulas_cache desde Supabase...");
 
-    if(error || !data?.dias) {
-      return Response.json({ok:false, error:"Sin datos de aulas en cache"}, {status:503});
+      const supabase = getSupabaseServer();
+      const { data, error } = await supabase
+        .from("aulas_cache")
+        .select("dias, updated_at")
+        .single();
+
+      if (error || !data?.dias) {
+        return Response.json(
+          { ok: false, error: "Sin datos de aulas en cache" },
+          { status: 503 }
+        );
+      }
+
+      memoriaDias = data.dias as DiasData;
+      memoriaUpdatedAt = data.updated_at ?? null;
+      memoriaUltimaLectura = ahora;
+
+      try {
+        console.log(
+          "📦 Tamaño dias:",
+          JSON.stringify(memoriaDias).length,
+          "bytes"
+        );
+      } catch {
+        console.log("📦 No se pudo medir el tamaño de dias");
+      }
+    } else {
+      console.log("⚡ Usando aulas desde memoria");
     }
 
-    const diasData = data.dias as Record<string, {cabeceras: any[]; filas: any[][]}>;
+    const diasData = memoriaDias;
 
-    // Determinar qué día consultar
+    if (!diasData) {
+      return Response.json(
+        { ok: false, error: "No hay datos en memoria" },
+        { status: 503 }
+      );
+    }
+
+    // 2. Determinar qué día consultar
     const diaKey = getDiaKey(body?.fecha);
     const diaData = diasData[diaKey];
 
-    // DEBUG: Log días disponibles
-    console.log("Días disponibles en cache:", Object.keys(diasData));
     console.log("Fecha solicitada:", body?.fecha);
     console.log("Día calculado:", diaKey);
 
-    if(!diaData) {
+    if (!diaData) {
       console.log("No hay datos para el día:", diaKey);
-      return Response.json({ok:false, error:`Sin datos para ${diaKey}`}, {status:404});
+      return Response.json(
+        { ok: false, error: `Sin datos para ${diaKey}` },
+        { status: 404 }
+      );
     }
 
-    console.log("Datos del día", diaKey, ":", diaData);
-
-    // Procesar lista de clases
-    if(Array.isArray(body?.classes)) {
+    // 3. Procesar lista de clases
+    if (Array.isArray(body?.classes)) {
       const results: Record<string, MatchResult> = {};
-      for(const item of body.classes) {
-        const key = String(item?.key||"");
+
+      for (const item of body.classes) {
+        const key = String(item?.key || "");
         const qMateria = normalizeText(item?.materia);
         const qSeccion = normalizeText(item?.seccion);
         const qTipo = normalizeText(item?.tipo);
         const qHora = normTime(item?.horaInicio);
-        console.log(`Buscando clase: key=${key}, materia=${qMateria}, seccion=${qSeccion}, tipo=${qTipo}, hora=${qHora}`);
+
+        console.log(
+          `Buscando clase: key=${key}, materia=${qMateria}, seccion=${qSeccion}, tipo=${qTipo}, hora=${qHora}`
+        );
+
         const match = matchEnDia(diaData, qMateria, qSeccion, qTipo, qHora);
         console.log(`Resultado para ${key}:`, match);
         results[key] = match;
       }
-      return Response.json({ok:true, fromCache:true, updatedAt: data.updated_at, results});
+
+      return Response.json({
+        ok: true,
+        fromCache: true,
+        updatedAt: memoriaUpdatedAt,
+        results,
+      });
     }
 
-    return Response.json({ok:false, error:"Formato incorrecto"}, {status:400});
-  } catch(e:any) {
-    return Response.json({ok:false, error:e?.message||"Error"}, {status:500});
+    return Response.json(
+      { ok: false, error: "Formato incorrecto" },
+      { status: 400 }
+    );
+  } catch (e: any) {
+    return Response.json(
+      { ok: false, error: e?.message || "Error" },
+      { status: 500 }
+    );
   }
 }
