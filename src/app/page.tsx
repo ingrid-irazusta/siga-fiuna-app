@@ -658,7 +658,6 @@ export default function Page() {
   const onGuardarPerfil = async () => {
     if (!userId) return;
 
-    // Validación de campos obligatorios
     if (
       !profileDraft.alumno ||
       !profileDraft.ci ||
@@ -674,42 +673,59 @@ export default function Page() {
     setSavingProfile(true);
     setToastProfile("");
 
-    const payload = {
-      user_id: userId,
-      alumno: profileDraft.alumno,
-      ci: profileDraft.ci,
-      carrera: profileDraft.carrera,
-      malla: profileDraft.malla,
-      ingreso: profileDraft.ingreso,
-      intensificacion: profileDraft.intensificacion || "",
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const supabase = getSupabase();
 
-    const supabase = getSupabase();
-    const { error } = await supabase
-      .from("user_profiles")
-      .update({
+      const payload = {
+        user_id: userId,
         alumno: profileDraft.alumno,
         ci: profileDraft.ci,
         carrera: profileDraft.carrera,
         malla: profileDraft.malla,
         ingreso: profileDraft.ingreso,
-        intensificacion: profileDraft.intensificacion || "",
+        intensificacion:
+          profileDraft.carrera === "Ingeniería Electrónica"
+            ? profileDraft.intensificacion || ""
+            : "",
         updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId);
+      };
 
-    if (error) {
-      setToastProfile("❌ No se pudo guardar el perfil");
-    } else {
-      setProfile(profileDraft);
+      const { error } = await supabase
+        .from("user_profiles")
+        .upsert(payload, { onConflict: "user_id" });
+
+      if (error) {
+        console.error("Error guardando perfil:", error);
+        setToastProfile(`❌ No se pudo guardar el perfil: ${error.message}`);
+        return;
+      }
+
+      setProfile({
+        ...profileDraft,
+        intensificacion:
+          profileDraft.carrera === "Ingeniería Electrónica"
+            ? profileDraft.intensificacion || ""
+            : "",
+      });
+
+      setProfileDraft((prev) => ({
+        ...prev,
+        intensificacion:
+          prev.carrera === "Ingeniería Electrónica"
+            ? prev.intensificacion || ""
+            : "",
+      }));
+
       setProfileEditMode(false);
       setProfileHasData(true);
       setToastProfile("✅ Datos guardados");
       setTimeout(() => setToastProfile(""), 2500);
+    } catch (e) {
+      console.error("Error inesperado guardando perfil:", e);
+      setToastProfile("❌ Error inesperado al guardar");
+    } finally {
+      setSavingProfile(false);
     }
-
-    setSavingProfile(false);
   };
 
   /* =======================================================
@@ -1037,10 +1053,10 @@ export default function Page() {
                     disabled={!profileEditMode}
                   >
                     <option value="">Selecciona tu intensificación</option>
-                    <option value="Telecomunicaciones">Telecomunicaciones</option>
-                    <option value="Control">Control</option>
-                    <option value="Potencia">Potencia</option>
-                    <option value="Electrónica General">Electrónica General</option>
+                    <option value="SPyC">SPyC</option>
+                    <option value="CiC">CiC</option>
+                    <option value="TICs">TICs</option>
+                    <option value="BiO">BiO</option>
                   </select>
                   <span className="muted">▼</span>
                 </div>
