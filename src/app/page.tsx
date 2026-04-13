@@ -29,6 +29,7 @@ type Profile = {
   carrera: string;
   malla: string;
   ingreso: string;
+  intensificacion?: string; // 👈 NUEVO
   user_id?: string;
 };
 
@@ -81,6 +82,7 @@ const DEFAULT_PROFILE: Profile = {
   carrera: "",
   malla: "",
   ingreso: "",
+  intensificacion: "", // 👈 NUEVO
 };
 
 /* =========================================================
@@ -142,7 +144,8 @@ function dayIdFromISO(iso: string): number {
 async function computeNotasKpis(
   userId: string,
   carrera: string,
-  plan: string = "2023"
+  plan: string = "2023",
+  intensificacion: string = ""
 ): Promise<{ promedioStr: string; aprobadas: number; total: number; progresoPct: number; faltan: number }> {
   try {
     const supabase = getSupabase();
@@ -154,9 +157,12 @@ async function computeNotasKpis(
     // Obtener la lista completa de materias desde la BD de malla (API interna)
     let materiasMallaSet = new Set<string>();
     try {
-      const r = await fetch(
-        `/api/malla?carrera=${encodeURIComponent(carrera || "")}&plan=${encodeURIComponent(plan)}`
-      );
+      const query =
+        carrera === "Ingeniería Electrónica"
+          ? `/api/malla?carrera=${encodeURIComponent(carrera || "")}&plan=${encodeURIComponent(plan)}&intensificacion=${encodeURIComponent(intensificacion || "")}`
+          : `/api/malla?carrera=${encodeURIComponent(carrera || "")}&plan=${encodeURIComponent(plan)}`;
+
+      const r = await fetch(query);
       const mdata = await r.json().catch(() => null);
       if (r.ok && mdata?.ok && Array.isArray(mdata.materias)) {
         for (const m of mdata.materias) {
@@ -397,17 +403,17 @@ export default function Page() {
   const [useTestDate, setUseTestDate] = useState(false);
   const [testDateISO, setTestDateISO] = useState("");
 
-    /* =======================================================
-      ESTADOS AULAS
-    ======================================================== */
-    const [aulasOn, setAulasOn] = useState(false);
-    const [aulasLoading, setAulasLoading] = useState(false);
-    const [aulasInfo, setAulasInfo] = useState<{ [key: string]: any }>({});
-    const [aulasError, setAulasError] = useState("");
-    // Elimina el estado del botón
-    const [aulasCountdown, setAulasCountdown] = useState(30);
+  /* =======================================================
+    ESTADOS AULAS
+  ======================================================== */
+  const [aulasOn, setAulasOn] = useState(false);
+  const [aulasLoading, setAulasLoading] = useState(false);
+  const [aulasInfo, setAulasInfo] = useState<{ [key: string]: any }>({});
+  const [aulasError, setAulasError] = useState("");
+  // Elimina el estado del botón
+  const [aulasCountdown, setAulasCountdown] = useState(30);
 
-  
+
   /* =======================================================
      EFECTO: AUTENTICACIÃ“N + CARGA PERFIL + EXÃMENES + NOTAS
   ======================================================== */
@@ -430,7 +436,7 @@ export default function Page() {
         /* --- cargar perfil desde Supabase --- */
         const { data: profileData } = await supabase
           .from("user_profiles")
-          .select("alumno, ci, carrera, malla, ingreso, user_id")
+          .select("alumno, ci, carrera, malla, ingreso, intensificacion, user_id")
           .eq("user_id", uid)
           .single();
 
@@ -472,7 +478,12 @@ export default function Page() {
         setNextExam(nextExamData);
 
         /* --- cargar KPIs de notas --- */
-        const kpis = await computeNotasKpis(uid, profileData?.carrera || "", profileData?.malla || DEFAULT_PROFILE.malla);
+        const kpis = await computeNotasKpis(
+          uid,
+          profileData?.carrera || "",
+          profileData?.malla || DEFAULT_PROFILE.malla,
+          profileData?.intensificacion || ""
+        );
         setNotasKpis(kpis);
 
       } catch (err) {
@@ -558,7 +569,12 @@ export default function Page() {
     let cancelled = false;
 
     const refreshKpis = async () => {
-      const kpis = await computeNotasKpis(userId, profile.carrera, profile.malla || DEFAULT_PROFILE.malla);
+      const kpis = await computeNotasKpis(
+        userId,
+        profile.carrera,
+        profile.malla || DEFAULT_PROFILE.malla,
+        profile.intensificacion || ""
+      );
       if (!cancelled) setNotasKpis(kpis);
     };
 
@@ -606,7 +622,7 @@ export default function Page() {
         cancelled = true;
       };
     }
-  }, [userId, profile.carrera]);
+  }, [userId, profile.carrera, profile.malla, profile.intensificacion]);
 
   /* =======================================================
      EFECTO: REFRESCAR PRÓXIMO EXAMEN CUANDO CAMBIEN EXÁMENES EN BD
@@ -643,7 +659,14 @@ export default function Page() {
     if (!userId) return;
 
     // Validación de campos obligatorios
-    if (!profileDraft.alumno || !profileDraft.ci || !profileDraft.carrera || !profileDraft.malla || !profileDraft.ingreso) {
+    if (
+      !profileDraft.alumno ||
+      !profileDraft.ci ||
+      !profileDraft.carrera ||
+      !profileDraft.malla ||
+      !profileDraft.ingreso ||
+      (profileDraft.carrera === "Ingeniería Electrónica" && !profileDraft.intensificacion)
+    ) {
       setToastProfile("❌ Por favor completa todos los campos");
       return;
     }
@@ -658,21 +681,23 @@ export default function Page() {
       carrera: profileDraft.carrera,
       malla: profileDraft.malla,
       ingreso: profileDraft.ingreso,
+      intensificacion: profileDraft.intensificacion || "",
       updated_at: new Date().toISOString(),
     };
 
-const supabase = getSupabase();
-const { error } = await supabase
-  .from("user_profiles")
-  .update({
-    alumno: profileDraft.alumno,
-    ci: profileDraft.ci,
-    carrera: profileDraft.carrera,
-    malla: profileDraft.malla,
-    ingreso: profileDraft.ingreso,
-    updated_at: new Date().toISOString(),
-  })
-  .eq("user_id", userId);
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from("user_profiles")
+      .update({
+        alumno: profileDraft.alumno,
+        ci: profileDraft.ci,
+        carrera: profileDraft.carrera,
+        malla: profileDraft.malla,
+        ingreso: profileDraft.ingreso,
+        intensificacion: profileDraft.intensificacion || "",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
 
     if (error) {
       setToastProfile("❌ No se pudo guardar el perfil");
@@ -747,7 +772,7 @@ const { error } = await supabase
      EFECTO: SUSCRIPCIÓN EN TIEMPO REAL DE AULAS
   ======================================================== */
   useEffect(() => {
-    if(userId && classesForDay.length > 0 && testDateISO) {
+    if (userId && classesForDay.length > 0 && testDateISO) {
       refreshAulas(); // Carga inicial
 
       // Suscripción a cambios en tiempo real
@@ -978,7 +1003,11 @@ const { error } = await supabase
                   className="profileSelect"
                   value={profileDraft.carrera}
                   onChange={(e) =>
-                    setProfileDraft((p) => ({ ...p, carrera: e.target.value }))
+                    setProfileDraft((p) => ({
+                      ...p,
+                      carrera: e.target.value,
+                      intensificacion: e.target.value === "Ingeniería Electrónica" ? p.intensificacion || "" : "",
+                    }))
                   }
                   disabled={!profileEditMode}
                 >
@@ -992,6 +1021,31 @@ const { error } = await supabase
                 <span className="muted">▼</span>
               </div>
             </div>
+            {profileDraft.carrera === "Ingeniería Electrónica" && (
+              <div className="smallRow">
+                <div className="smallKey">Intensificación:</div>
+                <div className="fakeInput fakeSelect">
+                  <select
+                    className="profileSelect"
+                    value={profileDraft.intensificacion || ""}
+                    onChange={(e) =>
+                      setProfileDraft((p) => ({
+                        ...p,
+                        intensificacion: e.target.value,
+                      }))
+                    }
+                    disabled={!profileEditMode}
+                  >
+                    <option value="">Selecciona tu intensificación</option>
+                    <option value="Telecomunicaciones">Telecomunicaciones</option>
+                    <option value="Control">Control</option>
+                    <option value="Potencia">Potencia</option>
+                    <option value="Electrónica General">Electrónica General</option>
+                  </select>
+                  <span className="muted">▼</span>
+                </div>
+              </div>
+            )}
 
             <div className="smallRow">
               <div className="smallKey">Malla:</div>
@@ -1069,7 +1123,7 @@ const { error } = await supabase
             {(() => {
               const currentDate = new Date(`${testDateISO}T00:00:00`);
               const isDomingo = currentDate.getDay() === 0;
-              
+
               return (
                 <>
                   <div style={{ marginBottom: 10 }}>
@@ -1211,8 +1265,8 @@ const { error } = await supabase
             <div className="bigDays">
               {nextExam
                 ? (nextExam.horasRestantes !== undefined
-                    ? `${nextExam.horasRestantes} horas`
-                    : `${nextExam.dias} días`)
+                  ? `${nextExam.horasRestantes} horas`
+                  : `${nextExam.dias} días`)
                 : "—"}
             </div>
             <div className="centerNote">
