@@ -64,7 +64,7 @@ function normalizeTipo(val?: string): "T" | "P" | "LAB" | "" {
   return "" as "";
 }
 
-function normalizeSemestre(val?: string): string {
+function normalizeSemestre(val?: string | null): string {
   return String(val || "")
     .trim()
     .toUpperCase()
