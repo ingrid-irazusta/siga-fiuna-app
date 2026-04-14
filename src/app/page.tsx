@@ -53,6 +53,7 @@ type CourseRow = {
   semestre: string;
   materia: string;
   firma: string;
+  tipos?: string[];
 };
 
 type ExamData = {
@@ -106,6 +107,7 @@ const DEFAULT_PROFILE: Profile = {
 function stripDiacritics(s?: string): string {
   return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
+
 
 function romanToArabicTokens(s: string): string {
   const map: Record<string, string> = {
@@ -468,7 +470,7 @@ export default function Page() {
         /* --- cargar materias desde Supabase --- */
         const { data: coursesData } = await supabase
           .from("student_courses")
-          .select("id, semestre, materia, firma")
+          .select("id, semestre, materia, firma, tipos")
           .eq("user_id", uid)
           .order("semestre", { ascending: true });
 
@@ -478,6 +480,7 @@ export default function Page() {
             semestre: String(c.semestre ?? ""),
             materia: c.materia ?? "",
             firma: c.firma ?? "",
+            tipos: Array.isArray(c.tipos) ? c.tipos : [],
           }));
           setCourses(loaded);
           setCoursesDraft(loaded);
@@ -850,7 +853,10 @@ export default function Page() {
   ======================================================== */
   // Materias en curso: edición amigable
   const addRow = () => {
-    setCoursesDraft((prev) => [...prev, { semestre: "", materia: "", firma: "" }]);
+    setCoursesDraft((prev) => [
+      ...prev,
+      { semestre: "", materia: "", firma: "", tipos: [] }
+    ]);
   };
 
   const updateRow = (idx: number, patch: Partial<CourseRow>) => {
@@ -861,6 +867,24 @@ export default function Page() {
 
   const removeRow = (idx: number) => {
     setCoursesDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const toggleTipo = (idx: number, tipo: string) => {
+    setCoursesDraft((prev) =>
+      prev.map((row, i) => {
+        if (i !== idx) return row;
+
+        const actuales = row.tipos || [];
+        const yaTiene = actuales.includes(tipo);
+
+        return {
+          ...row,
+          tipos: yaTiene
+            ? actuales.filter((t) => t !== tipo)
+            : [...actuales, tipo],
+        };
+      })
+    );
   };
 
   const onEditCourses = () => {
@@ -883,6 +907,7 @@ export default function Page() {
         semestre: String(c.semestre || "").trim() || null,
         materia: c.materia.trim(),
         firma: c.firma || null,
+        tipos: Array.isArray(c.tipos) ? c.tipos : [],
       }))
       .filter((c) => c.materia);
 
@@ -911,15 +936,17 @@ export default function Page() {
       );
     }
 
-    setCourses(clean.map((c, i) => ({
+    setCourses(clean.map((c) => ({
       ...c,
       semestre: String(c.semestre ?? ""),
-      firma: c.firma ? String(c.firma) : ""
+      firma: c.firma ? String(c.firma) : "",
+      tipos: Array.isArray(c.tipos) ? c.tipos : [],
     })));
-    setCoursesDraft(clean.map((c, i) => ({
+    setCoursesDraft(clean.map((c) => ({
       ...c,
       semestre: String(c.semestre ?? ""),
-      firma: c.firma ? String(c.firma) : ""
+      firma: c.firma ? String(c.firma) : "",
+      tipos: Array.isArray(c.tipos) ? c.tipos : [],
     })));
     setCoursesEditMode(false);
 
@@ -1408,13 +1435,41 @@ export default function Page() {
                           </td>
                           <td>
                             {coursesEditMode ? (
-                              <input
-                                className="fakeInput"
-                                value={c.materia}
-                                onChange={(e) =>
-                                  updateRow(idx, { materia: e.target.value })
-                                }
-                              />
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <input
+                                  className="fakeInput"
+                                  value={c.materia}
+                                  onChange={(e) =>
+                                    updateRow(idx, { materia: e.target.value })
+                                  }
+                                />
+
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                  {["T", "P", "LAB"].map((tipo) => {
+                                    const active = (c.tipos || []).includes(tipo);
+
+                                    return (
+                                      <button
+                                        key={tipo}
+                                        type="button"
+                                        onClick={() => toggleTipo(idx, tipo)}
+                                        style={{
+                                          minWidth: tipo === "LAB" ? 64 : 48,
+                                          padding: "8px 12px",
+                                          borderRadius: 12,
+                                          border: "1px solid var(--border)",
+                                          background: active ? "#22c55e" : "#f8fafc",
+                                          color: active ? "#ffffff" : "var(--text)",
+                                          fontWeight: 800,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        {tipo}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             ) : (
                               <span>{c.materia}</span>
                             )}
