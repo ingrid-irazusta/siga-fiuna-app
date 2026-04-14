@@ -23,7 +23,7 @@ let cache: CacheEntry = {
 function getBaseUrl(): string {
   return (
     process.env.MALLA_APPS_SCRIPT_URL ||
-    "https://script.google.com/macros/s/AKfycbxq_I1OqRrjHRqeDHe27RqmvCIUYTYDi7vgOzFLFVbAq_MdjMGPWTvjykZXJaDdglZHDw/exec"
+    "https://script.google.com/macros/s/AKfycbwpH_3jUNP2Im_7YImLwJeUo_5gE9hzOX4KVEA3qACN2cWMEp-BOTet1QBEae1ejMloxA/exec"
   );
 }
 
