@@ -1663,16 +1663,17 @@ export default function Page() {
               inset: 0,
               background: "rgba(15,23,42,0.45)",
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start", // 👈 clave
               justifyContent: "center",
               zIndex: 9999,
-              padding: 16,
+              padding: "60px 16px 20px 16px", // 👈 espacio arriba
+              overflowY: "auto", // 👈 por si es muy largo
             }}
           >
             <div
               style={{
-                width: "min(920px, 100%)",
-                maxHeight: "90vh",
+                width: "min(860px, 100%)", // 👈 un poco más compacto
+                maxHeight: "85vh", // 👈 evita que toque arriba/abajo
                 overflowY: "auto",
                 background: "#ffffff",
                 borderRadius: 18,
