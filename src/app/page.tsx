@@ -20,6 +20,21 @@ const CARRERAS = [
   "Ingeniería Civil",
 ];
 
+const SEMESTRE_OPTIONS = [
+  { value: "1°", label: "1°" },
+  { value: "2°", label: "2°" },
+  { value: "3°", label: "3°" },
+  { value: "4°", label: "4°" },
+  { value: "5°", label: "5°" },
+  { value: "6°", label: "6°" },
+  { value: "7°", label: "7°" },
+  { value: "8°", label: "8°" },
+  { value: "9°", label: "9°" },
+  { value: "10°", label: "10°" },
+  { value: "OPT", label: "OPT" },
+  { value: "COMPLE", label: "COMPLE" },
+];
+
 /* =========================================================
    TIPOS
 ========================================================= */
@@ -865,7 +880,7 @@ export default function Page() {
 
     const clean = coursesDraft
       .map((c) => ({
-        semestre: Number(c.semestre) || null,
+        semestre: String(c.semestre || "").trim() || null,
         materia: c.materia.trim(),
         firma: c.firma || null,
       }))
@@ -1307,9 +1322,11 @@ export default function Page() {
           <Card title={<span className="sectionLabel">⏳ PRÓXIMO EXAMEN</span>}>
             <div className="bigDays">
               {nextExam
-                ? (nextExam.horasRestantes !== undefined
-                  ? `${nextExam.horasRestantes} horas`
-                  : `${nextExam.dias} días`)
+                ? (
+                  nextExam.horasRestantes !== undefined
+                    ? `${nextExam.horasRestantes} ${nextExam.horasRestantes === 1 ? "hora" : "horas"}`
+                    : `${nextExam.dias} ${nextExam.dias === 1 ? "día" : "días"}`
+                )
                 : "—"}
             </div>
             <div className="centerNote">
@@ -1373,15 +1390,20 @@ export default function Page() {
                         <tr key={idx}>
                           <td>
                             {coursesEditMode ? (
-                              <input
+                              <select
                                 className="fakeInput"
                                 value={c.semestre}
-                                onChange={(e) =>
-                                  updateRow(idx, { semestre: e.target.value })
-                                }
-                              />
+                                onChange={(e) => updateRow(idx, { semestre: e.target.value })}
+                              >
+                                <option value="">Seleccionar</option>
+                                {SEMESTRE_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
                             ) : (
-                              <span>{c.semestre}</span>
+                              <span>{c.semestre || "—"}</span>
                             )}
                           </td>
                           <td>
