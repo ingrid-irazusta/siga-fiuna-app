@@ -425,75 +425,73 @@ export default function Page() {
   const [savingSuggestions, setSavingSuggestions] = useState(false);
 
   const saveSelectedClasses = async () => {
-  if (!userId) return;
+    if (!userId) return;
 
-  try {
-    setSavingSuggestions(true);
+    try {
+      setSavingSuggestions(true);
 
-    const selected = Object.entries(selectedSuggestions)
-      .filter(([_, v]) => v)
-      .map(([k]) => k);
+      const selected = Object.entries(selectedSuggestions)
+        .filter(([_, v]) => v)
+        .map(([k]) => k);
 
-    const classesToInsert: any[] = [];
+      const classesToInsert: any[] = [];
 
-    for (const group of suggestionsData.groups) {
-      for (const opt of group.options) {
-        if (!selected.includes(opt.tempId)) continue;
+      for (const group of suggestionsData.groups) {
+        for (const opt of group.options) {
+          if (!selected.includes(opt.tempId)) continue;
 
-        classesToInsert.push({
-          user_id: userId,
-          day_id: opt.day_id,
-          materia: opt.materia,
-          tipo: opt.tipo,
-          seccion: opt.seccion,
-          inicio: opt.inicio,
-          fin: opt.fin,
-          prof: opt.prof || null,
-        });
+          classesToInsert.push({
+            user_id: userId,
+            day_id: opt.day_id,
+            materia: opt.materia,
+            tipo: opt.tipo,
+            seccion: opt.seccion,
+            inicio: opt.inicio,
+            fin: opt.fin,
+            prof: opt.prof || null,
+          });
+        }
       }
-    }
 
-    const supabase = getSupabase();
+      const supabase = getSupabase();
 
-    const { data: existingClasses } = await supabase
-      .from("student_classes")
-      .select("materia, tipo, seccion, day_id, inicio, fin")
-      .eq("user_id", userId);
-
-    const newClasses = classesToInsert.filter((newCls) => {
-      return !(existingClasses || []).some((oldCls) =>
-        String(oldCls.materia || "").trim() === String(newCls.materia || "").trim() &&
-        String(oldCls.tipo || "").trim() === String(newCls.tipo || "").trim() &&
-        String(oldCls.seccion || "").trim() === String(newCls.seccion || "").trim() &&
-        Number(oldCls.day_id) === Number(newCls.day_id) &&
-        String(oldCls.inicio || "").trim() === String(newCls.inicio || "").trim() &&
-        String(oldCls.fin || "").trim() === String(newCls.fin || "").trim()
-      );
-    });
-
-    if (newClasses.length > 0) {
-      const { error } = await supabase
+      const { data: existingClasses } = await supabase
         .from("student_classes")
-        .insert(newClasses);
+        .select("materia, tipo, seccion, day_id, inicio, fin")
+        .eq("user_id", userId);
 
-      if (error) {
-        console.error(error);
-        return;
+      const newClasses = classesToInsert.filter((newCls) => {
+        return !(existingClasses || []).some((oldCls) =>
+          String(oldCls.materia || "").trim() === String(newCls.materia || "").trim() &&
+          String(oldCls.tipo || "").trim() === String(newCls.tipo || "").trim() &&
+          String(oldCls.seccion || "").trim() === String(newCls.seccion || "").trim() &&
+          Number(oldCls.day_id) === Number(newCls.day_id)
+        );
+      });
+
+      if (newClasses.length > 0) {
+        const { error } = await supabase
+          .from("student_classes")
+          .insert(newClasses);
+
+        if (error) {
+          console.error(error);
+          return;
+        }
       }
+
+      const dayId = dayIdFromISO(testDateISO);
+      const classes = await loadScheduleForDay(userId, dayId);
+      classes.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+      setClassesForDay(classes);
+
+      closeSuggestionsModal();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingSuggestions(false);
     }
-
-    const dayId = dayIdFromISO(testDateISO);
-    const classes = await loadScheduleForDay(userId, dayId);
-    classes.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
-    setClassesForDay(classes);
-
-    closeSuggestionsModal();
-  } catch (e) {
-    console.error(e);
-  } finally {
-    setSavingSuggestions(false);
-  }
-};
+  };
 
   /* =======================================================
      ESTADOS EXAMENES Y NOTAS
@@ -1047,9 +1045,7 @@ export default function Page() {
             String(cls.materia || "").trim() === String(opt.materia || "").trim() &&
             String(cls.tipo || "").trim() === String(opt.tipo || "").trim() &&
             String(cls.seccion || "").trim() === String(opt.seccion || "").trim() &&
-            Number(cls.day_id) === Number(opt.day_id) &&
-            String(cls.inicio || "").trim() === String(opt.inicio || "").trim() &&
-            String(cls.fin || "").trim() === String(opt.fin || "").trim()
+            Number(cls.day_id) === Number(opt.day_id)
           );
 
           initialSelected[opt.tempId] = alreadyExists;

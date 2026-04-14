@@ -74,20 +74,42 @@ function normalizeSemestre(val?: string | null): string {
     .replace(/\s+/g, "");
 }
 
-function normTime(s?: string): string {
+function normTimeLoose(s?: string): string {
   const raw = String(s || "").trim();
+  if (!raw) return "";
 
-  // Acepta formatos como 16:00, 16.00, 16;00, 16 00
-  const m = raw.match(/(\d{1,2})\s*[:.;,\s]\s*(\d{2})/);
-  if (!m) return "";
+  // 7:30 / 7.30 / 7;30 / 7 30 / 11:39:20
+  let m = raw.match(/^(\d{1,2})\s*[:.;,\s]\s*(\d{2})(?::\d{2})?$/);
+  if (m) {
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    }
+  }
 
-  const hh = Number(m[1]);
-  const mm = Number(m[2]);
+  // 730 / 929 / 1050
+  if (/^\d{3,4}$/.test(raw)) {
+    const h = raw.slice(0, -2);
+    const m2 = raw.slice(-2);
+    const hh = Number(h);
+    const mm = Number(m2);
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    }
+  }
 
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return "";
-  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return "";
+  // decimal tipo Sheets
+  const num = Number(raw);
+  if (!Number.isNaN(num) && num >= 0 && num < 1) {
+    const totalMinutes = Math.round(num * 24 * 60);
+    const hh = Math.floor(totalMinutes / 60);
+    const mm = totalMinutes % 60;
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  }
 
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  // si no se puede normalizar, devolver crudo
+  return raw;
 }
 
 function getDayId(dayKey: string): number {
@@ -102,6 +124,12 @@ function getDayId(dayKey: string): number {
     SÁBADO: 6,
   };
   return map[dayKey] || 0;
+}
+
+function prettifyDay(dayKey: string): string {
+  const t = String(dayKey || "").trim();
+  if (!t) return "";
+  return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
 }
 
 function pickColIndexes(cabeceras: any[]) {
@@ -163,7 +191,7 @@ export async function POST(req: Request) {
         if (!dayData?.filas?.length) continue;
 
         const cols = pickColIndexes(dayData.cabeceras || []);
-        if (cols.materia < 0 || cols.tipo < 0 || cols.seccion < 0) continue;
+        if (cols.materia < 0 || cols.tipo < 0) continue;
 
         const dayId = getDayId(normalizeText(dayKey));
         if (!dayId) continue;
@@ -181,34 +209,55 @@ export async function POST(req: Request) {
 
           if (qTipos.length > 0 && !qTipos.includes(tipo)) continue;
 
-          const seccion = String(row[cols.seccion] || "").trim();
-          const inicio = cols.horaInicio >= 0 ? normTime(row[cols.horaInicio]) : "";
-          const fin = cols.horaFin >= 0 ? normTime(row[cols.horaFin]) : "";
-          const prof = cols.docente >= 0 ? String(row[cols.docente] || "").trim() : "";
+          const seccion =
+            cols.seccion >= 0 ? String(row[cols.seccion] || "").trim() : "";
 
-          if (!seccion || !inicio || !fin) continue;
+          const inicioRaw =
+            cols.horaInicio >= 0 ? String(row[cols.horaInicio] || "").trim() : "";
+          const finRaw =
+            cols.horaFin >= 0 ? String(row[cols.horaFin] || "").trim() : "";
 
-          const dedupeKey = `${course.materia}|${tipo}|${seccion}|${dayId}|${inicio}|${fin}|${prof}`;
+          const inicio = normTimeLoose(inicioRaw) || "—";
+          const fin = normTimeLoose(finRaw) || "—";
+
+          const prof =
+            cols.docente >= 0 ? String(row[cols.docente] || "").trim() : "";
+
+          // No filtramos por sección.
+          // Solo evitamos duplicados idénticos de visualización.
+          const dedupeKey = [
+            qSemestre,
+            qMateria,
+            tipo,
+            seccion,
+            dayId,
+            inicio,
+            fin,
+            prof,
+          ].join("|");
+
           if (seen.has(dedupeKey)) continue;
           seen.add(dedupeKey);
 
           options.push({
-            tempId: `${dayId}-${tipo}-${seccion}-${inicio}-${fin}-${Math.random().toString(36).slice(2, 8)}`,
+            tempId: `${dayId}-${tipo}-${seccion || "SINSEC"}-${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
             day_id: dayId,
-            dia: dayKey.charAt(0) + dayKey.slice(1).toLowerCase(),
+            dia: prettifyDay(dayKey),
             materia: course.materia,
             tipo,
-            seccion,
+            seccion: seccion || "—",
             inicio,
             fin,
-            prof,
+            prof: prof || "—",
           });
         }
       }
 
       options.sort((a, b) => {
         if (a.day_id !== b.day_id) return a.day_id - b.day_id;
-        return a.inicio.localeCompare(b.inicio);
+        return String(a.inicio).localeCompare(String(b.inicio));
       });
 
       if (options.length) {
