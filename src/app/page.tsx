@@ -1564,6 +1564,7 @@ export default function Page() {
                               <span>{c.semestre || "—"}</span>
                             )}
                           </td>
+
                           <td>
                             {coursesEditMode ? (
                               <div style={{ display: "grid", gap: 8 }}>
@@ -1605,10 +1606,33 @@ export default function Page() {
                               <span>{c.materia}</span>
                             )}
                           </td>
+
                           <td>
-                            <button className="btn" onClick={onEditCourses}>
-                              ✎ Editar
-                            </button>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              {coursesEditMode ? (
+                                <>
+                                  <select
+                                    className="fakeInput"
+                                    value={c.firma}
+                                    onChange={(e) =>
+                                      updateRow(idx, { firma: e.target.value })
+                                    }
+                                  >
+                                    <option value="">—</option>
+                                    <option value="SI">SI</option>
+                                    <option value="NO">NO</option>
+                                  </select>
+                                  <button
+                                    className="btn"
+                                    onClick={() => removeRow(idx)}
+                                  >
+                                    ✕
+                                  </button>
+                                </>
+                              ) : (
+                                <span>{c.firma || "—"}</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
