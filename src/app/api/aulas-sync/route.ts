@@ -2,35 +2,50 @@ export const dynamic = "force-dynamic";
 import { getSupabaseServer } from "@/lib/supabaseClient";
 
 function normalizeHora(hora: any): string {
-  if (!hora) return "";
+  if (hora === null || hora === undefined) return "";
 
-  let str = String(hora).trim();
+  const str = String(hora).trim();
+  if (!str) return "";
 
-  // Caso 1: ya bien (7:30)
-  if (/^\d{1,2}:\d{2}$/.test(str)) return str;
+  // 7:30 / 7.30 / 7;30 / 7 30 / 11:39:20
+  let m = str.match(/^(\d{1,2})\s*[:.;,\s]\s*(\d{2})(?::\d{2})?$/);
+  if (m) {
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    }
+  }
 
-  // Caso 2: tipo 929 → 09:29
+  // 929 / 1050 / 730
   if (/^\d{3,4}$/.test(str)) {
     const h = str.slice(0, -2);
-    const m = str.slice(-2);
-    return `${h.padStart(2, "0")}:${m}`;
+    const m2 = str.slice(-2);
+    const hh = Number(h);
+    const mm = Number(m2);
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    }
   }
 
-  // Caso 3: tipo 11:39:20 → cortar segundos
-  if (/^\d{1,2}:\d{2}:\d{2}$/.test(str)) {
-    return str.slice(0, 5);
-  }
-
-  // Caso 4: número decimal de Google Sheets
+  // número decimal tipo Sheets
   const num = Number(str);
-  if (!isNaN(num)) {
+  if (!Number.isNaN(num) && num >= 0 && num < 1) {
     const totalMinutes = Math.round(num * 24 * 60);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    const hh = Math.floor(totalMinutes / 60);
+    const mm = totalMinutes % 60;
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   }
 
   return "";
+}
+function normalizeHeader(s?: any): string {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const SECRET = process.env.AULAS_SYNC_SECRET || "";
@@ -67,10 +82,11 @@ export async function POST(req: Request) {
         const filas = Array.isArray(data?.filas) ? data.filas : [];
 
         const idxHoraInicio = cabeceras.findIndex((h: any) =>
-          String(h || "").toUpperCase().includes("HORA INICIO")
+          normalizeHeader(h).includes("HORA INICIO")
         );
+
         const idxHoraFin = cabeceras.findIndex((h: any) =>
-          String(h || "").toUpperCase().includes("HORA FIN")
+          normalizeHeader(h).includes("HORA FIN")
         );
 
         const filasNormalizadas = filas.map((row: any[]) => {
