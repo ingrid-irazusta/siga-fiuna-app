@@ -918,6 +918,82 @@ export default function Page() {
     setSelectedSuggestions({});
   };
 
+  const openSuggestionsPreview = () => {
+    const demoData: SuggestionResponse = {
+      ok: true,
+      groups: [
+        {
+          materia: "Geodesia 2",
+          options: [
+            {
+              tempId: "geo2-t-a-lun",
+              day_id: 1,
+              dia: "Lunes",
+              materia: "Geodesia 2",
+              tipo: "T",
+              seccion: "A",
+              inicio: "07:00",
+              fin: "08:40",
+              prof: "Pérez",
+            },
+            {
+              tempId: "geo2-p-a-mie",
+              day_id: 3,
+              dia: "Miércoles",
+              materia: "Geodesia 2",
+              tipo: "P",
+              seccion: "A",
+              inicio: "09:00",
+              fin: "10:40",
+              prof: "Gómez",
+            },
+          ],
+        },
+        {
+          materia: "Hidrología",
+          options: [
+            {
+              tempId: "hidro-t-b-mar",
+              day_id: 2,
+              dia: "Martes",
+              materia: "Hidrología",
+              tipo: "T",
+              seccion: "B",
+              inicio: "18:00",
+              fin: "19:40",
+              prof: "López",
+            },
+            {
+              tempId: "hidro-p-b-jue",
+              day_id: 4,
+              dia: "Jueves",
+              materia: "Hidrología",
+              tipo: "P",
+              seccion: "B",
+              inicio: "18:00",
+              fin: "19:40",
+              prof: "Benítez",
+            },
+          ],
+        },
+      ],
+      missing: ["Fotogrametría 1"],
+    };
+
+    setSuggestionsData(demoData);
+
+    const initialSelected: Record<string, boolean> = {};
+    for (const group of demoData.groups) {
+      for (const opt of group.options) {
+        initialSelected[opt.tempId] = false;
+      }
+    }
+
+    setSelectedSuggestions(initialSelected);
+    setSuggestionsLoading(false);
+    setSuggestionModalOpen(true);
+  };
+
   const toggleTipo = (idx: number, tipo: string) => {
     setCoursesDraft((prev) =>
       prev.map((row, i) => {
@@ -1448,7 +1524,7 @@ export default function Page() {
                   </button>
                   <button
                     className="btn"
-                    onClick={() => setSuggestionModalOpen(true)}
+                    onClick={openSuggestionsPreview}
                   >
                     Probar modal
                   </button>
