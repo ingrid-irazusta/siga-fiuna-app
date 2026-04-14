@@ -918,80 +918,67 @@ export default function Page() {
     setSelectedSuggestions({});
   };
 
-  const openSuggestionsPreview = () => {
-    const demoData: SuggestionResponse = {
-      ok: true,
-      groups: [
-        {
-          materia: "Geodesia 2",
-          options: [
-            {
-              tempId: "geo2-t-a-lun",
-              day_id: 1,
-              dia: "Lunes",
-              materia: "Geodesia 2",
-              tipo: "T",
-              seccion: "A",
-              inicio: "07:00",
-              fin: "08:40",
-              prof: "Pérez",
-            },
-            {
-              tempId: "geo2-p-a-mie",
-              day_id: 3,
-              dia: "Miércoles",
-              materia: "Geodesia 2",
-              tipo: "P",
-              seccion: "A",
-              inicio: "09:00",
-              fin: "10:40",
-              prof: "Gómez",
-            },
-          ],
-        },
-        {
-          materia: "Hidrología",
-          options: [
-            {
-              tempId: "hidro-t-b-mar",
-              day_id: 2,
-              dia: "Martes",
-              materia: "Hidrología",
-              tipo: "T",
-              seccion: "B",
-              inicio: "18:00",
-              fin: "19:40",
-              prof: "López",
-            },
-            {
-              tempId: "hidro-p-b-jue",
-              day_id: 4,
-              dia: "Jueves",
-              materia: "Hidrología",
-              tipo: "P",
-              seccion: "B",
-              inicio: "18:00",
-              fin: "19:40",
-              prof: "Benítez",
-            },
-          ],
-        },
-      ],
-      missing: ["Fotogrametría 1"],
-    };
+  const openSuggestionsPreview = async (materias: CourseRow[]) => {
+    try {
+      setSuggestionsLoading(true);
+      setSuggestionModalOpen(true);
+      setSuggestionsData({
+        ok: false,
+        groups: [],
+        missing: [],
+      });
+      setSelectedSuggestions({});
 
-    setSuggestionsData(demoData);
+      const payload = {
+        materias: materias.map((m) => ({
+          semestre: m.semestre || "",
+          materia: m.materia || "",
+          tipos: Array.isArray(m.tipos) ? m.tipos : [],
+        })),
+      };
 
-    const initialSelected: Record<string, boolean> = {};
-    for (const group of demoData.groups) {
-      for (const opt of group.options) {
-        initialSelected[opt.tempId] = false;
+      const r = await fetch("/api/horario-sugerencias", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await r.json().catch(() => null);
+
+      if (!r.ok || !data?.ok) {
+        setSuggestionsData({
+          ok: false,
+          groups: [],
+          missing: materias.map((m) => m.materia).filter(Boolean),
+        });
+        return;
       }
-    }
 
-    setSelectedSuggestions(initialSelected);
-    setSuggestionsLoading(false);
-    setSuggestionModalOpen(true);
+      setSuggestionsData({
+        ok: true,
+        groups: Array.isArray(data.groups) ? data.groups : [],
+        missing: Array.isArray(data.missing) ? data.missing : [],
+      });
+
+      const initialSelected: Record<string, boolean> = {};
+      for (const group of data.groups || []) {
+        for (const opt of group.options || []) {
+          initialSelected[opt.tempId] = false;
+        }
+      }
+      setSelectedSuggestions(initialSelected);
+    } catch (error) {
+      console.error("Error loading suggestions:", error);
+      setSuggestionsData({
+        ok: false,
+        groups: [],
+        missing: materias.map((m) => m.materia).filter(Boolean),
+      });
+    } finally {
+      setSuggestionsLoading(false);
+    }
   };
 
   const toggleTipo = (idx: number, tipo: string) => {
@@ -1084,7 +1071,15 @@ export default function Page() {
     );
 
     if (clean.length > 0) {
-      openSuggestionsPreview();
+      await openSuggestionsPreview(
+        clean.map((c) => ({
+          id: "",
+          semestre: String(c.semestre ?? ""),
+          materia: c.materia,
+          firma: c.firma ? String(c.firma) : "",
+          tipos: Array.isArray(c.tipos) ? c.tipos : [],
+        }))
+      );
     }
 
     setTimeout(() => setToastCourses(""), 2500);
