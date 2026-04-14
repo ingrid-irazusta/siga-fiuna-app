@@ -1073,7 +1073,7 @@ export default function Page() {
       firma: c.firma ? String(c.firma) : "",
       tipos: Array.isArray(c.tipos) ? c.tipos : [],
     })));
-    setCoursesEditMode(false);
+
 
     setCoursesEditMode(false);
 
@@ -1606,31 +1606,9 @@ export default function Page() {
                             )}
                           </td>
                           <td>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              {coursesEditMode ? (
-                                <>
-                                  <select
-                                    className="fakeInput"
-                                    value={c.firma}
-                                    onChange={(e) =>
-                                      updateRow(idx, { firma: e.target.value })
-                                    }
-                                  >
-                                    <option value="">—</option>
-                                    <option value="SI">SI</option>
-                                    <option value="NO">NO</option>
-                                  </select>
-                                  <button
-                                    className="btn"
-                                    onClick={() => removeRow(idx)}
-                                  >
-                                    ✕
-                                  </button>
-                                </>
-                              ) : (
-                                <span>{c.firma || "—"}</span>
-                              )}
-                            </div>
+                            <button className="btn" onClick={onEditCourses}>
+                              ✎ Editar
+                            </button>
                           </td>
                         </tr>
                       ))}
