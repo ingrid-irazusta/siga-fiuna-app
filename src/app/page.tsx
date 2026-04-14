@@ -424,6 +424,71 @@ export default function Page() {
   const [selectedSuggestions, setSelectedSuggestions] = useState<Record<string, boolean>>({});
   const [savingSuggestions, setSavingSuggestions] = useState(false);
 
+  const saveSelectedClasses = async () => {
+    if (!userId) return;
+
+    try {
+      setSavingSuggestions(true);
+
+      const selected = Object.entries(selectedSuggestions)
+        .filter(([_, v]) => v)
+        .map(([k]) => k);
+
+      const classesToInsert: any[] = [];
+
+      for (const group of suggestionsData.groups) {
+        for (const opt of group.options) {
+          if (!selected.includes(opt.tempId)) continue;
+
+          classesToInsert.push({
+            user_id: userId,
+            day_id: opt.day_id,
+            materia: opt.materia,
+            tipo: opt.tipo,
+            seccion: opt.seccion,
+            inicio: opt.inicio,
+            fin: opt.fin,
+            prof: opt.prof || null,
+          });
+        }
+      }
+
+      if (classesToInsert.length === 0) {
+        setSavingSuggestions(false);
+        return;
+      }
+
+      const supabase = getSupabase();
+
+      // 🔥 Limpia horario antes (opcional pero recomendado)
+      await supabase
+        .from("student_classes")
+        .delete()
+        .eq("user_id", userId);
+
+      const { error } = await supabase
+        .from("student_classes")
+        .insert(classesToInsert);
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      // refrescar horario
+      const dayId = dayIdFromISO(testDateISO);
+      const classes = await loadScheduleForDay(userId, dayId);
+      classes.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+      setClassesForDay(classes);
+
+      closeSuggestionsModal();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingSuggestions(false);
+    }
+  };
+
   /* =======================================================
      ESTADOS EXAMENES Y NOTAS
   ======================================================== */
@@ -1836,9 +1901,10 @@ export default function Page() {
 
                 <button
                   className="btn btnPrimary"
+                  onClick={saveSelectedClasses}
                   disabled={savingSuggestions}
                 >
-                  {savingSuggestions ? "Guardando..." : "Guardar seleccionadas en mi horario"}
+                  {savingSuggestions ? "Guardando..." : "Guardar en Horario de Clases"}
                 </button>
               </div>
             </div>
