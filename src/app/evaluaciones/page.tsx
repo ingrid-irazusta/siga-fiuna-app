@@ -115,10 +115,9 @@ function formatLongES(dateYMD: string): string {
   return `${capFirst(weekday)} ${day} de ${month} del ${year}`;
 }
 
-function daysDiffFromToday(dt: Date): number {
-  const now = new Date();
-  const a = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const b = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+function daysDiffFromDate(base: Date, target: Date): number {
+  const a = new Date(base.getFullYear(), base.getMonth(), base.getDate()).getTime();
+  const b = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
   return Math.round((b - a) / 86400000);
 }
 
@@ -194,15 +193,15 @@ export default function EvaluacionesPage(): React.ReactNode {
     const loadExams = async () => {
       try {
         const supabase = getSupabase();
-        
+
         // Cargar cursos desde student_courses
         const { data: coursesData } = await supabase
           .from("student_courses")
           .select("id, materia")
           .eq("user_id", userId);
-        
+
         const courses = coursesData ? coursesData.map(c => c.materia) : [];
-        
+
         // Cargar exámenes desde student_exams
         const { data: exams } = await supabase
           .from("student_exams")
@@ -354,7 +353,7 @@ export default function EvaluacionesPage(): React.ReactNode {
     const saveToDB = async () => {
       try {
         const supabase = getSupabase();
-        
+
         // Construir lista de exámenes a insertar
         const examsToInsert = [];
         for (const row of rows) {
@@ -387,13 +386,13 @@ export default function EvaluacionesPage(): React.ReactNode {
         );
 
         // Solo actualizar si hay diferencias
-        if (currentSet.size !== newSet.size || 
-            ![...currentSet].every(item => newSet.has(item))) {
+        if (currentSet.size !== newSet.size ||
+          ![...currentSet].every(item => newSet.has(item))) {
           // Eliminar solo los que ya no existen
           const toDelete = (currentExams || []).filter(
             e => !newSet.has(`${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
           );
-          
+
           if (toDelete.length > 0) {
             for (const exam of toDelete) {
               await supabase.from("student_exams").delete().eq("id", exam.id);
@@ -420,7 +419,7 @@ export default function EvaluacionesPage(): React.ReactNode {
     // También guardar en localStorage para compatibilidad
     try {
       localStorage.setItem(EVAL_KEY, JSON.stringify(rows));
-      try { window.dispatchEvent(new Event("fiuna_evaluaciones_updated")); } catch {}
+      try { window.dispatchEvent(new Event("fiuna_evaluaciones_updated")); } catch { }
     } catch {
       // ignore
     }
@@ -469,11 +468,13 @@ export default function EvaluacionesPage(): React.ReactNode {
 
         let estado = "—";
         let dias: number | null = null;
+
         if (clientNow) {
-          dias = Math.floor((dt.getTime() - clientNow.getTime()) / (1000 * 60 * 60 * 24));
-          if (dias === 0) estado = "🟡 Hoy";
+          dias = daysDiffFromDate(clientNow, dt);
+
+          if (dias < 0) estado = "✅ Finalizado";
+          else if (dias === 0) estado = "🟡 Hoy";
           else if (dias === 1) estado = "🟠 Mañana";
-          else if (dias < 0) estado = "✅ Finalizado";
           else estado = `${dias} días`;
         }
 
