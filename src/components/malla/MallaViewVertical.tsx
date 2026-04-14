@@ -6,7 +6,7 @@ import { calcEstados, normText, parseRequisitos, isPlaceholderReq } from "./util
 import { getSupabase } from "../../lib/supabaseClient";
 
 const PROFILE_KEY = "fiuna_os_profile_v1";
-const MALLA_CACHE_PREFIX = "fiuna_os_malla_cache_v1";
+const MALLA_CACHE_PREFIX = "fiuna_os_malla_cache_v2";
 const LOCAL_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
 interface MateriaItem {
