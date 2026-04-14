@@ -73,9 +73,19 @@ function normalizeSemestre(val?: string | null): string {
 }
 
 function normTime(s?: string): string {
-  const m = String(s || "").match(/(\d{1,2})[:.](\d{2})/);
+  const raw = String(s || "").trim();
+
+  // Acepta formatos como 16:00, 16.00, 16;00, 16 00
+  const m = raw.match(/(\d{1,2})\s*[:.;,\s]\s*(\d{2})/);
   if (!m) return "";
-  return `${m[1].padStart(2, "0")}:${m[2]}`;
+
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return "";
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return "";
+
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
 function getDayId(dayKey: string): number {
