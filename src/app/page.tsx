@@ -1927,7 +1927,7 @@ export default function Page() {
                   onClick={saveSelectedClasses}
                   disabled={savingSuggestions}
                 >
-                  {savingSuggestions ? "Guardando..." : "Guardar en Horario de Clases"}
+                  {savingSuggestions ? "Guardando..." : "Guardar Horario de Clases"}
                 </button>
               </div>
             </div>
