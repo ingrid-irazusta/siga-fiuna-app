@@ -83,6 +83,29 @@ type ClassRow = {
   profesor?: string;
 };
 
+type SuggestedClass = {
+  tempId: string;
+  day_id: number;
+  dia: string;
+  materia: string;
+  tipo: "T" | "P" | "LAB";
+  seccion: string;
+  inicio: string;
+  fin: string;
+  prof?: string;
+};
+
+type SuggestionGroup = {
+  materia: string;
+  options: SuggestedClass[];
+};
+
+type SuggestionResponse = {
+  ok: boolean;
+  groups: SuggestionGroup[];
+  missing: string[];
+};
+
 type AcademicEvent = {
   id?: string;
   fecha: string;
@@ -391,6 +414,15 @@ export default function Page() {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [toastCourses, setToastCourses] = useState("");
   const [coursesEditMode, setCoursesEditMode] = useState(false);
+  const [suggestionModalOpen, setSuggestionModalOpen] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsData, setSuggestionsData] = useState<SuggestionResponse>({
+    ok: false,
+    groups: [],
+    missing: [],
+  });
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Record<string, boolean>>({});
+  const [savingSuggestions, setSavingSuggestions] = useState(false);
 
   /* =======================================================
      ESTADOS EXAMENES Y NOTAS
@@ -867,6 +899,23 @@ export default function Page() {
 
   const removeRow = (idx: number) => {
     setCoursesDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+  const toggleSuggestedClass = (tempId: string) => {
+    setSelectedSuggestions((prev) => ({
+      ...prev,
+      [tempId]: !prev[tempId],
+    }));
+  };
+
+  const closeSuggestionsModal = () => {
+    setSuggestionModalOpen(false);
+    setSuggestionsLoading(false);
+    setSuggestionsData({
+      ok: false,
+      groups: [],
+      missing: [],
+    });
+    setSelectedSuggestions({});
   };
 
   const toggleTipo = (idx: number, tipo: string) => {
@@ -1393,9 +1442,17 @@ export default function Page() {
                   </button>
                 </div>
               ) : (
-                <button className="btn" onClick={onEditCourses}>
-                  ✎ Editar
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn" onClick={onEditCourses}>
+                    ✎ Editar
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setSuggestionModalOpen(true)}
+                  >
+                    Probar modal
+                  </button>
+                </div>
               )
             }
           >
@@ -1523,6 +1580,198 @@ export default function Page() {
           </Card>
         </div>
 
+        {suggestionModalOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+              padding: 16,
+            }}
+          >
+            <div
+              style={{
+                width: "min(920px, 100%)",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                background: "#ffffff",
+                borderRadius: 18,
+                boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+                border: "1px solid rgba(15,23,42,0.08)",
+              }}
+            >
+              <div
+                style={{
+                  padding: "18px 20px",
+                  borderBottom: "1px solid rgba(15,23,42,0.08)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18 }}>
+                    Clases encontradas en la distribución
+                  </div>
+                  <div style={{ fontSize: 13, color: "rgba(15,23,42,0.65)", marginTop: 4 }}>
+                    Selecciona las clases que corresponden a tu horario.
+                  </div>
+                </div>
+
+                <button
+                  className="btn"
+                  onClick={closeSuggestionsModal}
+                  disabled={savingSuggestions}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ padding: 20, display: "grid", gap: 18 }}>
+                {suggestionsLoading ? (
+                  <div className="muted">Buscando coincidencias en la distribución...</div>
+                ) : (
+                  <>
+                    {suggestionsData.groups.length === 0 && suggestionsData.missing.length === 0 ? (
+                      <div className="muted">
+                        Aún no hay resultados para mostrar.
+                      </div>
+                    ) : null}
+
+                    {suggestionsData.groups.map((group) => (
+                      <div
+                        key={group.materia}
+                        style={{
+                          border: "1px solid rgba(15,23,42,0.08)",
+                          borderRadius: 14,
+                          padding: 14,
+                          display: "grid",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ fontWeight: 900, fontSize: 16 }}>
+                          {group.materia}
+                        </div>
+
+                        <div style={{ display: "grid", gap: 10 }}>
+                          {group.options.map((opt) => {
+                            const checked = Boolean(selectedSuggestions[opt.tempId]);
+
+                            return (
+                              <label
+                                key={opt.tempId}
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "22px 1fr",
+                                  gap: 12,
+                                  alignItems: "start",
+                                  padding: 12,
+                                  borderRadius: 12,
+                                  border: checked
+                                    ? "1px solid rgba(34,197,94,0.45)"
+                                    : "1px solid rgba(15,23,42,0.08)",
+                                  background: checked
+                                    ? "rgba(34,197,94,0.08)"
+                                    : "#ffffff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleSuggestedClass(opt.tempId)}
+                                  style={{ marginTop: 2 }}
+                                />
+
+                                <div style={{ display: "grid", gap: 4 }}>
+                                  <div style={{ fontWeight: 800 }}>
+                                    {opt.tipo} — Sec. {opt.seccion} — {opt.dia}
+                                  </div>
+                                  <div className="metaLine" style={{ gap: 12, flexWrap: "wrap" }}>
+                                    <span>⏰ {opt.inicio} - {opt.fin}</span>
+                                    <span>👤 {opt.prof || "—"}</span>
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+
+                    {suggestionsData.missing.length > 0 && (
+                      <div
+                        style={{
+                          border: "1px dashed rgba(180,83,9,0.35)",
+                          background: "rgba(251,191,36,0.10)",
+                          borderRadius: 14,
+                          padding: 14,
+                          display: "grid",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ fontWeight: 900 }}>
+                          Aún no encontradas en la distribución
+                        </div>
+                        <div className="muted" style={{ fontSize: 13 }}>
+                          Algunas materias todavía no aparecen en la distribución actual. Puedes intentarlo de nuevo después.
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {suggestionsData.missing.map((materia) => (
+                            <span
+                              key={materia}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 999,
+                                background: "#ffffff",
+                                border: "1px solid rgba(15,23,42,0.08)",
+                                fontWeight: 700,
+                                fontSize: 13,
+                              }}
+                            >
+                              {materia}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderTop: "1px solid rgba(15,23,42,0.08)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  className="btn"
+                  onClick={closeSuggestionsModal}
+                  disabled={savingSuggestions}
+                >
+                  Cerrar por ahora
+                </button>
+
+                <button
+                  className="btn btnPrimary"
+                  disabled={savingSuggestions}
+                >
+                  {savingSuggestions ? "Guardando..." : "Guardar seleccionadas en mi horario"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
