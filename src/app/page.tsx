@@ -1075,11 +1075,17 @@ export default function Page() {
     })));
     setCoursesEditMode(false);
 
+    setCoursesEditMode(false);
+
     setToastCourses(
       clean.length
         ? `Guardado (${clean.length} materias)`
         : "No hay materias para guardar"
     );
+
+    if (clean.length > 0) {
+      openSuggestionsPreview();
+    }
 
     setTimeout(() => setToastCourses(""), 2500);
   };
@@ -1518,17 +1524,9 @@ export default function Page() {
                   </button>
                 </div>
               ) : (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn" onClick={onEditCourses}>
-                    ✎ Editar
-                  </button>
-                  <button
-                    className="btn"
-                    onClick={openSuggestionsPreview}
-                  >
-                    Probar modal
-                  </button>
-                </div>
+                <button className="btn" onClick={onEditCourses}>
+                  ✎ Editar
+                </button>
               )
             }
           >
