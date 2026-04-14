@@ -58,10 +58,12 @@ function normalizeText(s?: string): string {
 function normalizeTipo(val?: string): "T" | "P" | "LAB" | "" {
   const t = normalizeText(val);
   if (!t) return "";
-  if (t === "T" || t.startsWith("TEO")) return "T";
-  if (t === "P" || t.startsWith("PRA")) return "P";
+
+  if (t === "T" || t.startsWith("TEO") || t.includes("TEORIA")) return "T";
+  if (t === "P" || t.startsWith("PRA") || t.includes("PRACT")) return "P";
   if (t === "LAB" || t.startsWith("LAB")) return "LAB";
-  return "" as "";
+
+  return "";
 }
 
 function normalizeSemestre(val?: string | null): string {
@@ -170,10 +172,9 @@ export async function POST(req: Request) {
           const mat = normalizeText(row[cols.materia]);
           if (!mat || mat !== qMateria) continue;
 
-          if (cols.semestre >= 0 && qSemestre) {
-            const sem = normalizeSemestre(row[cols.semestre]);
-            if (sem && sem !== qSemestre) continue;
-          }
+          const sem = cols.semestre >= 0 ? normalizeSemestre(row[cols.semestre]) : "";
+          const semestreCoincide = !qSemestre || !sem || sem === qSemestre;
+          if (!semestreCoincide) continue;
 
           const tipo = normalizeTipo(row[cols.tipo]);
           if (!tipo) continue;

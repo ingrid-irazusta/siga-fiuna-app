@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       // ignore
     }
 
-        const diasNormalizados = Object.fromEntries(
+    const diasNormalizados = Object.fromEntries(
       Object.entries(body.dias).map(([dia, data]: [string, any]) => {
         const cabeceras = Array.isArray(data?.cabeceras) ? data.cabeceras : [];
         const filas = Array.isArray(data?.filas) ? data.filas : [];
@@ -97,7 +97,11 @@ export async function POST(req: Request) {
         ];
       })
     );
-
+    console.log("=== DIAS NORMALIZADOS SAMPLE ===");
+    for (const [dia, data] of Object.entries(diasNormalizados)) {
+      const filas = Array.isArray((data as any)?.filas) ? (data as any).filas : [];
+      console.log(dia, filas.slice(0, 5));
+    }
     const supabase = getSupabaseServer();
     const res = await supabase
       .from("aulas_cache")
