@@ -72,14 +72,6 @@ function safeParse(raw: string | null): unknown {
   }
 }
 
-function todayYMD(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function parseDateTime(dateYMD: string, timeHM?: string): Date | null {
   if (!dateYMD) return null;
   const t = (timeHM || "00:00").trim();
@@ -87,13 +79,6 @@ function parseDateTime(dateYMD: string, timeHM?: string): Date | null {
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return null;
   return dt;
-}
-
-function formatDMY(dateYMD: string): string {
-  if (!dateYMD) return "";
-  const [y, m, d] = dateYMD.split("-");
-  if (!y || !m || !d) return dateYMD;
-  return `${d}/${m}/${y}`;
 }
 
 function capFirst(s: string | null | undefined): string {
@@ -122,6 +107,7 @@ function daysDiffFromDate(base: Date, target: Date): number {
 }
 
 function buildFromInicioCourses(): Row[] {
+  if (typeof window === "undefined") return [];
   const raw = localStorage.getItem(CURRENT_COURSES_KEY);
   const arr = safeParse(raw) as Course[] | null;
   const list = Array.isArray(arr) ? arr : [];
@@ -146,10 +132,12 @@ export default function EvaluacionesPage(): React.ReactNode {
   const [rows, setRows] = useState<Row[]>([]);
   const [loaded, setLoaded] = useState<boolean>(false);
 
-  const [openMateria, setOpenMateria] = useState<string | null>(null);
-  const [showFinal3, setShowFinal3] = useState<{ [key: string]: boolean }>({});
   const [showEditor, setShowEditor] = useState<boolean>(false);
   const [pdfBusy, setPdfBusy] = useState<boolean>(false);
+  const [savingEditor, setSavingEditor] = useState<boolean>(false);
+
+  const [editorRows, setEditorRows] = useState<Row[]>([]);
+  const [editorShowFinal3, setEditorShowFinal3] = useState<{ [key: string]: boolean }>({});
 
   const [clientNow, setClientNow] = useState<Date | null>(null);
 
@@ -157,7 +145,6 @@ export default function EvaluacionesPage(): React.ReactNode {
     setClientNow(new Date());
   }, []);
 
-  // Autenticación
   useEffect(() => {
     const loadSession = async () => {
       const supabase = getSupabase();
@@ -186,7 +173,6 @@ export default function EvaluacionesPage(): React.ReactNode {
     };
   }, [router]);
 
-  // Cargar exámenes desde Supabase
   useEffect(() => {
     if (!userId) return;
 
@@ -194,22 +180,20 @@ export default function EvaluacionesPage(): React.ReactNode {
       try {
         const supabase = getSupabase();
 
-        // Cargar cursos desde student_courses
         const { data: coursesData } = await supabase
           .from("student_courses")
           .select("id, materia")
           .eq("user_id", userId);
 
-        const courses = coursesData ? coursesData.map(c => c.materia) : [];
+        const courses = coursesData ? coursesData.map((c) => c.materia) : [];
 
-        // Cargar exámenes desde student_exams
         const { data: exams } = await supabase
           .from("student_exams")
           .select("materia, tipo, fecha, hora")
           .eq("user_id", userId);
 
-        // Crear filas para todas las materias en curso
         const rowMap = new Map<string, Row>();
+
         for (const materia of courses) {
           rowMap.set(materia, {
             materia,
@@ -221,12 +205,10 @@ export default function EvaluacionesPage(): React.ReactNode {
           });
         }
 
-        // Rellenar con exámenes existentes
         if (exams && exams.length > 0) {
           for (const exam of exams) {
             const materia = exam.materia;
             if (!rowMap.has(materia)) {
-              // Si hay examen para materia no en cursos, agregarla
               rowMap.set(materia, {
                 materia,
                 p1: { fecha: "", hora: "" },
@@ -237,7 +219,7 @@ export default function EvaluacionesPage(): React.ReactNode {
               });
             }
             const row = rowMap.get(materia)!;
-            const typeKey = TYPES.find(t => t.label === exam.tipo)?.key;
+            const typeKey = TYPES.find((t) => t.label === exam.tipo)?.key;
             if (typeKey) {
               (row as any)[typeKey] = { fecha: exam.fecha, hora: exam.hora };
             }
@@ -247,7 +229,6 @@ export default function EvaluacionesPage(): React.ReactNode {
         setRows(Array.from(rowMap.values()));
       } catch (error) {
         console.error("Error loading exams:", error);
-        // Fallback vacío si hay error
         setRows([]);
       } finally {
         setLoaded(true);
@@ -257,7 +238,6 @@ export default function EvaluacionesPage(): React.ReactNode {
     loadExams();
   }, [userId]);
 
-  // Suscripción en tiempo real
   useEffect(() => {
     if (!userId) return;
 
@@ -272,43 +252,58 @@ export default function EvaluacionesPage(): React.ReactNode {
           table: "student_exams",
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          console.log("Real-time exam update:", payload);
-          // Recargar exámenes
-          const loadExams = async () => {
-            try {
-              const { data: exams } = await supabase
-                .from("student_exams")
-                .select("materia, tipo, fecha, hora")
-                .eq("user_id", userId);
+        async () => {
+          try {
+            const { data: coursesData } = await supabase
+              .from("student_courses")
+              .select("id, materia")
+              .eq("user_id", userId);
 
-              if (exams && exams.length > 0) {
-                const rowMap = new Map<string, Row>();
-                for (const exam of exams) {
-                  const materia = exam.materia;
-                  if (!rowMap.has(materia)) {
-                    rowMap.set(materia, {
-                      materia,
-                      p1: { fecha: "", hora: "" },
-                      p2: { fecha: "", hora: "" },
-                      f1: { fecha: "", hora: "" },
-                      f2: { fecha: "", hora: "" },
-                      f3: { fecha: "", hora: "" },
-                    });
-                  }
-                  const row = rowMap.get(materia)!;
-                  const typeKey = TYPES.find(t => t.label === exam.tipo)?.key;
-                  if (typeKey) {
-                    (row as any)[typeKey] = { fecha: exam.fecha, hora: exam.hora };
-                  }
-                }
-                setRows(Array.from(rowMap.values()));
-              }
-            } catch (error) {
-              console.error("Error reloading exams:", error);
+            const courses = coursesData ? coursesData.map((c) => c.materia) : [];
+
+            const { data: exams } = await supabase
+              .from("student_exams")
+              .select("materia, tipo, fecha, hora")
+              .eq("user_id", userId);
+
+            const rowMap = new Map<string, Row>();
+
+            for (const materia of courses) {
+              rowMap.set(materia, {
+                materia,
+                p1: { fecha: "", hora: "" },
+                p2: { fecha: "", hora: "" },
+                f1: { fecha: "", hora: "" },
+                f2: { fecha: "", hora: "" },
+                f3: { fecha: "", hora: "" },
+              });
             }
-          };
-          loadExams();
+
+            if (exams && exams.length > 0) {
+              for (const exam of exams) {
+                const materia = exam.materia;
+                if (!rowMap.has(materia)) {
+                  rowMap.set(materia, {
+                    materia,
+                    p1: { fecha: "", hora: "" },
+                    p2: { fecha: "", hora: "" },
+                    f1: { fecha: "", hora: "" },
+                    f2: { fecha: "", hora: "" },
+                    f3: { fecha: "", hora: "" },
+                  });
+                }
+                const row = rowMap.get(materia)!;
+                const typeKey = TYPES.find((t) => t.label === exam.tipo)?.key;
+                if (typeKey) {
+                  (row as any)[typeKey] = { fecha: exam.fecha, hora: exam.hora };
+                }
+              }
+            }
+
+            setRows(Array.from(rowMap.values()));
+          } catch (error) {
+            console.error("Error reloading exams:", error);
+          }
         }
       )
       .subscribe();
@@ -347,85 +342,6 @@ export default function EvaluacionesPage(): React.ReactNode {
   }, [loaded]);
 
   useEffect(() => {
-    if (!loaded || !userId) return;
-
-    // Guardar en Supabase
-    const saveToDB = async () => {
-      try {
-        const supabase = getSupabase();
-
-        // Construir lista de exámenes a insertar
-        const examsToInsert = [];
-        for (const row of rows) {
-          for (const t of TYPES) {
-            const cell = row[t.key as keyof Row] as EvalCell;
-            if (cell.fecha) {
-              examsToInsert.push({
-                user_id: userId,
-                materia: row.materia,
-                tipo: t.label,
-                fecha: cell.fecha,
-                hora: cell.hora || "",
-              });
-            }
-          }
-        }
-
-        // Obtener exámenes actuales en la BD
-        const { data: currentExams } = await supabase
-          .from("student_exams")
-          .select("id, materia, tipo, fecha, hora")
-          .eq("user_id", userId);
-
-        // Comparar y solo actualizar si hay cambios
-        const currentSet = new Set(
-          (currentExams || []).map(e => `${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
-        );
-        const newSet = new Set(
-          examsToInsert.map(e => `${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
-        );
-
-        // Solo actualizar si hay diferencias
-        if (currentSet.size !== newSet.size ||
-          ![...currentSet].every(item => newSet.has(item))) {
-          // Eliminar solo los que ya no existen
-          const toDelete = (currentExams || []).filter(
-            e => !newSet.has(`${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
-          );
-
-          if (toDelete.length > 0) {
-            for (const exam of toDelete) {
-              await supabase.from("student_exams").delete().eq("id", exam.id);
-            }
-          }
-
-          // Insertar nuevos exámenes
-          if (examsToInsert.length > 0) {
-            const toInsert = examsToInsert.filter(
-              e => !currentSet.has(`${e.materia}|${e.tipo}|${e.fecha}|${e.hora}`)
-            );
-            if (toInsert.length > 0) {
-              await supabase.from("student_exams").insert(toInsert);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error saving exams to DB:", error);
-      }
-    };
-
-    saveToDB();
-
-    // También guardar en localStorage para compatibilidad
-    try {
-      localStorage.setItem(EVAL_KEY, JSON.stringify(rows));
-      try { window.dispatchEvent(new Event("fiuna_evaluaciones_updated")); } catch { }
-    } catch {
-      // ignore
-    }
-  }, [rows, loaded, userId]);
-
-  useEffect(() => {
     if (!loaded) return;
     try {
       localStorage.setItem(EVAL_EDITOR_OPEN_KEY, showEditor ? "1" : "0");
@@ -444,15 +360,126 @@ export default function EvaluacionesPage(): React.ReactNode {
     );
   };
 
-  const toggleOpen = (materia: string): void => {
-    setOpenMateria((cur) => (cur === materia ? null : materia));
-  };
-
   const materiaHasAnyData = (r: Row): boolean => {
     return TYPES.some((t) => {
       const c = r?.[t.key as keyof Row] as EvalCell | undefined;
       return Boolean((c?.fecha || "").trim() || (c?.hora || "").trim());
     });
+  };
+
+  const openEditorModal = (): void => {
+    const cloned = rows.map((r) => ({
+      materia: r.materia,
+      p1: { ...r.p1 },
+      p2: { ...r.p2 },
+      f1: { ...r.f1 },
+      f2: { ...r.f2 },
+      f3: { ...r.f3 },
+    }));
+
+    const initialShowFinal3: { [key: string]: boolean } = {};
+    cloned.forEach((r) => {
+      initialShowFinal3[r.materia] = Boolean(
+        (r.f3?.fecha || "").trim() || (r.f3?.hora || "").trim()
+      );
+    });
+
+    setEditorRows(cloned);
+    setEditorShowFinal3(initialShowFinal3);
+    setShowEditor(true);
+  };
+
+  const closeEditorModal = (): void => {
+    if (savingEditor) return;
+    setShowEditor(false);
+  };
+
+  const setEditorCell = (
+    materia: string,
+    typeKey: string,
+    field: keyof EvalCell,
+    value: string
+  ): void => {
+    setEditorRows((prev) =>
+      prev.map((r) => {
+        if (r.materia !== materia) return r;
+        const cur = (r?.[typeKey as keyof Row] as EvalCell) || { fecha: "", hora: "" };
+        return { ...r, [typeKey]: { ...cur, [field]: value } };
+      })
+    );
+  };
+
+  const saveEditorToDB = async (): Promise<void> => {
+    if (!userId) return;
+
+    try {
+      setSavingEditor(true);
+      const supabase = getSupabase();
+
+      const examsToInsert: Array<{
+        user_id: string;
+        materia: string;
+        tipo: string;
+        fecha: string;
+        hora: string;
+      }> = [];
+
+      for (const row of editorRows) {
+        for (const t of TYPES) {
+          if (t.key === "f3" && !editorShowFinal3[row.materia]) continue;
+
+          const cell = row[t.key as keyof Row] as EvalCell;
+          const fecha = (cell?.fecha || "").trim();
+          const hora = (cell?.hora || "").trim();
+
+          if (!fecha) continue;
+
+          examsToInsert.push({
+            user_id: userId,
+            materia: row.materia,
+            tipo: t.label,
+            fecha,
+            hora,
+          });
+        }
+      }
+
+      const { error: deleteError } = await supabase
+        .from("student_exams")
+        .delete()
+        .eq("user_id", userId);
+
+      if (deleteError) {
+        console.error("Error deleting exams:", deleteError);
+        return;
+      }
+
+      if (examsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("student_exams")
+          .insert(examsToInsert);
+
+        if (insertError) {
+          console.error("Error inserting exams:", insertError);
+          return;
+        }
+      }
+
+      setRows(editorRows);
+
+      try {
+        localStorage.setItem(EVAL_KEY, JSON.stringify(editorRows));
+        try {
+          window.dispatchEvent(new Event("fiuna_evaluaciones_updated"));
+        } catch {}
+      } catch {}
+
+      setShowEditor(false);
+    } catch (error) {
+      console.error("Error saving editor exams:", error);
+    } finally {
+      setSavingEditor(false);
+    }
   };
 
   const lists = useMemo<ExamList>(() => {
@@ -633,7 +660,7 @@ export default function EvaluacionesPage(): React.ReactNode {
     <div className="grid" style={{ gap: 14 }}>
       <Card
         title={<span className="sectionLabel">🧾 HORARIO DE EXÁMENES</span>}
-        className={!showEditor ? "cardCompact" : ""}
+        className="cardCompact"
         right={
           rows.length ? (
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -649,10 +676,10 @@ export default function EvaluacionesPage(): React.ReactNode {
 
               <button
                 className="btn btnSoft"
-                onClick={() => setShowEditor((v) => !v)}
-                title={showEditor ? "Ocultar editor" : "Editar cronograma"}
+                onClick={openEditorModal}
+                title="Editar cronograma"
               >
-                {showEditor ? "▾ Ocultar editor" : "▸ Editar cronograma"}
+                ▸ Editar cronograma
               </button>
             </div>
           ) : null
@@ -662,124 +689,241 @@ export default function EvaluacionesPage(): React.ReactNode {
           <div className="muted" style={{ padding: 10 }}>
             No hay materias. Agregá materias en Inicio → "Materias en curso".
           </div>
-        ) : showEditor ? (
-          <div className="examEditorList">
-            {rows.map((r) => {
-              const isOpen = openMateria === r.materia;
-              const hasData = materiaHasAnyData(r);
-              const f3Data = r?.f3;
-              const showF3 = Boolean(showFinal3[r.materia] || (f3Data?.fecha || "").trim() || (f3Data?.hora || "").trim());
-
-              return (
-                <div key={r.materia} className="examMateriaCard">
-                  <div className="examMateriaHeader">
-                    <div className="examMateriaName">{r.materia}</div>
-
-                    <div className="examMateriaActions">
-                      <button
-                        className="btn btnSoft"
-                        onClick={() => toggleOpen(r.materia)}
-                        title={isOpen ? "Ocultar" : "Mostrar"}
-                      >
-                        {isOpen ? "▾ Ocultar" : "▸ Añadir horario de examen"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {isOpen ? (
-                    <div className="examEditorBody">
-                      <div className="examInputsGrid">
-                        {["p1", "p2", "f1", "f2"].map((k) => (
-                          <div key={k} className="examRow">
-                            <div className="examType">{titleFor(k)}</div>
-
-                            <div className="examField">
-                              <span className="examLabel">FECHA:</span>
-                              <input
-                                className="examInput"
-                                type="date"
-                                value={(r?.[k as keyof Row] as EvalCell)?.fecha || ""}
-                                onChange={(e) => setCell(r.materia, k, "fecha", e.target.value)}
-                              />
-                            </div>
-
-                            <div className="examField">
-                              <span className="examLabel">HORA:</span>
-                              <input
-                                className="examInput"
-                                type="time"
-                                value={(r?.[k as keyof Row] as EvalCell)?.hora || ""}
-                                onChange={(e) => setCell(r.materia, k, "hora", e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        ))}
-
-                        {showF3 ? (
-                          <div className="examRow">
-                            <div className="examType">{titleFor("f3")}</div>
-
-                            <div className="examField">
-                              <span className="examLabel">FECHA:</span>
-                              <input
-                                className="examInput"
-                                type="date"
-                                value={r?.f3?.fecha || ""}
-                                onChange={(e) => setCell(r.materia, "f3", "fecha", e.target.value)}
-                              />
-                            </div>
-
-                            <div className="examField">
-                              <span className="examLabel">HORA:</span>
-                              <input
-                                className="examInput"
-                                type="time"
-                                value={r?.f3?.hora || ""}
-                                onChange={(e) => setCell(r.materia, "f3", "hora", e.target.value)}
-                              />
-                            </div>
-
-                            <div className="examField examRowRight">
-                              <button
-                                className="btn btnGhost"
-                                onClick={() => {
-                                  const f = (r?.f3?.fecha || "").trim();
-                                  const h = (r?.f3?.hora || "").trim();
-                                  if (!f && !h) {
-                                    setShowFinal3((prev) => ({ ...prev, [r.materia]: false }));
-                                  }
-                                }}
-                                title="Ocultar Final 3 (solo si está vacío)"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="examFinal3Add">
-                            <button
-                              className="btn btnGhost"
-                              onClick={() => setShowFinal3((prev) => ({ ...prev, [r.materia]: true }))}
-                            >
-                              ➕ Agregar Final 3 (solo si existe)
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {hasData ? (
-                        <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>
-                          Tip: si ya completaste, podés tocar <b>"Ocultar"</b> y queda guardado.
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
         ) : null}
       </Card>
+
+      {showEditor && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.45)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "56px 16px 20px",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            style={{
+              width: "min(1180px, 100%)",
+              maxHeight: "88vh",
+              overflow: "hidden",
+              background: "#fff",
+              borderRadius: 20,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+              border: "1px solid rgba(15,23,42,0.08)",
+              display: "grid",
+              gridTemplateRows: "auto 1fr auto",
+            }}
+          >
+            <div
+              style={{
+                padding: "18px 20px",
+                borderBottom: "1px solid rgba(15,23,42,0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>
+                  Editar cronograma de exámenes
+                </div>
+                <div style={{ fontSize: 13, color: "rgba(15,23,42,0.65)", marginTop: 4 }}>
+                  Completa todo y guarda al final.
+                </div>
+              </div>
+
+              <button
+                className="btn"
+                onClick={closeEditorModal}
+                disabled={savingEditor}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ overflowY: "auto", padding: 20, display: "grid", gap: 16 }}>
+              {editorRows.map((r) => {
+                const showF3 = Boolean(
+                  editorShowFinal3[r.materia] ||
+                    (r.f3?.fecha || "").trim() ||
+                    (r.f3?.hora || "").trim()
+                );
+
+                const editorTypes = TYPES.filter((t) => t.key !== "f3" || showF3);
+
+                return (
+                  <div
+                    key={r.materia}
+                    style={{
+                      border: "1px solid rgba(15,23,42,0.08)",
+                      borderRadius: 16,
+                      background: "#fff",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        borderBottom: "1px solid rgba(15,23,42,0.08)",
+                        fontWeight: 900,
+                        fontSize: 16,
+                        background: "#fff",
+                      }}
+                    >
+                      {r.materia}
+                    </div>
+
+                    <div style={{ padding: 16 }}>
+                      <div
+                        style={{
+                          overflowX: "auto",
+                          overflowY: "hidden",
+                          paddingBottom: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "grid",
+                            gridAutoFlow: "column",
+                            gridAutoColumns: "220px",
+                            gap: 12,
+                            minWidth: "max-content",
+                            alignItems: "start",
+                          }}
+                        >
+                          {editorTypes.map((t) => {
+                            const cell = (r[t.key as keyof Row] as EvalCell) || {
+                              fecha: "",
+                              hora: "",
+                            };
+
+                            return (
+                              <div
+                                key={`${r.materia}-${t.key}`}
+                                style={{
+                                  border: "1px solid rgba(15,23,42,0.08)",
+                                  borderRadius: 14,
+                                  padding: 14,
+                                  display: "grid",
+                                  gap: 12,
+                                  background: "rgba(248,250,252,0.65)",
+                                }}
+                              >
+                                <div style={{ fontWeight: 900, fontSize: 15 }}>
+                                  {t.label}
+                                </div>
+
+                                <div style={{ display: "grid", gap: 6 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 800,
+                                      color: "rgba(15,23,42,0.7)",
+                                    }}
+                                  >
+                                    FECHA
+                                  </div>
+                                  <input
+                                    className="examInput"
+                                    type="date"
+                                    value={cell.fecha || ""}
+                                    onChange={(e) =>
+                                      setEditorCell(r.materia, t.key, "fecha", e.target.value)
+                                    }
+                                  />
+                                </div>
+
+                                <div style={{ display: "grid", gap: 6 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 800,
+                                      color: "rgba(15,23,42,0.7)",
+                                    }}
+                                  >
+                                    HORA
+                                  </div>
+                                  <input
+                                    className="examInput"
+                                    type="time"
+                                    value={cell.hora || ""}
+                                    onChange={(e) =>
+                                      setEditorCell(r.materia, t.key, "hora", e.target.value)
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {!showF3 && (
+                            <div
+                              style={{
+                                border: "1px dashed rgba(15,23,42,0.18)",
+                                borderRadius: 14,
+                                padding: 14,
+                                display: "grid",
+                                alignContent: "center",
+                                minHeight: 190,
+                                background: "#fff",
+                              }}
+                            >
+                              <button
+                                className="btn btnGhost"
+                                onClick={() =>
+                                  setEditorShowFinal3((prev) => ({
+                                    ...prev,
+                                    [r.materia]: true,
+                                  }))
+                                }
+                              >
+                                ➕ Agregar Final 3
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div
+              style={{
+                padding: "16px 20px",
+                borderTop: "1px solid rgba(15,23,42,0.08)",
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                className="btn"
+                onClick={closeEditorModal}
+                disabled={savingEditor}
+              >
+                Cancelar
+              </button>
+
+              <button
+                className="btn btnPrimary"
+                onClick={saveEditorToDB}
+                disabled={savingEditor}
+              >
+                {savingEditor ? "Guardando..." : "Guardar cronograma"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {Object.values(lists).some((arr) => arr.length > 0) ? (
         <div className="grid" style={{ gap: 14 }}>
