@@ -471,8 +471,8 @@ export default function EvaluacionesPage(): React.ReactNode {
         localStorage.setItem(EVAL_KEY, JSON.stringify(editorRows));
         try {
           window.dispatchEvent(new Event("fiuna_evaluaciones_updated"));
-        } catch {}
-      } catch {}
+        } catch { }
+      } catch { }
 
       setShowEditor(false);
     } catch (error) {
@@ -747,36 +747,46 @@ export default function EvaluacionesPage(): React.ReactNode {
               </button>
             </div>
 
-            <div style={{ overflowY: "auto", padding: 20, display: "grid", gap: 16 }}>
-              {editorRows.map((r) => {
+            <div
+              style={{
+                overflowY: "auto",
+                padding: 20,
+                display: "grid",
+                gap: 18,
+                background: "#f8fafc",
+              }}
+            >
+              {editorRows.map((r, idx) => {
                 const showF3 = Boolean(
                   editorShowFinal3[r.materia] ||
-                    (r.f3?.fecha || "").trim() ||
-                    (r.f3?.hora || "").trim()
+                  (r.f3?.fecha || "").trim() ||
+                  (r.f3?.hora || "").trim()
                 );
 
                 const editorTypes = TYPES.filter((t) => t.key !== "f3" || showF3);
 
                 return (
                   <div
-                    key={r.materia}
+                    key={`${r.materia}-${idx}`}
                     style={{
-                      border: "1px solid rgba(15,23,42,0.08)",
-                      borderRadius: 16,
-                      background: "#fff",
+                      border: "1px solid #dbe2ea",
+                      borderRadius: 18,
+                      background: "#ffffff",
                       overflow: "hidden",
+                      boxShadow: "0 2px 10px rgba(15,23,42,0.04)",
                     }}
                   >
                     <div
                       style={{
-                        padding: "14px 16px",
-                        borderBottom: "1px solid rgba(15,23,42,0.08)",
+                        padding: "16px 18px",
+                        borderBottom: "1px solid #e5e7eb",
                         fontWeight: 900,
-                        fontSize: 16,
-                        background: "#fff",
+                        fontSize: 18,
+                        color: "#0f172a",
+                        background: "#ffffff",
                       }}
                     >
-                      {r.materia}
+                      {r.materia || "Materia"}
                     </div>
 
                     <div style={{ padding: 16 }}>
@@ -784,17 +794,17 @@ export default function EvaluacionesPage(): React.ReactNode {
                         style={{
                           overflowX: "auto",
                           overflowY: "hidden",
-                          paddingBottom: 6,
+                          paddingBottom: 8,
                         }}
                       >
                         <div
                           style={{
                             display: "grid",
                             gridAutoFlow: "column",
-                            gridAutoColumns: "220px",
-                            gap: 12,
+                            gridAutoColumns: "240px",
+                            gap: 14,
                             minWidth: "max-content",
-                            alignItems: "start",
+                            alignItems: "stretch",
                           }}
                         >
                           {editorTypes.map((t) => {
@@ -807,24 +817,39 @@ export default function EvaluacionesPage(): React.ReactNode {
                               <div
                                 key={`${r.materia}-${t.key}`}
                                 style={{
-                                  border: "1px solid rgba(15,23,42,0.08)",
-                                  borderRadius: 14,
+                                  border: "1px solid #dbe2ea",
+                                  borderRadius: 16,
                                   padding: 14,
                                   display: "grid",
                                   gap: 12,
-                                  background: "rgba(248,250,252,0.65)",
+                                  background: "#f8fafc",
+                                  minHeight: 220,
                                 }}
                               >
-                                <div style={{ fontWeight: 900, fontSize: 15 }}>
+                                <div
+                                  style={{
+                                    fontWeight: 900,
+                                    fontSize: 15,
+                                    color: "#0f172a",
+                                    lineHeight: 1.2,
+                                  }}
+                                >
                                   {t.label}
                                 </div>
 
-                                <div style={{ display: "grid", gap: 6 }}>
+                                <div
+                                  style={{
+                                    display: "grid",
+                                    gap: 6,
+                                    alignContent: "start",
+                                  }}
+                                >
                                   <div
                                     style={{
                                       fontSize: 12,
                                       fontWeight: 800,
-                                      color: "rgba(15,23,42,0.7)",
+                                      color: "#475569",
+                                      letterSpacing: ".3px",
                                     }}
                                   >
                                     FECHA
@@ -836,15 +861,31 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     onChange={(e) =>
                                       setEditorCell(r.materia, t.key, "fecha", e.target.value)
                                     }
+                                    style={{
+                                      width: "100%",
+                                      minHeight: 44,
+                                      borderRadius: 12,
+                                      border: "1px solid #cbd5e1",
+                                      background: "#ffffff",
+                                      color: "#0f172a",
+                                      padding: "10px 12px",
+                                    }}
                                   />
                                 </div>
 
-                                <div style={{ display: "grid", gap: 6 }}>
+                                <div
+                                  style={{
+                                    display: "grid",
+                                    gap: 6,
+                                    alignContent: "start",
+                                  }}
+                                >
                                   <div
                                     style={{
                                       fontSize: 12,
                                       fontWeight: 800,
-                                      color: "rgba(15,23,42,0.7)",
+                                      color: "#475569",
+                                      letterSpacing: ".3px",
                                     }}
                                   >
                                     HORA
@@ -856,6 +897,15 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     onChange={(e) =>
                                       setEditorCell(r.materia, t.key, "hora", e.target.value)
                                     }
+                                    style={{
+                                      width: "100%",
+                                      minHeight: 44,
+                                      borderRadius: 12,
+                                      border: "1px solid #cbd5e1",
+                                      background: "#ffffff",
+                                      color: "#0f172a",
+                                      padding: "10px 12px",
+                                    }}
                                   />
                                 </div>
                               </div>
@@ -865,13 +915,13 @@ export default function EvaluacionesPage(): React.ReactNode {
                           {!showF3 && (
                             <div
                               style={{
-                                border: "1px dashed rgba(15,23,42,0.18)",
-                                borderRadius: 14,
+                                border: "1px dashed #cbd5e1",
+                                borderRadius: 16,
                                 padding: 14,
                                 display: "grid",
                                 alignContent: "center",
-                                minHeight: 190,
-                                background: "#fff",
+                                minHeight: 220,
+                                background: "#ffffff",
                               }}
                             >
                               <button
