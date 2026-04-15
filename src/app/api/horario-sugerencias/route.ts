@@ -108,7 +108,6 @@ function normTimeLoose(s?: string): string {
     return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   }
 
-  // si no se puede normalizar, devolver crudo
   return raw;
 }
 
@@ -135,7 +134,11 @@ function prettifyDay(dayKey: string): string {
 function pickColIndexes(cabeceras: any[]) {
   const h = cabeceras.map((x) => normalizeText(String(x || "")));
 
-  const find = (...keys: string[]) => {
+  const findExactOrIncludes = (...keys: string[]) => {
+    for (const k of keys) {
+      const exactIdx = h.findIndex((x) => x === k);
+      if (exactIdx !== -1) return exactIdx;
+    }
     for (const k of keys) {
       const idx = h.findIndex((x) => x.includes(k));
       if (idx !== -1) return idx;
@@ -144,13 +147,13 @@ function pickColIndexes(cabeceras: any[]) {
   };
 
   return {
-    semestre: find("SEMESTRE", "SEMESTR"),
-    materia: find("ASIGNATURA", "MATERIA"),
-    seccion: find("SECC", "SECCION", "SECCIÓN"),
-    tipo: find("TIPO"),
-    docente: find("DOCENTE", "PROF"),
-    horaInicio: find("HORA INICIO", "INICIO"),
-    horaFin: find("HORA FIN", "FIN"),
+    semestre: findExactOrIncludes("SEMESTRE", "SEMESTR"),
+    materia: findExactOrIncludes("ASIGNATURA", "MATERIA"),
+    seccion: findExactOrIncludes("SECCION", "SECCIÓN", "SECC"),
+    tipo: findExactOrIncludes("TIPO DE CLASE", "TIPO"),
+    docente: findExactOrIncludes("DOCENTE", "PROF"),
+    horaInicio: findExactOrIncludes("HORA INICIO"),
+    horaFin: findExactOrIncludes("HORA FIN"),
   };
 }
 
@@ -177,6 +180,9 @@ export async function POST(req: Request) {
     const groups: SuggestionGroup[] = [];
     const missing: string[] = [];
 
+    console.log("=== DEBUG HORARIO SUGERENCIAS: DIAS DISPONIBLES ===");
+    console.log(Object.keys(diasData || {}));
+
     for (const course of materias) {
       const qMateria = normalizeText(course.materia);
       const qSemestre = normalizeSemestre(course.semestre);
@@ -187,10 +193,24 @@ export async function POST(req: Request) {
       const options: SuggestedClass[] = [];
       const seen = new Set<string>();
 
+      console.log("=== BUSCANDO MATERIA ===", {
+        materiaOriginal: course.materia,
+        materiaNormalizada: qMateria,
+        semestre: qSemestre,
+        tipos: qTipos,
+      });
+
       for (const [dayKey, dayData] of Object.entries(diasData)) {
         if (!dayData?.filas?.length) continue;
 
         const cols = pickColIndexes(dayData.cabeceras || []);
+
+        console.log("=== DIA / CABECERAS / COLS ===", {
+          dayKey,
+          cabeceras: dayData.cabeceras,
+          cols,
+        });
+
         if (cols.materia < 0 || cols.tipo < 0) continue;
 
         const dayId = getDayId(normalizeText(dayKey));
@@ -223,8 +243,19 @@ export async function POST(req: Request) {
           const prof =
             cols.docente >= 0 ? String(row[cols.docente] || "").trim() : "";
 
-          // No filtramos por sección.
-          // Solo evitamos duplicados idénticos de visualización.
+          console.log("=== MATCH ENCONTRADO ===", {
+            dayKey,
+            materia: course.materia,
+            seccion,
+            tipo,
+            inicioRaw,
+            finRaw,
+            inicio,
+            fin,
+            prof,
+            row,
+          });
+
           const dedupeKey = [
             qSemestre,
             qMateria,
@@ -276,6 +307,7 @@ export async function POST(req: Request) {
       missing,
     });
   } catch (e: any) {
+    console.error("ERROR horario-sugerencias:", e);
     return Response.json(
       { ok: false, error: e?.message || "Error" },
       { status: 500 }
