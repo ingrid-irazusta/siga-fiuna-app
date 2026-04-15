@@ -229,16 +229,18 @@ export async function POST(req: Request) {
 
           if (qTipos.length > 0 && !qTipos.includes(tipo)) continue;
 
-          const seccion =
-            cols.seccion >= 0 ? String(row[cols.seccion] || "").trim() : "";
+          const seccion = cols.seccion >= 0 ? String(row[cols.seccion] || "").trim() : "";
+          const seccionMostrar = seccion || "—";
 
-          const inicioRaw =
-            cols.horaInicio >= 0 ? String(row[cols.horaInicio] || "").trim() : "";
-          const finRaw =
-            cols.horaFin >= 0 ? String(row[cols.horaFin] || "").trim() : "";
+          const inicioRaw = cols.horaInicio >= 0 ? String(row[cols.horaInicio] || "").trim() : "";
+          const finRaw = cols.horaFin >= 0 ? String(row[cols.horaFin] || "").trim() : "";
 
-          const inicio = normTimeLoose(inicioRaw) || "—";
-          const fin = normTimeLoose(finRaw) || "—";
+          const inicioNormalizado = normTimeLoose(inicioRaw);
+          const finNormalizado = normTimeLoose(finRaw);
+
+          // SOLO para mostrar, no para filtrar
+          const inicio = inicioNormalizado || inicioRaw || "—";
+          const fin = finNormalizado || finRaw || "—";
 
           const prof =
             cols.docente >= 0 ? String(row[cols.docente] || "").trim() : "";
@@ -278,7 +280,7 @@ export async function POST(req: Request) {
             dia: prettifyDay(dayKey),
             materia: course.materia,
             tipo,
-            seccion: seccion || "—",
+            seccion: seccionMostrar,
             inicio,
             fin,
             prof: prof || "—",
