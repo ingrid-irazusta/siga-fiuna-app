@@ -384,6 +384,9 @@ export default function EvaluacionesPage(): React.ReactNode {
       );
     });
 
+    console.log("DEBUG openEditorModal rows:", rows);
+    console.log("DEBUG openEditorModal cloned:", cloned);
+
     setEditorRows(cloned);
     setEditorShowFinal3(initialShowFinal3);
     setShowEditor(true);
@@ -737,7 +740,21 @@ export default function EvaluacionesPage(): React.ReactNode {
                   Completa todo y guarda al final.
                 </div>
               </div>
-
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "#fff7ed",
+                  border: "1px solid #fdba74",
+                  fontSize: 13,
+                  color: "#9a3412",
+                  fontWeight: 700,
+                }}
+              >
+                DEBUG → rows: {rows.length} | editorRows: {editorRows.length} | primera materia:{" "}
+                {editorRows?.[0]?.materia || "VACÍA"}
+              </div>
               <button
                 className="btn"
                 onClick={closeEditorModal}
@@ -767,7 +784,7 @@ export default function EvaluacionesPage(): React.ReactNode {
 
                 return (
                   <div
-                    key={`${r.materia}-${idx}`}
+                    key={`${r.materia || "MATERIA VACÍA"}-${idx}`}
                     style={{
                       border: "1px solid #dbe2ea",
                       borderRadius: 18,
@@ -836,7 +853,15 @@ export default function EvaluacionesPage(): React.ReactNode {
                                 >
                                   {t.label}
                                 </div>
-
+                                <div
+                                  style={{
+                                    fontSize: 12,
+                                    color: "#475569",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  Materia: {r.materia || "VACÍA"}
+                                </div>
                                 <div
                                   style={{
                                     display: "grid",
