@@ -190,8 +190,7 @@ export async function POST(req: Request) {
         .map((t) => normalizeTipo(t))
         .filter(Boolean) as ("T" | "P" | "LAB")[];
 
-      const options: SuggestedClass[] = [];
-      const seen = new Set<string>();
+      const optionsMap = new Map<string, SuggestedClass>();
 
       console.log("=== BUSCANDO MATERIA ===", {
         materiaOriginal: course.materia,
@@ -258,21 +257,16 @@ export async function POST(req: Request) {
             row,
           });
 
-          const dedupeKey = [
+          const groupKey = [
             qSemestre,
             qMateria,
             tipo,
             seccion,
             dayId,
-            inicio,
-            fin,
             prof,
           ].join("|");
 
-          if (seen.has(dedupeKey)) continue;
-          seen.add(dedupeKey);
-
-          options.push({
+          const candidate: SuggestedClass = {
             tempId: `${dayId}-${tipo}-${seccion || "SINSEC"}-${Math.random()
               .toString(36)
               .slice(2, 8)}`,
@@ -284,9 +278,23 @@ export async function POST(req: Request) {
             inicio,
             fin,
             prof: prof || "—",
-          });
+          };
+
+          const existing = optionsMap.get(groupKey);
+
+          const candidateHasHora = inicio !== "—" && fin !== "—";
+          const existingHasHora =
+            existing ? existing.inicio !== "—" && existing.fin !== "—" : false;
+
+          if (!existing) {
+            optionsMap.set(groupKey, candidate);
+          } else if (!existingHasHora && candidateHasHora) {
+            optionsMap.set(groupKey, candidate);
+          }
         }
       }
+
+      const options = Array.from(optionsMap.values());
 
       options.sort((a, b) => {
         if (a.day_id !== b.day_id) return a.day_id - b.day_id;
