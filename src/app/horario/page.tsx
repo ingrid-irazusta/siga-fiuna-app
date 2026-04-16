@@ -683,22 +683,27 @@ export default function HorarioPage() {
     .calWeekBody {
       display: grid;
       grid-template-columns: 50px repeat(6, 1fr);
+      grid-template-rows: repeat(15, 60px);
       gap: 0;
-      min-height: 800px;
+      min-height: 900px;
       position: relative;
     }
     
     .calTimes {
-      display: grid;
-      grid-template-rows: repeat(15, 60px);
+      display: flex;
+      flex-direction: column;
       border-right: 2px solid #cbd5e1;
       background: #f8fafc;
+      grid-column: 1;
+      grid-row: 1 / 16;
     }
     
     .calTimeRow {
+      flex: 1;
       display: flex;
       align-items: flex-start;
       border-bottom: 1px solid #e2e8f0;
+      height: 60px;
     }
     
     .calTimeLabel {
@@ -713,6 +718,8 @@ export default function HorarioPage() {
     .calDays {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
+      grid-column: 2 / 8;
+      grid-row: 1 / 16;
       gap: 0;
     }
     
@@ -729,7 +736,7 @@ export default function HorarioPage() {
     .calSlotContainer {
       position: relative;
       width: 100%;
-      height: 900px;
+      height: 100%;
     }
     
     .calEvent {
