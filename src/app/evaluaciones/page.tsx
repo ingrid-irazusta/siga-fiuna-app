@@ -368,13 +368,18 @@ export default function EvaluacionesPage(): React.ReactNode {
   };
 
   const openEditorModal = (): void => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.warn("No rows available to edit");
+      return;
+    }
+
     const cloned = rows.map((r) => ({
       materia: r.materia,
-      p1: { ...r.p1 },
-      p2: { ...r.p2 },
-      f1: { ...r.f1 },
-      f2: { ...r.f2 },
-      f3: { ...r.f3 },
+      p1: { fecha: r.p1?.fecha || "", hora: r.p1?.hora || "" },
+      p2: { fecha: r.p2?.fecha || "", hora: r.p2?.hora || "" },
+      f1: { fecha: r.f1?.fecha || "", hora: r.f1?.hora || "" },
+      f2: { fecha: r.f2?.fecha || "", hora: r.f2?.hora || "" },
+      f3: { fecha: r.f3?.fecha || "", hora: r.f3?.hora || "" },
     }));
 
     const initialShowFinal3: { [key: string]: boolean } = {};
@@ -383,9 +388,6 @@ export default function EvaluacionesPage(): React.ReactNode {
         (r.f3?.fecha || "").trim() || (r.f3?.hora || "").trim()
       );
     });
-
-    console.log("DEBUG openEditorModal rows:", rows);
-    console.log("DEBUG openEditorModal cloned:", cloned);
 
     setEditorRows(cloned);
     setEditorShowFinal3(initialShowFinal3);
@@ -740,21 +742,6 @@ export default function EvaluacionesPage(): React.ReactNode {
                   Completa todo y guarda al final.
                 </div>
               </div>
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  background: "#fff7ed",
-                  border: "1px solid #fdba74",
-                  fontSize: 13,
-                  color: "#9a3412",
-                  fontWeight: 700,
-                }}
-              >
-                DEBUG → rows: {rows.length} | editorRows: {editorRows.length} | primera materia:{" "}
-                {editorRows?.[0]?.materia || "VACÍA"}
-              </div>
               <button
                 className="btn"
                 onClick={closeEditorModal}
@@ -773,7 +760,21 @@ export default function EvaluacionesPage(): React.ReactNode {
                 background: "#f8fafc",
               }}
             >
-              {editorRows.map((r, idx) => {
+              {!editorRows || editorRows.length === 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 300,
+                    color: "#64748b",
+                    fontSize: 14,
+                  }}
+                >
+                  No hay materias disponibles.
+                </div>
+              ) : (
+                editorRows.map((r, idx) => {
                 const showF3 = Boolean(
                   editorShowFinal3[r.materia] ||
                   (r.f3?.fecha || "").trim() ||
@@ -852,15 +853,6 @@ export default function EvaluacionesPage(): React.ReactNode {
                                   }}
                                 >
                                   {t.label}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 12,
-                                    color: "#475569",
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  Materia: {r.materia || "VACÍA"}
                                 </div>
                                 <div
                                   style={{
@@ -967,7 +959,8 @@ export default function EvaluacionesPage(): React.ReactNode {
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
 
             <div
