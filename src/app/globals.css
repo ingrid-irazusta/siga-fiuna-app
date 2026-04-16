@@ -2240,7 +2240,11 @@ select:focus {
   }
 
   .calWeekHead {
-    grid-template-columns: 60px repeat(6, 1fr);
+    grid-template-columns: 40px repeat(6, 1fr);
+  }
+
+  .calWeekBody {
+    grid-template-columns: 40px repeat(6, 1fr);
   }
 
   .calTopControls {
@@ -2249,19 +2253,26 @@ select:focus {
   }
 
   .calDayCol {
-    min-height: 600px;
+    min-height: 400px;
   }
 
   .calHeadCell {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    padding: 6px 4px;
   }
 
   .calEvent {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    padding: 6px;
   }
 
   .calEvTitle {
+    font-size: 0.7rem;
+  }
+
+  .calTimeLabel {
     font-size: 0.75rem;
+    padding: 4px 2px;
   }
 
   .formRow {
@@ -2275,11 +2286,34 @@ select:focus {
 
 @media (max-width: 480px) {
   .calWeekHead {
-    grid-template-columns: 50px repeat(6, 1fr);
+    grid-template-columns: 35px repeat(6, 1fr);
+  }
+
+  .calWeekBody {
+    grid-template-columns: 35px repeat(6, 1fr);
   }
 
   .calTimeLabel {
     font-size: 0.65rem;
+  }
+
+  .calHeadCell {
+    font-size: 0.7rem;
+    padding: 4px 2px;
+  }
+
+  .calEvent {
+    font-size: 0.65rem;
+    padding: 4px;
+  }
+
+  .calEvTitle {
+    font-size: 0.65rem;
+  }
+
+  .calBadge {
+    font-size: 0.55rem;
+    padding: 1px 2px;
   }
 
   .calModal {
@@ -2293,5 +2327,9 @@ select:focus {
   .formButtonsRight {
     flex-direction: column;
     margin-left: 0;
+  }
+
+  .calDayList {
+    gap: 0.75rem;
   }
 }

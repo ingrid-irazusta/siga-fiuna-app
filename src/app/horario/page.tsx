@@ -634,10 +634,12 @@ export default function HorarioPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Horario de clases</title>
   <style>
+    @page { size: landscape; margin: 10mm; }
+    
     * { box-sizing: border-box; }
     body { 
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; 
-      margin: 18px; 
+      margin: 12px; 
       color: #0f172a;
       background: #fff;
     }
@@ -645,7 +647,7 @@ export default function HorarioPage() {
       font-size: 11px; 
       color: #64748b; 
       text-align: right; 
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       font-weight: 500;
     }
     
@@ -653,16 +655,16 @@ export default function HorarioPage() {
       display: grid;
       grid-template-rows: auto 1fr;
       gap: 0;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
+      border: none;
+      border-radius: 0;
       overflow: hidden;
     }
     
     .calWeekHead {
       display: grid;
-      grid-template-columns: 50px repeat(6, 1fr);
+      grid-template-columns: 40px repeat(6, 1fr);
       gap: 0;
-      border-bottom: 2px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
       background: #f8fafc;
     }
     
@@ -672,27 +674,30 @@ export default function HorarioPage() {
     }
     
     .calHeadCell {
-      padding: 10px 8px;
+      padding: 8px 6px;
       text-align: center;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 11px;
       border-right: 1px solid #e2e8f0;
       background: #f8fafc;
     }
     
+    .calHeadCell:last-child {
+      border-right: none;
+    }
+    
     .calWeekBody {
       display: grid;
-      grid-template-columns: 50px repeat(6, 1fr);
-      grid-template-rows: repeat(15, 60px);
+      grid-template-columns: 40px repeat(6, 1fr);
+      grid-template-rows: repeat(15, 55px);
       gap: 0;
-      min-height: 900px;
-      position: relative;
+      background: #fff;
     }
     
     .calTimes {
       display: flex;
       flex-direction: column;
-      border-right: 2px solid #cbd5e1;
+      border-right: 1px solid #cbd5e1;
       background: #f8fafc;
       grid-column: 1;
       grid-row: 1 / 16;
@@ -703,14 +708,18 @@ export default function HorarioPage() {
       display: flex;
       align-items: flex-start;
       border-bottom: 1px solid #e2e8f0;
-      height: 60px;
+      height: 55px;
+    }
+    
+    .calTimeRow:last-child {
+      border-bottom: none;
     }
     
     .calTimeLabel {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       color: #64748b;
-      padding: 6px 4px;
+      padding: 4px 2px;
       text-align: center;
       width: 100%;
     }
@@ -741,16 +750,16 @@ export default function HorarioPage() {
     
     .calEvent {
       position: absolute;
-      width: 92%;
-      left: 4%;
-      border-radius: 6px;
+      width: 90%;
+      left: 5%;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       text-align: left;
-      padding: 8px;
+      padding: 6px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
       overflow: hidden;
       box-sizing: border-box;
       border: 1px solid;
@@ -776,16 +785,16 @@ export default function HorarioPage() {
     
     .calBadges {
       display: flex;
-      gap: 3px;
+      gap: 2px;
       flex-wrap: wrap;
       align-items: center;
     }
     
     .calBadge {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 600;
-      padding: 2px 4px;
-      border-radius: 3px;
+      padding: 1px 3px;
+      border-radius: 2px;
       display: inline-block;
     }
     
@@ -811,12 +820,12 @@ export default function HorarioPage() {
     
     .calEvTitle {
       font-weight: 700;
-      font-size: 0.85rem;
-      line-height: 1.2;
+      font-size: 0.75rem;
+      line-height: 1.15;
     }
     
     .calEvMeta {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       opacity: 0.85;
     }
     
@@ -825,7 +834,7 @@ export default function HorarioPage() {
     }
     
     .calEvProf {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       opacity: 0.8;
     }
     
@@ -840,9 +849,11 @@ export default function HorarioPage() {
     }
     
     @media print {
+      @page { size: landscape; margin: 8mm; }
       .printBtn { display: none; }
-      body { margin: 10mm; }
+      body { margin: 8mm; }
       .calWeek { border: none; }
+      .calWeekHead, .calWeekBody { background: #fff; }
     }
   </style>
 </head>
