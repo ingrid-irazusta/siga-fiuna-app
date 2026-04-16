@@ -705,45 +705,47 @@ export default function EvaluacionesPage(): React.ReactNode {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(15,23,42,0.45)",
+            background: "rgba(2,6,23,0.55)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
             zIndex: 9999,
-            padding: "56px 16px 20px",
+            padding: "36px 14px 18px",
             overflowY: "auto",
           }}
         >
           <div
             style={{
-              width: "min(1180px, 100%)",
-              maxHeight: "88vh",
+              width: "min(1120px, 100%)",
+              maxHeight: "90vh",
               overflow: "hidden",
-              background: "#fff",
-              borderRadius: 20,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
-              border: "1px solid rgba(15,23,42,0.08)",
+              background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              borderRadius: 24,
+              boxShadow: "0 30px 80px rgba(2,6,23,0.22)",
+              border: "1px solid rgba(148,163,184,0.22)",
               display: "grid",
               gridTemplateRows: "auto 1fr auto",
             }}
           >
             <div
               style={{
-                padding: "18px 20px",
-                borderBottom: "1px solid #e5e7eb",
+                padding: "18px 22px 16px",
+                borderBottom: "1px solid rgba(148,163,184,0.18)",
                 display: "flex",
                 alignItems: "flex-start",
                 justifyContent: "space-between",
-                gap: 12,
-                background: "#fff",
+                gap: 14,
+                background: "rgba(255,255,255,0.92)",
               }}
             >
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>
+                <div style={{ fontWeight: 900, fontSize: 20, color: "#0f172a", letterSpacing: "-0.02em" }}>
                   Editar cronograma de exámenes
                 </div>
-                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                  Completa todo y guarda al final.
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 5, lineHeight: 1.35 }}>
+                  Completa todo y guarda al final. Podés desplazarte horizontalmente en cada materia.
                 </div>
               </div>
 
@@ -751,15 +753,16 @@ export default function EvaluacionesPage(): React.ReactNode {
                 onClick={closeEditorModal}
                 disabled={savingEditor}
                 style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 12,
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  border: "1px solid rgba(148,163,184,0.28)",
+                  background: "rgba(255,255,255,0.9)",
                   color: "#0f172a",
                   fontSize: 22,
                   cursor: savingEditor ? "not-allowed" : "pointer",
                   flexShrink: 0,
+                  boxShadow: "0 4px 16px rgba(15,23,42,0.06)",
                 }}
               >
                 ×
@@ -769,10 +772,10 @@ export default function EvaluacionesPage(): React.ReactNode {
             <div
               style={{
                 overflowY: "auto",
-                padding: 20,
+                padding: 18,
                 display: "grid",
-                gap: 16,
-                background: "#f8fafc",
+                gap: 14,
+                background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
               }}
             >
               {editorRows.length === 0 ? (
@@ -807,25 +810,37 @@ export default function EvaluacionesPage(): React.ReactNode {
                       <div
                         key={`${r.materia || "materia"}-${idx}`}
                         style={{
-                          border: "1px solid #dbe2ea",
-                          borderRadius: 16,
-                          background: "#fff",
-                          padding: 16,
+                          border: "1px solid rgba(148,163,184,0.22)",
+                          borderRadius: 20,
+                          background: "#ffffff",
+                          padding: 14,
+                          boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
                         }}
                       >
                         <div
                           style={{
                             fontWeight: 900,
-                            marginBottom: 10,
+                            marginBottom: 12,
                             fontSize: 18,
                             color: "#0f172a",
+                            letterSpacing: "-0.02em",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
                           }}
                         >
                           📚 {r.materia || "MATERIA VACÍA"}
                         </div>
 
                         <div style={{ overflowX: "auto" }}>
-                          <div style={{ display: "flex", gap: 10, minWidth: "max-content" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 10,
+                              minWidth: "max-content",
+                              paddingBottom: 2,
+                            }}
+                          >
                             {editorTypes.map((t) => {
                               const cell = (r[t.key as keyof Row] as EvalCell) || {
                                 fecha: "",
@@ -836,18 +851,27 @@ export default function EvaluacionesPage(): React.ReactNode {
                                 <div
                                   key={`${r.materia}-${t.key}`}
                                   style={{
-                                    minWidth: 200,
-                                    width: 200,
-                                    border: "1px solid #ddd",
-                                    borderRadius: 12,
+                                    minWidth: 188,
+                                    width: 188,
+                                    border: "1px solid rgba(148,163,184,0.2)",
+                                    borderRadius: 16,
                                     padding: 10,
-                                    background: "#f8fafc",
+                                    background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
                                     display: "flex",
                                     flexDirection: "column",
                                     gap: 8,
+                                    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
                                   }}
                                 >
-                                  <div style={{ fontWeight: 800, color: "#0f172a" }}>
+                                  <div
+                                    style={{
+                                      fontWeight: 900,
+                                      color: "#0f172a",
+                                      fontSize: 14,
+                                      letterSpacing: "-0.01em",
+                                      paddingBottom: 2,
+                                    }}
+                                  >
                                     {t.label}
                                   </div>
 
@@ -856,9 +880,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       display: "flex",
                                       flexDirection: "column",
                                       gap: 4,
-                                      fontSize: 12,
-                                      fontWeight: 700,
+                                      fontSize: 11,
+                                      fontWeight: 800,
                                       color: "#475569",
+                                      letterSpacing: ".03em",
                                     }}
                                   >
                                     <span>FECHA</span>
@@ -870,13 +895,14 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        height: 40,
-                                        borderRadius: 10,
-                                        border: "1px solid #cbd5e1",
-                                        background: "#fff",
+                                        height: 38,
+                                        borderRadius: 12,
+                                        border: "1px solid rgba(148,163,184,0.35)",
+                                        background: "#ffffff",
                                         color: "#0f172a",
                                         padding: "0 10px",
-                                        fontSize: 13,
+                                        fontSize: 12.5,
+                                        boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
                                       }}
                                     />
                                   </label>
@@ -886,9 +912,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       display: "flex",
                                       flexDirection: "column",
                                       gap: 4,
-                                      fontSize: 12,
-                                      fontWeight: 700,
+                                      fontSize: 11,
+                                      fontWeight: 800,
                                       color: "#475569",
+                                      letterSpacing: ".03em",
                                     }}
                                   >
                                     <span>HORA</span>
@@ -900,13 +927,14 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        height: 40,
-                                        borderRadius: 10,
-                                        border: "1px solid #cbd5e1",
-                                        background: "#fff",
+                                        height: 38,
+                                        borderRadius: 12,
+                                        border: "1px solid rgba(148,163,184,0.35)",
+                                        background: "#ffffff",
                                         color: "#0f172a",
                                         padding: "0 10px",
-                                        fontSize: 13,
+                                        fontSize: 12.5,
+                                        boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
                                       }}
                                     />
                                   </label>
@@ -917,12 +945,12 @@ export default function EvaluacionesPage(): React.ReactNode {
                             {!showF3 && (
                               <div
                                 style={{
-                                  minWidth: 200,
-                                  width: 200,
-                                  border: "1px dashed #cbd5e1",
-                                  borderRadius: 12,
+                                  minWidth: 188,
+                                  width: 188,
+                                  border: "1px dashed rgba(148,163,184,0.45)",
+                                  borderRadius: 16,
                                   padding: 10,
-                                  background: "#fff",
+                                  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -936,14 +964,15 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     }))
                                   }
                                   style={{
-                                    border: "1px solid #cbd5e1",
-                                    background: "#fff",
+                                    border: "1px solid rgba(148,163,184,0.32)",
+                                    background: "#ffffff",
                                     color: "#0f172a",
                                     borderRadius: 12,
                                     padding: "10px 12px",
                                     fontWeight: 800,
                                     cursor: "pointer",
                                     fontSize: 12,
+                                    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
                                   }}
                                 >
                                   ➕ Agregar Final 3
@@ -961,26 +990,27 @@ export default function EvaluacionesPage(): React.ReactNode {
 
             <div
               style={{
-                padding: "14px 20px",
-                borderTop: "1px solid rgba(15,23,42,0.08)",
+                padding: "14px 20px 16px",
+                borderTop: "1px solid rgba(148,163,184,0.18)",
                 display: "flex",
                 justifyContent: "space-between",
                 gap: 10,
                 flexWrap: "wrap",
-                background: "#fff",
+                background: "rgba(255,255,255,0.96)",
               }}
             >
               <button
                 onClick={closeEditorModal}
                 disabled={savingEditor}
                 style={{
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
+                  border: "1px solid rgba(148,163,184,0.28)",
+                  background: "#ffffff",
                   color: "#0f172a",
                   borderRadius: 14,
                   padding: "12px 18px",
                   fontWeight: 800,
                   cursor: savingEditor ? "not-allowed" : "pointer",
+                  boxShadow: "0 2px 10px rgba(15,23,42,0.04)",
                 }}
               >
                 Cancelar
@@ -991,12 +1021,13 @@ export default function EvaluacionesPage(): React.ReactNode {
                 disabled={savingEditor}
                 style={{
                   border: "1px solid #7dd3fc",
-                  background: "#e0f2fe",
-                  color: "#0f172a",
+                  background: "linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%)",
+                  color: "#082f49",
                   borderRadius: 14,
                   padding: "12px 18px",
                   fontWeight: 900,
                   cursor: savingEditor ? "not-allowed" : "pointer",
+                  boxShadow: "0 8px 20px rgba(14,165,233,0.16)",
                 }}
               >
                 {savingEditor ? "Guardando..." : "💾 Guardar cronograma"}
