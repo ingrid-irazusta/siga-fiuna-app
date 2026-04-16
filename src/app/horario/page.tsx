@@ -279,6 +279,7 @@ export default function HorarioPage() {
   const [schedule, setSchedule] = useState<Schedule>(seed);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<{ dayId: DayId; id: string } | null>(null);
@@ -534,6 +535,121 @@ export default function HorarioPage() {
     }
   };
 
+  const downloadPdf = (): void => {
+    if (pdfBusy) return;
+    if (Object.values(schedule).every((day) => day.length === 0)) return;
+
+    setPdfBusy(true);
+    setTimeout(() => setPdfBusy(false), 900);
+
+    const now = new Date();
+    const stamp = now.toLocaleString("es-ES", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const daysHtml = DAYS.map((d) => {
+      const events = schedule[d.id as DayId] || [];
+      if (events.length === 0) return "";
+
+      const rowsHtml = events
+        .map((ev) => {
+          const materia = ev.materia.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          const prof = (ev.prof || "—").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          const tipo = ev.tipo;
+          const seccion = ev.seccion || "—";
+          return `
+            <tr>
+              <td class="m">${materia}</td>
+              <td class="t">${tipo}</td>
+              <td class="s">Sec. ${seccion}</td>
+              <td class="h">${ev.inicio}–${ev.fin}</td>
+              <td class="p">${prof}</td>
+            </tr>`;
+        })
+        .join("");
+
+      return `
+        <div class="dayblock">
+          <div class="daytitle">${d.long}</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Materia</th>
+                <th>Tipo</th>
+                <th>Sección</th>
+                <th>Horario</th>
+                <th>Profesor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>`;
+    }).join("");
+
+    const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Horario de clases</title>
+  <style>
+    *{ box-sizing:border-box; }
+    body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; color:#0f172a; }
+    .meta{ font-size:12px; color:#64748b; text-align:right; white-space:nowrap; margin-bottom: 10px; }
+
+    .dayblock{ margin-top:16px; page-break-inside: avoid; }
+    .daytitle{
+      font-size:13px; font-weight:900; letter-spacing:.6px; text-align:left;
+      padding:12px 14px; background: rgba(34,197,94,0.90); color:#fff; border-radius:8px;
+    }
+
+    table{ width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td{ border-bottom:1px solid rgba(15,23,42,0.10); padding:10px 10px; font-size:12px; vertical-align:top; }
+    th{ background: rgba(34,197,94,0.12); text-transform:uppercase; letter-spacing:.5px; font-weight:900; }
+    td.m{ font-weight:900; width:32%; }
+    td.t{ width:8%; text-align:center; font-weight:600; }
+    td.s{ width:12%; text-align:center; }
+    td.h{ width:18%; white-space:nowrap; font-weight:600; }
+    td.p{ width:30%; }
+
+    .printBtn{
+      border:1px solid rgba(15,23,42,0.15);
+      background: rgba(34,197,94,0.12);
+      padding:10px 12px;
+      border-radius:8px;
+      font-weight:900;
+      cursor:pointer;
+      margin-bottom:12px;
+    }
+    @media print{
+      .printBtn{ display:none; }
+      body{ margin: 14mm; }
+      .daytitle{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      th{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <button class="printBtn" onclick="window.print()">Guardar como PDF</button>
+
+  <div class="meta">Generado: ${stamp}<br/>S.I.G.A</div>
+
+  ${daysHtml}
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    window.location.assign(url);
+  };
+
   const topFor = (t: string) => {
     const totalMin = (END_HOUR - START_HOUR) * 60;
     return ((timeToMin(t) - START_HOUR * 60) / totalMin) * 100;
@@ -596,9 +712,20 @@ export default function HorarioPage() {
               ))}
             </div>
           ) : (
-            <button className="btnPrimary" onClick={() => openNew({ dayId: 1 as DayId })}>
-              ＋ Nueva clase
-            </button>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button className="btnPrimary" onClick={() => openNew({ dayId: 1 as DayId })}>
+                ＋ Nueva clase
+              </button>
+              <button
+                className="btnPrimary"
+                onClick={downloadPdf}
+                disabled={Object.values(schedule).every((day) => day.length === 0) || pdfBusy}
+                title="Descargar / Guardar como PDF"
+                style={Object.values(schedule).every((day) => day.length === 0) || pdfBusy ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
+              >
+                {pdfBusy ? "Generando..." : "⬇ PDF"}
+              </button>
+            </div>
           )}
         </div>
       </div>
