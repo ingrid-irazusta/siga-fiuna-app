@@ -551,46 +551,70 @@ export default function HorarioPage() {
       minute: "2-digit",
     });
 
-    const daysHtml = DAYS.map((d) => {
-      const events = schedule[d.id as DayId] || [];
-      if (events.length === 0) return "";
+    const hours = [];
+    for (let h = START_HOUR; h < END_HOUR; h++) {
+      hours.push(`${pad2(h)}:00`);
+    }
 
-      const rowsHtml = events
+    const topFor = (t: string) => {
+      const totalMin = (END_HOUR - START_HOUR) * 60;
+      return ((timeToMin(t) - START_HOUR * 60) / totalMin) * 100;
+    };
+    
+    const heightFor = (a: string, b: string) => {
+      const totalMin = (END_HOUR - START_HOUR) * 60;
+      return ((timeToMin(b) - timeToMin(a)) / totalMin) * 100;
+    };
+
+    const getTipoColorClass = (tipo: string) => {
+      if (tipo === "T") return "teo";
+      if (tipo === "P") return "prac";
+      if (tipo === "LAB") return "lab";
+      return "";
+    };
+
+    const timeSlotsHtml = hours
+      .map((h) => `<div class="calTimeLabel">${h}</div>`)
+      .join("");
+
+    const daysHtml = DAYS.map((d) => {
+      const eventsHtml = (schedule[d.id as DayId] || [])
         .map((ev) => {
+          const tipoClass = getTipoColorClass(ev.tipo);
           const materia = ev.materia.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          const prof = (ev.prof || "—").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          const tipo = ev.tipo;
-          const seccion = ev.seccion || "—";
+          const prof = (ev.prof || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          const seccion = ev.seccion || "";
+          const top = topFor(ev.inicio);
+          const height = heightFor(ev.inicio, ev.fin);
+          const badgeHtml = seccion ? `<span class="calBadge sec">Sec. ${seccion}</span>` : "";
+          const profHtml = prof ? `<div class="calEvProf">👨‍🏫 ${prof}</div>` : "";
+          
           return `
-            <tr>
-              <td class="m">${materia}</td>
-              <td class="t">${tipo}</td>
-              <td class="s">Sec. ${seccion}</td>
-              <td class="h">${ev.inicio}–${ev.fin}</td>
-              <td class="p">${prof}</td>
-            </tr>`;
+            <div class="calEvent ${tipoClass}" style="top: ${top}%; height: ${height}%;">
+              <div class="calBadges">
+                <span class="calBadge ${tipoClass}">${ev.tipo}</span>
+                ${badgeHtml}
+              </div>
+              <div class="calEvTitle">${materia}</div>
+              <div class="calEvMeta">
+                <span class="calEvTime">${ev.inicio}–${ev.fin}</span>
+              </div>
+              ${profHtml}
+            </div>
+          `;
         })
         .join("");
 
       return `
-        <div class="dayblock">
-          <div class="daytitle">${d.long}</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Materia</th>
-                <th>Tipo</th>
-                <th>Sección</th>
-                <th>Horario</th>
-                <th>Profesor</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-        </div>`;
+        <div class="calDayCol">
+          <div class="calSlotContainer">
+            ${eventsHtml}
+          </div>
+        </div>
+      `;
     }).join("");
+
+    const dayHeadersHtml = DAYS.map((d) => `<div class="calHeadCell">${d.long}</div>`).join("");
 
     const html = `<!doctype html>
 <html lang="es">
@@ -599,48 +623,233 @@ export default function HorarioPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Horario de clases</title>
   <style>
-    *{ box-sizing:border-box; }
-    body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; color:#0f172a; }
-    .meta{ font-size:12px; color:#64748b; text-align:right; white-space:nowrap; margin-bottom: 10px; }
-
-    .dayblock{ margin-top:16px; page-break-inside: avoid; }
-    .daytitle{
-      font-size:13px; font-weight:900; letter-spacing:.6px; text-align:left;
-      padding:12px 14px; background: rgba(34,197,94,0.90); color:#fff; border-radius:8px;
+    * { box-sizing: border-box; }
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; 
+      margin: 18px; 
+      color: #0f172a;
+      background: #fff;
     }
-
-    table{ width:100%; border-collapse:collapse; margin-top:8px; }
-    th, td{ border-bottom:1px solid rgba(15,23,42,0.10); padding:10px 10px; font-size:12px; vertical-align:top; }
-    th{ background: rgba(34,197,94,0.12); text-transform:uppercase; letter-spacing:.5px; font-weight:900; }
-    td.m{ font-weight:900; width:32%; }
-    td.t{ width:8%; text-align:center; font-weight:600; }
-    td.s{ width:12%; text-align:center; }
-    td.h{ width:18%; white-space:nowrap; font-weight:600; }
-    td.p{ width:30%; }
-
-    .printBtn{
-      border:1px solid rgba(15,23,42,0.15);
+    .meta { 
+      font-size: 11px; 
+      color: #64748b; 
+      text-align: right; 
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    
+    .calWeek {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .calWeekHead {
+      display: grid;
+      grid-template-columns: 50px repeat(6, 1fr);
+      gap: 0;
+      border-bottom: 2px solid #cbd5e1;
+      background: #f8fafc;
+    }
+    
+    .calCorner {
+      border-right: 1px solid #cbd5e1;
+      background: #f1f5f9;
+    }
+    
+    .calHeadCell {
+      padding: 10px 8px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 12px;
+      border-right: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    
+    .calWeekBody {
+      display: grid;
+      grid-template-columns: 50px repeat(6, 1fr);
+      gap: 0;
+      min-height: 600px;
+      position: relative;
+    }
+    
+    .calTimes {
+      display: flex;
+      flex-direction: column;
+      border-right: 2px solid #cbd5e1;
+      background: #f8fafc;
+    }
+    
+    .calTimeRow {
+      flex: 1;
+      min-height: 60px;
+      display: flex;
+      align-items: flex-start;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .calTimeLabel {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      padding: 6px 4px;
+      text-align: center;
+      width: 100%;
+    }
+    
+    .calDays {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0;
+    }
+    
+    .calDayCol {
+      position: relative;
+      border-right: 1px solid #e2e8f0;
+      background: #ffffff;
+    }
+    
+    .calDayCol:last-child {
+      border-right: none;
+    }
+    
+    .calSlotContainer {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .calEvent {
+      position: absolute;
+      width: 92%;
+      left: 4%;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-align: left;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow: hidden;
+      box-sizing: border-box;
+      border: 1px solid;
+    }
+    
+    .calEvent.teo {
+      background: #e3f2fd;
+      border-color: #bbdefb;
+      color: #1565c0;
+    }
+    
+    .calEvent.prac {
+      background: #f3e5f5;
+      border-color: #e1bee7;
+      color: #6a1b9a;
+    }
+    
+    .calEvent.lab {
+      background: #fff9c4;
+      border-color: #fff59d;
+      color: #f57f17;
+    }
+    
+    .calBadges {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .calBadge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 4px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+    
+    .calBadge.teo {
+      background: rgba(21, 101, 192, 0.3);
+      color: #1565c0;
+    }
+    
+    .calBadge.prac {
+      background: rgba(106, 27, 154, 0.3);
+      color: #6a1b9a;
+    }
+    
+    .calBadge.lab {
+      background: rgba(245, 127, 23, 0.3);
+      color: #f57f17;
+    }
+    
+    .calBadge.sec {
+      background: rgba(0, 0, 0, 0.1);
+      color: #333;
+    }
+    
+    .calEvTitle {
+      font-weight: 700;
+      font-size: 0.85rem;
+      line-height: 1.2;
+    }
+    
+    .calEvMeta {
+      font-size: 0.75rem;
+      opacity: 0.85;
+    }
+    
+    .calEvTime {
+      font-weight: 600;
+    }
+    
+    .calEvProf {
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+    
+    .printBtn {
+      border: 1px solid rgba(15,23,42,0.15);
       background: rgba(34,197,94,0.12);
-      padding:10px 12px;
-      border-radius:8px;
-      font-weight:900;
-      cursor:pointer;
-      margin-bottom:12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-weight: 900;
+      cursor: pointer;
+      margin-bottom: 12px;
     }
-    @media print{
-      .printBtn{ display:none; }
-      body{ margin: 14mm; }
-      .daytitle{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      th{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    
+    @media print {
+      .printBtn { display: none; }
+      body { margin: 10mm; }
+      .calWeek { border: none; }
     }
   </style>
 </head>
 <body>
   <button class="printBtn" onclick="window.print()">Guardar como PDF</button>
-
   <div class="meta">Generado: ${stamp}<br/>S.I.G.A</div>
 
-  ${daysHtml}
+  <div class="calWeek">
+    <div class="calWeekHead">
+      <div class="calCorner"></div>
+      ${dayHeadersHtml}
+    </div>
+    
+    <div class="calWeekBody">
+      <div class="calTimes">
+        ${hours.map((h) => `<div class="calTimeRow"><div class="calTimeLabel">${h}</div></div>`).join("")}
+      </div>
+      
+      <div class="calDays">
+        ${daysHtml}
+      </div>
+    </div>
+  </div>
 </body>
 </html>`;
 

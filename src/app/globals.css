@@ -1870,10 +1870,11 @@ button, input, select { font: inherit; }
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
-  overflow: hidden;
-  min-height: 60px;
+  gap: 0.5rem;
+  overflow: visible;
+  min-height: 70px;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .calEvent.teo {
