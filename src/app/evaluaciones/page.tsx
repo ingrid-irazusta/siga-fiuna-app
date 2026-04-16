@@ -221,7 +221,8 @@ export default function EvaluacionesPage(): React.ReactNode {
 
         // Crear filas para todas las materias en curso
         const rowMap = new Map<string, Row>();
-        for (const materia of courses) {
+        const uniqueCourses = Array.from(new Set(courses));
+        for (const materia of uniqueCourses) {
           rowMap.set(materia, {
             materia,
             p1: { fecha: "", hora: "" },
@@ -255,7 +256,13 @@ export default function EvaluacionesPage(): React.ReactNode {
           }
         }
 
-        setRows(Array.from(rowMap.values()));
+        const uniqueRows = Array.from(
+          new Map(
+            Array.from(rowMap.values()).map((r) => [r.materia, r])
+          ).values()
+        );
+
+        setRows(uniqueRows);
       } catch (error) {
         console.error("Error loading exams:", error);
         // Fallback vacío si hay error
@@ -313,7 +320,13 @@ export default function EvaluacionesPage(): React.ReactNode {
                     (row as any)[typeKey] = { fecha: exam.fecha, hora: exam.hora };
                   }
                 }
-                setRows(Array.from(rowMap.values()));
+                const uniqueRows = Array.from(
+                  new Map(
+                    Array.from(rowMap.values()).map((r) => [r.materia, r])
+                  ).values()
+                );
+
+                setRows(uniqueRows);
               }
             } catch (error) {
               console.error("Error reloading exams:", error);
