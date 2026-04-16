@@ -695,191 +695,299 @@ export default function EvaluacionesPage(): React.ReactNode {
                 <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
                   Completa todo y guarda al final.
                 </div>
-
-
-                <button
-                  onClick={closeEditorModal}
-                  disabled={savingEditor}
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 12,
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    color: "#0f172a",
-                    fontSize: 22,
-                    cursor: savingEditor ? "not-allowed" : "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  ×
-                </button>
               </div>
 
-              <div
+              <button
+                onClick={closeEditorModal}
+                disabled={savingEditor}
                 style={{
-                  overflowY: "auto",
-                  padding: 20,
-                  display: "grid",
-                  gap: 18,
-                  background: "#f8fafc",
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  color: "#0f172a",
+                  fontSize: 22,
+                  cursor: savingEditor ? "not-allowed" : "pointer",
+                  flexShrink: 0,
                 }}
               >
-                {editorRows.length === 0 ? (
-                  <div
-                    style={{
-                      minHeight: 240,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#64748b",
-                      fontWeight: 700,
-                      fontSize: 14,
-                      border: "1px dashed #cbd5e1",
-                      borderRadius: 16,
-                      background: "#fff",
-                    }}
-                  >
-                    No hay materias disponibles en el editor
-                  </div>
-                ) : (
-                  <div style={{ display: "grid", gap: 16 }}>
-                    {editorRows.map((r, idx) => {
-                      return (
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                overflowY: "auto",
+                padding: 20,
+                display: "grid",
+                gap: 16,
+                background: "#f8fafc",
+              }}
+            >
+              {editorRows.length === 0 ? (
+                <div
+                  style={{
+                    minHeight: 240,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#64748b",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    border: "1px dashed #cbd5e1",
+                    borderRadius: 16,
+                    background: "#fff",
+                  }}
+                >
+                  No hay materias disponibles en el editor
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 16 }}>
+                  {editorRows.map((r, idx) => {
+                    const showF3 = Boolean(
+                      editorShowFinal3[r.materia] ||
+                      (r.f3?.fecha || "").trim() ||
+                      (r.f3?.hora || "").trim()
+                    );
+
+                    const editorTypes = TYPES.filter((t) => t.key !== "f3" || showF3);
+
+                    return (
+                      <div
+                        key={`${r.materia || "materia"}-${idx}`}
+                        style={{
+                          border: "1px solid #dbe2ea",
+                          borderRadius: 16,
+                          background: "#fff",
+                          padding: 16,
+                        }}
+                      >
                         <div
-                          key={idx}
                           style={{
-                            border: "1px solid #ccc",
-                            borderRadius: 12,
-                            padding: 12,
-                            background: "#fff",
+                            fontWeight: 900,
+                            marginBottom: 10,
+                            fontSize: 18,
+                            color: "#0f172a",
                           }}
                         >
-                          <div style={{ fontWeight: "bold", marginBottom: 10 }}>
-                            {r.materia}
-                          </div>
+                          📚 {r.materia || "MATERIA VACÍA"}
+                        </div>
 
-                          <div style={{ display: "flex", gap: 10, overflowX: "auto" }}>
-                            {TYPES.map((t) => {
-                              const cell = r[t.key as keyof Row] as EvalCell;
+                        <div style={{ overflowX: "auto" }}>
+                          <div style={{ display: "flex", gap: 10, minWidth: "max-content" }}>
+                            {editorTypes.map((t) => {
+                              const cell = (r[t.key as keyof Row] as EvalCell) || {
+                                fecha: "",
+                                hora: "",
+                              };
 
                               return (
                                 <div
-                                  key={t.key}
+                                  key={`${r.materia}-${t.key}`}
                                   style={{
-                                    minWidth: 180,
+                                    minWidth: 200,
+                                    width: 200,
                                     border: "1px solid #ddd",
+                                    borderRadius: 12,
                                     padding: 10,
-                                    borderRadius: 8,
+                                    background: "#f8fafc",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 8,
                                   }}
                                 >
-                                  <div>{t.label}</div>
+                                  <div style={{ fontWeight: 800, color: "#0f172a" }}>
+                                    {t.label}
+                                  </div>
 
-                                  <input
-                                    type="date"
-                                    value={cell?.fecha || ""}
-                                    onChange={(e) =>
-                                      setEditorCell(r.materia, t.key, "fecha", e.target.value)
-                                    }
-                                  />
+                                  <label
+                                    style={{
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: 4,
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      color: "#475569",
+                                    }}
+                                  >
+                                    <span>FECHA</span>
+                                    <input
+                                      type="date"
+                                      value={cell.fecha || ""}
+                                      onChange={(e) =>
+                                        setEditorCell(r.materia, t.key, "fecha", e.target.value)
+                                      }
+                                      style={{
+                                        width: "100%",
+                                        height: 40,
+                                        borderRadius: 10,
+                                        border: "1px solid #cbd5e1",
+                                        background: "#fff",
+                                        color: "#0f172a",
+                                        padding: "0 10px",
+                                        fontSize: 13,
+                                      }}
+                                    />
+                                  </label>
 
-                                  <input
-                                    type="time"
-                                    value={cell?.hora || ""}
-                                    onChange={(e) =>
-                                      setEditorCell(r.materia, t.key, "hora", e.target.value)
-                                    }
-                                  />
+                                  <label
+                                    style={{
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: 4,
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      color: "#475569",
+                                    }}
+                                  >
+                                    <span>HORA</span>
+                                    <input
+                                      type="time"
+                                      value={cell.hora || ""}
+                                      onChange={(e) =>
+                                        setEditorCell(r.materia, t.key, "hora", e.target.value)
+                                      }
+                                      style={{
+                                        width: "100%",
+                                        height: 40,
+                                        borderRadius: 10,
+                                        border: "1px solid #cbd5e1",
+                                        background: "#fff",
+                                        color: "#0f172a",
+                                        padding: "0 10px",
+                                        fontSize: 13,
+                                      }}
+                                    />
+                                  </label>
                                 </div>
                               );
                             })}
+
+                            {!showF3 && (
+                              <div
+                                style={{
+                                  minWidth: 200,
+                                  width: 200,
+                                  border: "1px dashed #cbd5e1",
+                                  borderRadius: 12,
+                                  padding: 10,
+                                  background: "#fff",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <button
+                                  onClick={() =>
+                                    setEditorShowFinal3((prev) => ({
+                                      ...prev,
+                                      [r.materia]: true,
+                                    }))
+                                  }
+                                  style={{
+                                    border: "1px solid #cbd5e1",
+                                    background: "#fff",
+                                    color: "#0f172a",
+                                    borderRadius: 12,
+                                    padding: "10px 12px",
+                                    fontWeight: 800,
+                                    cursor: "pointer",
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  ➕ Agregar Final 3
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-              <div
+            <div
+              style={{
+                padding: "14px 20px",
+                borderTop: "1px solid rgba(15,23,42,0.08)",
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 10,
+                flexWrap: "wrap",
+                background: "#fff",
+              }}
+            >
+              <button
+                onClick={closeEditorModal}
+                disabled={savingEditor}
                 style={{
-                  padding: "14px 20px",
-                  borderTop: "1px solid rgba(15,23,42,0.08)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  flexWrap: "wrap",
+                  border: "1px solid #d1d5db",
                   background: "#fff",
+                  color: "#0f172a",
+                  borderRadius: 14,
+                  padding: "12px 18px",
+                  fontWeight: 800,
+                  cursor: savingEditor ? "not-allowed" : "pointer",
                 }}
               >
-                <button
-                  onClick={closeEditorModal}
-                  disabled={savingEditor}
-                  style={{
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    color: "#0f172a",
-                    borderRadius: 14,
-                    padding: "12px 18px",
-                    fontWeight: 800,
-                    cursor: savingEditor ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Cancelar
-                </button>
+                Cancelar
+              </button>
 
-                <button
-                  onClick={saveEditorToDB}
-                  disabled={savingEditor}
-                  style={{
-                    border: "1px solid #7dd3fc",
-                    background: "#e0f2fe",
-                    color: "#0f172a",
-                    borderRadius: 14,
-                    padding: "12px 18px",
-                    fontWeight: 900,
-                    cursor: savingEditor ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {savingEditor ? "Guardando..." : "💾 Guardar cronograma"}
-                </button>
-              </div>
+              <button
+                onClick={saveEditorToDB}
+                disabled={savingEditor}
+                style={{
+                  border: "1px solid #7dd3fc",
+                  background: "#e0f2fe",
+                  color: "#0f172a",
+                  borderRadius: 14,
+                  padding: "12px 18px",
+                  fontWeight: 900,
+                  cursor: savingEditor ? "not-allowed" : "pointer",
+                }}
+              >
+                {savingEditor ? "Guardando..." : "💾 Guardar cronograma"}
+              </button>
             </div>
           </div>
+        </div>
       )}
 
-          {Object.values(lists).some((arr) => arr.length > 0) ? (
-            <div className="grid" style={{ gap: 14 }}>
-              {TYPES.map((t) => {
-                const items = lists[t.key] || [];
-                if (!items.length) return null;
+      {Object.values(lists).some((arr) => arr.length > 0) ? (
+        <div className="grid" style={{ gap: 14 }}>
+          {TYPES.map((t) => {
+            const items = lists[t.key] || [];
+            if (!items.length) return null;
 
-                return (
-                  <div key={t.key} className="examSummaryCard">
-                    <div className="examSummaryTitle">{titleFor(t.key).toUpperCase()}</div>
+            return (
+              <div key={t.key} className="examSummaryCard">
+                <div className="examSummaryTitle">{titleFor(t.key).toUpperCase()}</div>
 
-                    <div className="examSummaryWrap">
-                      <div className="examSummaryTable">
-                        <div className="examSummaryTh">📚 MATERIA</div>
-                        <div className="examSummaryTh">📅 FECHA</div>
-                        <div className="examSummaryTh">⏰ HORA</div>
-                        <div className="examSummaryTh">🗓️ DÍAS RESTANTES</div>
+                <div className="examSummaryWrap">
+                  <div className="examSummaryTable">
+                    <div className="examSummaryTh">📚 MATERIA</div>
+                    <div className="examSummaryTh">📅 FECHA</div>
+                    <div className="examSummaryTh">⏰ HORA</div>
+                    <div className="examSummaryTh">🗓️ DÍAS RESTANTES</div>
 
-                        {items.map((it) => (
-                          <React.Fragment key={`${t.key}-${it.materia}-${it.fecha}-${it.hora}`}>
-                            <div className="examSummaryTd examSummaryMateria">{it.materia}</div>
-                            <div className="examSummaryTd">{formatLongES(it.fecha) || "—"}</div>
-                            <div className="examSummaryTd">{it.hora || "—"}</div>
-                            <div className="examSummaryTd">{it.estado}</div>
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
+                    {items.map((it) => (
+                      <React.Fragment key={`${t.key}-${it.materia}-${it.fecha}-${it.hora}`}>
+                        <div className="examSummaryTd examSummaryMateria">{it.materia}</div>
+                        <div className="examSummaryTd">{formatLongES(it.fecha) || "—"}</div>
+                        <div className="examSummaryTd">{it.hora || "—"}</div>
+                        <div className="examSummaryTd">{it.estado}</div>
+                      </React.Fragment>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      );
+      ) : null}
+    </div>
+  );
 } // FIN COMPONENTE PRINCIPAL
