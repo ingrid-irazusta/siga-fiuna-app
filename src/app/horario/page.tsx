@@ -25,6 +25,15 @@ const timeToMin = (t: string) => {
 
 const minToTime = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
 
+const formatHourMin = (time: string): string => {
+  if (!time) return "";
+  const parts = time.split(":");
+  if (parts.length >= 2) {
+    return `${parts[0]}:${parts[1]}`;
+  }
+  return time;
+};
+
 // --- TYPES ---
 type DayId = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -588,6 +597,8 @@ export default function HorarioPage() {
           const height = heightFor(ev.inicio, ev.fin);
           const badgeHtml = seccion ? `<span class="calBadge sec">Sec. ${seccion}</span>` : "";
           const profHtml = prof ? `<div class="calEvProf">👨‍🏫 ${prof}</div>` : "";
+          const horaInicio = ev.inicio.substring(0, 5);
+          const horaFin = ev.fin.substring(0, 5);
           
           return `
             <div class="calEvent ${tipoClass}" style="top: ${top}%; height: ${height}%;">
@@ -597,7 +608,7 @@ export default function HorarioPage() {
               </div>
               <div class="calEvTitle">${materia}</div>
               <div class="calEvMeta">
-                <span class="calEvTime">${ev.inicio}–${ev.fin}</span>
+                <span class="calEvTime">${horaInicio}–${horaFin}</span>
               </div>
               ${profHtml}
             </div>
@@ -673,20 +684,18 @@ export default function HorarioPage() {
       display: grid;
       grid-template-columns: 50px repeat(6, 1fr);
       gap: 0;
-      min-height: 600px;
+      min-height: 800px;
       position: relative;
     }
     
     .calTimes {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: repeat(15, 60px);
       border-right: 2px solid #cbd5e1;
       background: #f8fafc;
     }
     
     .calTimeRow {
-      flex: 1;
-      min-height: 60px;
       display: flex;
       align-items: flex-start;
       border-bottom: 1px solid #e2e8f0;
@@ -720,7 +729,7 @@ export default function HorarioPage() {
     .calSlotContainer {
       position: relative;
       width: 100%;
-      height: 100%;
+      height: 900px;
     }
     
     .calEvent {
@@ -999,7 +1008,7 @@ export default function HorarioPage() {
                         <div className="calEvTitle">{ev.materia}</div>
                         <div className="calEvMeta">
                           <span className="calEvTime">
-                            {ev.inicio}–{ev.fin}
+                            {formatHourMin(ev.inicio)}–{formatHourMin(ev.fin)}
                           </span>
                         </div>
                         {ev.prof && <div className="calEvProf">👨‍🏫 {ev.prof}</div>}
@@ -1040,9 +1049,9 @@ export default function HorarioPage() {
                 >
                   <div className="calCardLeft">
                     <div className="calCardTime">
-                      {ev.inicio}
+                      {formatHourMin(ev.inicio)}
                       <span className="muted"> → </span>
-                      {ev.fin}
+                      {formatHourMin(ev.fin)}
                     </div>
                     <div className="calCardTitle">{ev.materia}</div>
                     <div className="calCardSub">
