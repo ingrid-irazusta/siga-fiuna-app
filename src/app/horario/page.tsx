@@ -634,7 +634,7 @@ export default function HorarioPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Horario de clases</title>
   <style>
-    @page { size: A4 portrait; margin: 3mm; }
+    @page { size: A4 landscape; margin: 4mm; }
     
     * { box-sizing: border-box; }
     body { 
@@ -645,10 +645,10 @@ export default function HorarioPage() {
       background: #fff;
     }
     .meta { 
-      font-size: 9px; 
-      color: #94a3b8; 
+      font-size: 10px; 
+      color: #64748b; 
       text-align: right; 
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       font-weight: 500;
     }
     
@@ -663,7 +663,7 @@ export default function HorarioPage() {
     
     .calWeekHead {
       display: grid;
-      grid-template-columns: 28px repeat(6, 1fr);
+      grid-template-columns: 32px repeat(6, 1fr);
       gap: 0;
       border-bottom: 1px solid #cbd5e1;
       background: #f8fafc;
@@ -675,13 +675,13 @@ export default function HorarioPage() {
     }
     
     .calHeadCell {
-      padding: 4px 2px;
+      padding: 5px 3px;
       text-align: center;
       font-weight: 700;
-      font-size: 8px;
-      border-right: 1px solid #e2e8f0;
+      font-size: 9px;
+      border-right: 1px solid #cbd5e1;
       background: #f8fafc;
-      line-height: 1;
+      line-height: 1.2;
     }
     
     .calHeadCell:last-child {
@@ -690,8 +690,8 @@ export default function HorarioPage() {
     
     .calWeekBody {
       display: grid;
-      grid-template-columns: 28px repeat(6, 1fr);
-      grid-template-rows: repeat(15, 38px);
+      grid-template-columns: 32px repeat(6, 1fr);
+      grid-template-rows: repeat(15, 42px);
       gap: 0;
       background: #fff;
     }
@@ -710,7 +710,7 @@ export default function HorarioPage() {
       display: flex;
       align-items: flex-start;
       border-bottom: 1px solid #e2e8f0;
-      height: 38px;
+      height: 42px;
     }
     
     .calTimeRow:last-child {
@@ -718,13 +718,13 @@ export default function HorarioPage() {
     }
     
     .calTimeLabel {
-      font-size: 7px;
-      font-weight: 600;
-      color: #64748b;
-      padding: 2px 1px;
+      font-size: 8px;
+      font-weight: 700;
+      color: #475569;
+      padding: 4px 1px;
       text-align: center;
       width: 100%;
-      line-height: 1;
+      line-height: 1.2;
     }
     
     .calDays {
@@ -753,19 +753,20 @@ export default function HorarioPage() {
     
     .calEvent {
       position: absolute;
-      width: 90%;
-      left: 5%;
-      border-radius: 2px;
+      width: 94%;
+      left: 3%;
+      border-radius: 3px;
       cursor: pointer;
-      font-size: 0.6rem;
+      font-size: 0.68rem;
       text-align: left;
-      padding: 2px;
+      padding: 3px 4px;
       display: flex;
       flex-direction: column;
-      gap: 0px;
+      gap: 1px;
       overflow: hidden;
       box-sizing: border-box;
-      border: 1px solid;
+      border: 1.5px solid;
+      line-height: 1.1;
     }
     
     .calEvent.teo {
@@ -794,12 +795,13 @@ export default function HorarioPage() {
     }
     
     .calBadge {
-      font-size: 7px;
-      font-weight: 600;
-      padding: 0px 2px;
-      border-radius: 1px;
+      font-size: 8px;
+      font-weight: 700;
+      padding: 2px 4px;
+      border-radius: 2px;
       display: inline-block;
       line-height: 1;
+      white-space: nowrap;
     }
     
     .calBadge.teo {

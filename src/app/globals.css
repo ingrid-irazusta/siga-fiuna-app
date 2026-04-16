@@ -24,18 +24,18 @@
   --bg: #0F172A;
   --card: #1E293B;
   --text: #F8FAFC;
-  --muted: #94A3B8;
-  --border: rgba(255, 255, 255, 0.10);
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  --shadow2: 0 6px 18px rgba(0, 0, 0, 0.4);
-  --primary: #00B0FF;
-  --primary2: rgba(0, 176, 255, 0.2);
-  --success: #66BB6A;
-  --successLime: #C6FF00;
-  --danger: #EF5350;
-  --warn: #FFC107;
-  --bg-topbar: rgba(30, 41, 59, 0.92);
-  --bg-sidebar: #1E293B;
+  --muted: #B0BAC9;
+  --border: rgba(255, 255, 255, 0.18);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  --shadow2: 0 6px 18px rgba(0, 0, 0, 0.6);
+  --primary: #0DD9FF;
+  --primary2: rgba(13, 217, 255, 0.25);
+  --success: #4EE46C;
+  --successLime: #E8FF3F;
+  --danger: #FF6B6B;
+  --warn: #FFD93D;
+  --bg-topbar: rgba(15, 23, 42, 0.95);
+  --bg-sidebar: #161F3C;
   --text-topbar: #F8FAFC;
 }
 
