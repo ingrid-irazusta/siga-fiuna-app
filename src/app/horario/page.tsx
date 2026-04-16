@@ -634,12 +634,13 @@ export default function HorarioPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Horario de clases</title>
   <style>
-    @page { size: landscape; margin: 10mm; }
+    @page { size: A4 landscape; margin: 5mm; }
     
     * { box-sizing: border-box; }
     body { 
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; 
-      margin: 12px; 
+      margin: 0; 
+      padding: 0;
       color: #0f172a;
       background: #fff;
     }
@@ -662,7 +663,7 @@ export default function HorarioPage() {
     
     .calWeekHead {
       display: grid;
-      grid-template-columns: 40px repeat(6, 1fr);
+      grid-template-columns: 35px repeat(6, 1fr);
       gap: 0;
       border-bottom: 1px solid #cbd5e1;
       background: #f8fafc;
@@ -674,10 +675,10 @@ export default function HorarioPage() {
     }
     
     .calHeadCell {
-      padding: 8px 6px;
+      padding: 7px 5px;
       text-align: center;
       font-weight: 700;
-      font-size: 11px;
+      font-size: 10px;
       border-right: 1px solid #e2e8f0;
       background: #f8fafc;
     }
@@ -688,8 +689,8 @@ export default function HorarioPage() {
     
     .calWeekBody {
       display: grid;
-      grid-template-columns: 40px repeat(6, 1fr);
-      grid-template-rows: repeat(15, 55px);
+      grid-template-columns: 35px repeat(6, 1fr);
+      grid-template-rows: repeat(15, 50px);
       gap: 0;
       background: #fff;
     }
@@ -708,7 +709,7 @@ export default function HorarioPage() {
       display: flex;
       align-items: flex-start;
       border-bottom: 1px solid #e2e8f0;
-      height: 55px;
+      height: 50px;
     }
     
     .calTimeRow:last-child {
@@ -716,10 +717,10 @@ export default function HorarioPage() {
     }
     
     .calTimeLabel {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 600;
       color: #64748b;
-      padding: 4px 2px;
+      padding: 3px 2px;
       text-align: center;
       width: 100%;
     }
@@ -752,14 +753,14 @@ export default function HorarioPage() {
       position: absolute;
       width: 90%;
       left: 5%;
-      border-radius: 4px;
+      border-radius: 3px;
       cursor: pointer;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       text-align: left;
-      padding: 6px;
+      padding: 5px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 1px;
       overflow: hidden;
       box-sizing: border-box;
       border: 1px solid;
