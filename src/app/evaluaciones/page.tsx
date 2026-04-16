@@ -354,7 +354,8 @@ export default function EvaluacionesPage(): React.ReactNode {
           const old = prevMap.get(base.materia);
           return old ? { ...base, ...old, materia: base.materia } : base;
         });
-        return next;
+        // Deduplicar por si acaso
+        return Array.from(new Map(next.map(r => [r.materia, r])).values());
       });
     };
 
@@ -382,8 +383,15 @@ export default function EvaluacionesPage(): React.ReactNode {
   }, [showEditor, loaded]);
 
   const openEditorModal = (): void => {
+    // Deduplicar rows por materia
+    const deduplicatedRows = Array.from(
+      new Map(
+        rows.map(r => [r.materia, r])
+      ).values()
+    );
+
     // Clonar rows a editorRows para edición local
-    const cloned = rows.map((r) => ({
+    const cloned = deduplicatedRows.map((r) => ({
       materia: r.materia,
       p1: { fecha: r.p1?.fecha || "", hora: r.p1?.hora || "" },
       p2: { fecha: r.p2?.fecha || "", hora: r.p2?.hora || "" },
