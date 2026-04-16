@@ -144,6 +144,13 @@ function buildFromInicioCourses(): Row[] {
   }));
 }
 
+// FUNCIÓN para deduplicar rows
+function deduplicateRows(rows: Row[]): Row[] {
+  return Array.from(
+    new Map(rows.map(r => [r.materia, r])).values()
+  );
+}
+
 export default function EvaluacionesPage(): React.ReactNode {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
@@ -262,7 +269,7 @@ export default function EvaluacionesPage(): React.ReactNode {
           ).values()
         );
 
-        setRows(uniqueRows);
+        setRows(deduplicateRows(uniqueRows));
       } catch (error) {
         console.error("Error loading exams:", error);
         // Fallback vacío si hay error
@@ -326,7 +333,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                   ).values()
                 );
 
-                setRows(uniqueRows);
+                setRows(deduplicateRows(uniqueRows));
               }
             } catch (error) {
               console.error("Error reloading exams:", error);
@@ -354,8 +361,7 @@ export default function EvaluacionesPage(): React.ReactNode {
           const old = prevMap.get(base.materia);
           return old ? { ...base, ...old, materia: base.materia } : base;
         });
-        // Deduplicar por si acaso
-        return Array.from(new Map(next.map(r => [r.materia, r])).values());
+        return deduplicateRows(next);
       });
     };
 
@@ -383,15 +389,11 @@ export default function EvaluacionesPage(): React.ReactNode {
   }, [showEditor, loaded]);
 
   const openEditorModal = (): void => {
-    // Deduplicar rows por materia
-    const deduplicatedRows = Array.from(
-      new Map(
-        rows.map(r => [r.materia, r])
-      ).values()
-    );
+    // Deduplicar rows para asegurar que no hay duplicados
+    const dedupRows = deduplicateRows(rows);
 
     // Clonar rows a editorRows para edición local
-    const cloned = deduplicatedRows.map((r) => ({
+    const cloned = dedupRows.map((r) => ({
       materia: r.materia,
       p1: { fecha: r.p1?.fecha || "", hora: r.p1?.hora || "" },
       p2: { fecha: r.p2?.fecha || "", hora: r.p2?.hora || "" },
@@ -440,8 +442,8 @@ export default function EvaluacionesPage(): React.ReactNode {
     try {
       setSavingEditor(true);
 
-      // Actualizar rows con los cambios de editorRows
-      setRows(editorRows);
+      // Actualizar rows con los cambios de editorRows (deduplicado)
+      setRows(deduplicateRows(editorRows));
 
       // Cerrar modal
       setShowEditor(false);
