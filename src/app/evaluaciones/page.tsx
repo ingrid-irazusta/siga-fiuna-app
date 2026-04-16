@@ -810,35 +810,49 @@ export default function EvaluacionesPage(): React.ReactNode {
                       <div
                         key={`${r.materia || "materia"}-${idx}`}
                         style={{
-                          border: "1px solid rgba(148,163,184,0.22)",
-                          borderRadius: 20,
+                          border: "1px solid rgba(148,163,184,0.18)",
+                          borderRadius: 22,
                           background: "#ffffff",
-                          padding: 14,
-                          boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+                          boxShadow: "0 10px 28px rgba(15,23,42,0.05)",
+                          overflow: "hidden",
                         }}
                       >
                         <div
                           style={{
                             fontWeight: 900,
-                            marginBottom: 12,
-                            fontSize: 18,
+                            fontSize: 17,
                             color: "#0f172a",
                             letterSpacing: "-0.02em",
                             display: "flex",
                             alignItems: "center",
                             gap: 8,
+                            padding: "14px 16px",
+                            borderBottom: "1px solid rgba(148,163,184,0.14)",
+                            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 1,
                           }}
                         >
                           📚 {r.materia || "MATERIA VACÍA"}
                         </div>
 
-                        <div style={{ overflowX: "auto" }}>
+                        <div
+                          style={{
+                            padding: "12px 14px 14px",
+                            overflowX: "auto",
+                            overflowY: "hidden",
+                            WebkitOverflowScrolling: "touch",
+                          }}
+                        >
                           <div
                             style={{
-                              display: "flex",
+                              display: "grid",
+                              gridAutoFlow: "column",
+                              gridAutoColumns: "176px",
                               gap: 10,
                               minWidth: "max-content",
-                              paddingBottom: 2,
+                              alignItems: "stretch",
                             }}
                           >
                             {editorTypes.map((t) => {
@@ -851,25 +865,26 @@ export default function EvaluacionesPage(): React.ReactNode {
                                 <div
                                   key={`${r.materia}-${t.key}`}
                                   style={{
-                                    minWidth: 188,
-                                    width: 188,
-                                    border: "1px solid rgba(148,163,184,0.2)",
-                                    borderRadius: 16,
+                                    minWidth: 176,
+                                    width: 176,
+                                    border: "1px solid rgba(148,163,184,0.18)",
+                                    borderRadius: 14,
                                     padding: 10,
-                                    background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                                    background: "#ffffff",
                                     display: "flex",
                                     flexDirection: "column",
-                                    gap: 8,
-                                    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+                                    gap: 7,
+                                    boxShadow: "0 1px 4px rgba(15,23,42,0.03)",
                                   }}
                                 >
                                   <div
                                     style={{
                                       fontWeight: 900,
                                       color: "#0f172a",
-                                      fontSize: 14,
+                                      fontSize: 13.5,
                                       letterSpacing: "-0.01em",
                                       paddingBottom: 2,
+                                      lineHeight: 1.15,
                                     }}
                                   >
                                     {t.label}
@@ -880,10 +895,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       display: "flex",
                                       flexDirection: "column",
                                       gap: 4,
-                                      fontSize: 11,
+                                      fontSize: 10.5,
                                       fontWeight: 800,
-                                      color: "#475569",
-                                      letterSpacing: ".03em",
+                                      color: "#64748b",
+                                      letterSpacing: ".04em",
                                     }}
                                   >
                                     <span>FECHA</span>
@@ -895,14 +910,14 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        height: 38,
-                                        borderRadius: 12,
-                                        border: "1px solid rgba(148,163,184,0.35)",
+                                        height: 36,
+                                        borderRadius: 10,
+                                        border: "1px solid rgba(148,163,184,0.28)",
                                         background: "#ffffff",
                                         color: "#0f172a",
-                                        padding: "0 10px",
-                                        fontSize: 12.5,
-                                        boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
+                                        padding: "0 9px",
+                                        fontSize: 12,
+                                        boxShadow: "inset 0 1px 2px rgba(15,23,42,0.02)",
                                       }}
                                     />
                                   </label>
@@ -912,10 +927,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       display: "flex",
                                       flexDirection: "column",
                                       gap: 4,
-                                      fontSize: 11,
+                                      fontSize: 10.5,
                                       fontWeight: 800,
-                                      color: "#475569",
-                                      letterSpacing: ".03em",
+                                      color: "#64748b",
+                                      letterSpacing: ".04em",
                                     }}
                                   >
                                     <span>HORA</span>
@@ -927,14 +942,14 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        height: 38,
-                                        borderRadius: 12,
-                                        border: "1px solid rgba(148,163,184,0.35)",
+                                        height: 36,
+                                        borderRadius: 10,
+                                        border: "1px solid rgba(148,163,184,0.28)",
                                         background: "#ffffff",
                                         color: "#0f172a",
-                                        padding: "0 10px",
-                                        fontSize: 12.5,
-                                        boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
+                                        padding: "0 9px",
+                                        fontSize: 12,
+                                        boxShadow: "inset 0 1px 2px rgba(15,23,42,0.02)",
                                       }}
                                     />
                                   </label>
@@ -945,12 +960,12 @@ export default function EvaluacionesPage(): React.ReactNode {
                             {!showF3 && (
                               <div
                                 style={{
-                                  minWidth: 188,
-                                  width: 188,
-                                  border: "1px dashed rgba(148,163,184,0.45)",
-                                  borderRadius: 16,
+                                  minWidth: 176,
+                                  width: 176,
+                                  border: "1px dashed rgba(148,163,184,0.38)",
+                                  borderRadius: 14,
                                   padding: 10,
-                                  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                                  background: "#ffffff",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -964,15 +979,16 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     }))
                                   }
                                   style={{
-                                    border: "1px solid rgba(148,163,184,0.32)",
+                                    border: "1px solid rgba(148,163,184,0.24)",
                                     background: "#ffffff",
                                     color: "#0f172a",
                                     borderRadius: 12,
                                     padding: "10px 12px",
                                     fontWeight: 800,
                                     cursor: "pointer",
-                                    fontSize: 12,
-                                    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+                                    fontSize: 11.5,
+                                    boxShadow: "0 2px 8px rgba(15,23,42,0.03)",
+                                    lineHeight: 1.15,
                                   }}
                                 >
                                   ➕ Agregar Final 3
