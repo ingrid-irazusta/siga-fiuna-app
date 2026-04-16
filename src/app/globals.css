@@ -14,6 +14,29 @@
   --danger: #D32F2F;
   --warn: #FFD700;
   --radius: 18px;
+  --bg-topbar: rgba(255,255,255,0.92);
+  --bg-sidebar: #FFFFFF;
+  --text-topbar: #0F172A;
+}
+
+/* Dark Mode Theme */
+:root.dark-mode {
+  --bg: #0F172A;
+  --card: #1E293B;
+  --text: #F8FAFC;
+  --muted: #94A3B8;
+  --border: rgba(255, 255, 255, 0.10);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow2: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --primary: #00B0FF;
+  --primary2: rgba(0, 176, 255, 0.2);
+  --success: #66BB6A;
+  --successLime: #C6FF00;
+  --danger: #EF5350;
+  --warn: #FFC107;
+  --bg-topbar: rgba(30, 41, 59, 0.92);
+  --bg-sidebar: #1E293B;
+  --text-topbar: #F8FAFC;
 }
 
 /* =============================
@@ -35,7 +58,7 @@
   justify-content: space-between;
   padding: 8px 14px;
   z-index: 12000;
-  background: rgba(255,255,255,0.92);
+  background: var(--bg-topbar);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
@@ -46,9 +69,15 @@
   gap: 10px;
 }
 
+.appTopbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .appHamb{
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.95);
+  background: var(--card);
   border-radius: 12px;
   padding: 8px 10px;
   font-weight: 900;
@@ -57,6 +86,36 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: manipulation;
+  transition: all 0.2s ease;
+  color: var(--text);
+}
+
+.appHamb:hover {
+  background: var(--primary2);
+  border-color: var(--primary);
+}
+
+.appThemeBtn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: all 0.2s ease;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.appThemeBtn:hover {
+  background: var(--primary2);
+  border-color: var(--primary);
 }
 
 
@@ -69,7 +128,7 @@
 
 .appLogoutBtn {
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.95);
+  background: var(--card);
   border-radius: 12px;
   padding: 8px 12px;
   font-weight: 600;
@@ -84,9 +143,9 @@
 }
 
 .appLogoutBtn:hover {
-  background: rgba(211, 47, 47, 0.1);
+  background: var(--danger);
   border-color: var(--danger);
-  color: var(--danger);
+  color: #FFFFFF;
 }
 
 .appOverlay{
@@ -104,7 +163,7 @@
   height: calc(100vh - 56px);
   z-index: 11999;
   border-right: 1px solid var(--border);
-  background: rgba(255,255,255,0.92);
+  background: var(--bg-sidebar);
   backdrop-filter: blur(8px);
   padding: 14px;
   overflow: auto;
@@ -125,11 +184,18 @@
 .appCloseBtn{
   display:inline-flex;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.95);
+  background: var(--card);
   border-radius: 12px;
   padding: 6px 10px;
   font-weight: 900;
   cursor: pointer;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.appCloseBtn:hover {
+  background: var(--primary2);
+  border-color: var(--primary);
 }
 
 .appNav{ display:grid; gap: 8px; }
@@ -138,12 +204,20 @@
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.75);
+  background: var(--card);
   font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.appNavItem:hover {
+  background: var(--primary2);
+  border-color: var(--primary);
 }
 .appNavItem.active{
-  outline: 2px solid rgba(0,176,255,0.25);
-  background: rgba(0,176,255,0.10);
+  outline: 2px solid var(--primary2);
+  background: var(--primary2);
+  border-color: var(--primary);
 }
 
 * { box-sizing: border-box; }

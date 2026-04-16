@@ -53,6 +53,7 @@ export default function AppShell({ children }: AppShellProps) {
   const [navOpen, setNavOpen] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isDark, setIsDark] = useState<boolean>(false);
   const [profileInfo, setProfileInfo] = useState<{ carrera: string; malla: string }>({ carrera: "", malla: "" });
 
   const handleLogout = async () => {
@@ -67,6 +68,17 @@ export default function AppShell({ children }: AppShellProps) {
     }
   };
 
+  const handleToggleTheme = () => {
+    const newDarkMode = !isDark;
+    setIsDark(newDarkMode);
+    localStorage.setItem("fiuna_theme_mode", newDarkMode ? "dark" : "light");
+    if (newDarkMode) {
+      document.documentElement.classList.add("dark-mode");
+    } else {
+      document.documentElement.classList.remove("dark-mode");
+    }
+  };
+
   const pageLabel = getPageLabel(pathname);
   const headerTop = pathname === "/" ? APP_TITLE : pageLabel;
 
@@ -74,6 +86,19 @@ export default function AppShell({ children }: AppShellProps) {
 
   useEffect(() => {
     setMounted(true);
+    // Cargar tema desde localStorage
+    try {
+      const savedTheme = localStorage.getItem("fiuna_theme_mode");
+      const dark = savedTheme === "dark";
+      setIsDark(dark);
+      // Aplicar clase al documento
+      if (dark) {
+        document.documentElement.classList.add("dark-mode");
+      } else {
+        document.documentElement.classList.remove("dark-mode");
+      }
+    } catch {}
+    
     try {
       const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
       const narrow = window.innerWidth <= 768;
@@ -136,7 +161,12 @@ export default function AppShell({ children }: AppShellProps) {
             <button type="button" className="appHamb" onClick={() => setNavOpen((v) => !v)} aria-label="Menú">☰</button>
             <div className="appBrand">S.I.G.A</div>
           </div>
-          <button type="button" className="appLogoutBtn" onClick={handleLogout} aria-label="Cerrar sesión">Cerrar sesión</button>
+          <div className="appTopbarRight">
+            <button type="button" className="appThemeBtn" onClick={handleToggleTheme} aria-label="Cambiar tema">
+              {isDark ? "☀️" : "🌙"}
+            </button>
+            <button type="button" className="appLogoutBtn" onClick={handleLogout} aria-label="Cerrar sesión">Cerrar sesión</button>
+          </div>
         </header>
       )}
 

@@ -634,7 +634,7 @@ export default function HorarioPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Horario de clases</title>
   <style>
-    @page { size: A4 landscape; margin: 5mm; }
+    @page { size: A4 portrait; margin: 3mm; }
     
     * { box-sizing: border-box; }
     body { 
@@ -645,10 +645,10 @@ export default function HorarioPage() {
       background: #fff;
     }
     .meta { 
-      font-size: 11px; 
-      color: #64748b; 
+      font-size: 9px; 
+      color: #94a3b8; 
       text-align: right; 
-      margin-bottom: 10px;
+      margin-bottom: 6px;
       font-weight: 500;
     }
     
@@ -663,7 +663,7 @@ export default function HorarioPage() {
     
     .calWeekHead {
       display: grid;
-      grid-template-columns: 35px repeat(6, 1fr);
+      grid-template-columns: 28px repeat(6, 1fr);
       gap: 0;
       border-bottom: 1px solid #cbd5e1;
       background: #f8fafc;
@@ -675,12 +675,13 @@ export default function HorarioPage() {
     }
     
     .calHeadCell {
-      padding: 7px 5px;
+      padding: 4px 2px;
       text-align: center;
       font-weight: 700;
-      font-size: 10px;
+      font-size: 8px;
       border-right: 1px solid #e2e8f0;
       background: #f8fafc;
+      line-height: 1;
     }
     
     .calHeadCell:last-child {
@@ -689,8 +690,8 @@ export default function HorarioPage() {
     
     .calWeekBody {
       display: grid;
-      grid-template-columns: 35px repeat(6, 1fr);
-      grid-template-rows: repeat(15, 50px);
+      grid-template-columns: 28px repeat(6, 1fr);
+      grid-template-rows: repeat(15, 38px);
       gap: 0;
       background: #fff;
     }
@@ -709,7 +710,7 @@ export default function HorarioPage() {
       display: flex;
       align-items: flex-start;
       border-bottom: 1px solid #e2e8f0;
-      height: 50px;
+      height: 38px;
     }
     
     .calTimeRow:last-child {
@@ -717,12 +718,13 @@ export default function HorarioPage() {
     }
     
     .calTimeLabel {
-      font-size: 9px;
+      font-size: 7px;
       font-weight: 600;
       color: #64748b;
-      padding: 3px 2px;
+      padding: 2px 1px;
       text-align: center;
       width: 100%;
+      line-height: 1;
     }
     
     .calDays {
@@ -753,14 +755,14 @@ export default function HorarioPage() {
       position: absolute;
       width: 90%;
       left: 5%;
-      border-radius: 3px;
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 0.7rem;
+      font-size: 0.6rem;
       text-align: left;
-      padding: 5px;
+      padding: 2px;
       display: flex;
       flex-direction: column;
-      gap: 1px;
+      gap: 0px;
       overflow: hidden;
       box-sizing: border-box;
       border: 1px solid;
@@ -786,17 +788,18 @@ export default function HorarioPage() {
     
     .calBadges {
       display: flex;
-      gap: 2px;
+      gap: 1px;
       flex-wrap: wrap;
       align-items: center;
     }
     
     .calBadge {
-      font-size: 9px;
+      font-size: 7px;
       font-weight: 600;
-      padding: 1px 3px;
-      border-radius: 2px;
+      padding: 0px 2px;
+      border-radius: 1px;
       display: inline-block;
+      line-height: 1;
     }
     
     .calBadge.teo {
@@ -821,13 +824,14 @@ export default function HorarioPage() {
     
     .calEvTitle {
       font-weight: 700;
-      font-size: 0.75rem;
-      line-height: 1.15;
+      font-size: 0.6rem;
+      line-height: 1;
     }
     
     .calEvMeta {
-      font-size: 0.7rem;
+      font-size: 0.55rem;
       opacity: 0.85;
+      line-height: 1;
     }
     
     .calEvTime {
@@ -835,24 +839,26 @@ export default function HorarioPage() {
     }
     
     .calEvProf {
-      font-size: 0.7rem;
+      font-size: 0.55rem;
       opacity: 0.8;
+      line-height: 1;
     }
     
     .printBtn {
       border: 1px solid rgba(15,23,42,0.15);
       background: rgba(34,197,94,0.12);
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
       font-weight: 900;
       cursor: pointer;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
     }
     
     @media print {
-      @page { size: landscape; margin: 8mm; }
+      @page { size: A4 portrait; margin: 3mm; }
       .printBtn { display: none; }
-      body { margin: 8mm; }
+      body { margin: 0; padding: 0; }
       .calWeek { border: none; }
       .calWeekHead, .calWeekBody { background: #fff; }
     }
