@@ -125,17 +125,23 @@ function buildFromInicioCourses(): Row[] {
   const raw = localStorage.getItem(CURRENT_COURSES_KEY);
   const arr = safeParse(raw) as Course[] | null;
   const list = Array.isArray(arr) ? arr : [];
-  return list
-    .map((x) => String(x?.nombre || x?.mat || "").trim())
-    .filter(Boolean)
-    .map((materia) => ({
-      materia,
-      p1: { fecha: "", hora: "" },
-      p2: { fecha: "", hora: "" },
-      f1: { fecha: "", hora: "" },
-      f2: { fecha: "", hora: "" },
-      f3: { fecha: "", hora: "" },
-    }));
+
+  const materiasUnicas = Array.from(
+    new Set(
+      list
+        .map((x) => String(x?.nombre || x?.mat || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  return materiasUnicas.map((materia) => ({
+    materia,
+    p1: { fecha: "", hora: "" },
+    p2: { fecha: "", hora: "" },
+    f1: { fecha: "", hora: "" },
+    f2: { fecha: "", hora: "" },
+    f3: { fecha: "", hora: "" },
+  }));
 }
 
 export default function EvaluacionesPage(): React.ReactNode {
@@ -203,7 +209,9 @@ export default function EvaluacionesPage(): React.ReactNode {
           .select("id, materia")
           .eq("user_id", userId);
 
-        const courses = coursesData ? coursesData.map(c => c.materia) : [];
+        const courses = coursesData
+          ? Array.from(new Set(coursesData.map((c) => String(c.materia || "").trim()).filter(Boolean)))
+          : [];
 
         // Cargar exámenes desde student_exams
         const { data: exams } = await supabase
@@ -688,207 +696,190 @@ export default function EvaluacionesPage(): React.ReactNode {
                   Completa todo y guarda al final.
                 </div>
 
-                <div
+
+                <button
+                  onClick={closeEditorModal}
+                  disabled={savingEditor}
                   style={{
-                    marginTop: 10,
-                    padding: "10px 12px",
+                    width: 42,
+                    height: 42,
                     borderRadius: 12,
-                    background: "#fff7ed",
-                    border: "1px solid #fdba74",
-                    fontSize: 13,
-                    color: "#9a3412",
-                    fontWeight: 700,
-                    display: "inline-block",
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    color: "#0f172a",
+                    fontSize: 22,
+                    cursor: savingEditor ? "not-allowed" : "pointer",
+                    flexShrink: 0,
                   }}
                 >
-                  DEBUG → rows: {rows.length} | editorRows: {editorRows.length} | primera materia:{" "}
-                  {editorRows?.[0]?.materia || "VACÍA"}
-                </div>
+                  ×
+                </button>
               </div>
 
-              <button
-                onClick={closeEditorModal}
-                disabled={savingEditor}
+              <div
                 style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 12,
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
-                  color: "#0f172a",
-                  fontSize: 22,
-                  cursor: savingEditor ? "not-allowed" : "pointer",
-                  flexShrink: 0,
+                  overflowY: "auto",
+                  padding: 20,
+                  display: "grid",
+                  gap: 18,
+                  background: "#f8fafc",
                 }}
               >
-                ×
-              </button>
-            </div>
+                {editorRows.length === 0 ? (
+                  <div
+                    style={{
+                      minHeight: 240,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#64748b",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      border: "1px dashed #cbd5e1",
+                      borderRadius: 16,
+                      background: "#fff",
+                    }}
+                  >
+                    No hay materias disponibles en el editor
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: 16 }}>
+                    {editorRows.map((r, idx) => {
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            border: "1px solid #ccc",
+                            borderRadius: 12,
+                            padding: 12,
+                            background: "#fff",
+                          }}
+                        >
+                          <div style={{ fontWeight: "bold", marginBottom: 10 }}>
+                            {r.materia}
+                          </div>
 
-            <div
-              style={{
-                overflowY: "auto",
-                padding: 20,
-                display: "grid",
-                gap: 18,
-                background: "#f8fafc",
-              }}
-            >
-              {editorRows.length === 0 ? (
-                <div
+                          <div style={{ display: "flex", gap: 10, overflowX: "auto" }}>
+                            {TYPES.map((t) => {
+                              const cell = r[t.key as keyof Row] as EvalCell;
+
+                              return (
+                                <div
+                                  key={t.key}
+                                  style={{
+                                    minWidth: 180,
+                                    border: "1px solid #ddd",
+                                    padding: 10,
+                                    borderRadius: 8,
+                                  }}
+                                >
+                                  <div>{t.label}</div>
+
+                                  <input
+                                    type="date"
+                                    value={cell?.fecha || ""}
+                                    onChange={(e) =>
+                                      setEditorCell(r.materia, t.key, "fecha", e.target.value)
+                                    }
+                                  />
+
+                                  <input
+                                    type="time"
+                                    value={cell?.hora || ""}
+                                    onChange={(e) =>
+                                      setEditorCell(r.materia, t.key, "hora", e.target.value)
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  padding: "14px 20px",
+                  borderTop: "1px solid rgba(15,23,42,0.08)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  background: "#fff",
+                }}
+              >
+                <button
+                  onClick={closeEditorModal}
+                  disabled={savingEditor}
                   style={{
-                    minHeight: 240,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#64748b",
-                    fontWeight: 700,
-                    fontSize: 14,
-                    border: "1px dashed #cbd5e1",
-                    borderRadius: 16,
+                    border: "1px solid #d1d5db",
                     background: "#fff",
+                    color: "#0f172a",
+                    borderRadius: 14,
+                    padding: "12px 18px",
+                    fontWeight: 800,
+                    cursor: savingEditor ? "not-allowed" : "pointer",
                   }}
                 >
-                  No hay materias disponibles en el editor
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 16 }}>
-                  {editorRows.map((r, idx) => {
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          border: "1px solid #ccc",
-                          borderRadius: 12,
-                          padding: 12,
-                          background: "#fff",
-                        }}
-                      >
-                        <div style={{ fontWeight: "bold", marginBottom: 10 }}>
-                          {r.materia}
-                        </div>
+                  Cancelar
+                </button>
 
-                        <div style={{ display: "flex", gap: 10, overflowX: "auto" }}>
-                          {TYPES.map((t) => {
-                            const cell = r[t.key as keyof Row] as EvalCell;
-
-                            return (
-                              <div
-                                key={t.key}
-                                style={{
-                                  minWidth: 180,
-                                  border: "1px solid #ddd",
-                                  padding: 10,
-                                  borderRadius: 8,
-                                }}
-                              >
-                                <div>{t.label}</div>
-
-                                <input
-                                  type="date"
-                                  value={cell?.fecha || ""}
-                                  onChange={(e) =>
-                                    setEditorCell(r.materia, t.key, "fecha", e.target.value)
-                                  }
-                                />
-
-                                <input
-                                  type="time"
-                                  value={cell?.hora || ""}
-                                  onChange={(e) =>
-                                    setEditorCell(r.materia, t.key, "hora", e.target.value)
-                                  }
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div
-              style={{
-                padding: "14px 20px",
-                borderTop: "1px solid rgba(15,23,42,0.08)",
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 10,
-                flexWrap: "wrap",
-                background: "#fff",
-              }}
-            >
-              <button
-                onClick={closeEditorModal}
-                disabled={savingEditor}
-                style={{
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
-                  color: "#0f172a",
-                  borderRadius: 14,
-                  padding: "12px 18px",
-                  fontWeight: 800,
-                  cursor: savingEditor ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={saveEditorToDB}
-                disabled={savingEditor}
-                style={{
-                  border: "1px solid #7dd3fc",
-                  background: "#e0f2fe",
-                  color: "#0f172a",
-                  borderRadius: 14,
-                  padding: "12px 18px",
-                  fontWeight: 900,
-                  cursor: savingEditor ? "not-allowed" : "pointer",
-                }}
-              >
-                {savingEditor ? "Guardando..." : "💾 Guardar cronograma"}
-              </button>
+                <button
+                  onClick={saveEditorToDB}
+                  disabled={savingEditor}
+                  style={{
+                    border: "1px solid #7dd3fc",
+                    background: "#e0f2fe",
+                    color: "#0f172a",
+                    borderRadius: 14,
+                    padding: "12px 18px",
+                    fontWeight: 900,
+                    cursor: savingEditor ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {savingEditor ? "Guardando..." : "💾 Guardar cronograma"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
       )}
 
-      {Object.values(lists).some((arr) => arr.length > 0) ? (
-        <div className="grid" style={{ gap: 14 }}>
-          {TYPES.map((t) => {
-            const items = lists[t.key] || [];
-            if (!items.length) return null;
+          {Object.values(lists).some((arr) => arr.length > 0) ? (
+            <div className="grid" style={{ gap: 14 }}>
+              {TYPES.map((t) => {
+                const items = lists[t.key] || [];
+                if (!items.length) return null;
 
-            return (
-              <div key={t.key} className="examSummaryCard">
-                <div className="examSummaryTitle">{titleFor(t.key).toUpperCase()}</div>
+                return (
+                  <div key={t.key} className="examSummaryCard">
+                    <div className="examSummaryTitle">{titleFor(t.key).toUpperCase()}</div>
 
-                <div className="examSummaryWrap">
-                  <div className="examSummaryTable">
-                    <div className="examSummaryTh">📚 MATERIA</div>
-                    <div className="examSummaryTh">📅 FECHA</div>
-                    <div className="examSummaryTh">⏰ HORA</div>
-                    <div className="examSummaryTh">🗓️ DÍAS RESTANTES</div>
+                    <div className="examSummaryWrap">
+                      <div className="examSummaryTable">
+                        <div className="examSummaryTh">📚 MATERIA</div>
+                        <div className="examSummaryTh">📅 FECHA</div>
+                        <div className="examSummaryTh">⏰ HORA</div>
+                        <div className="examSummaryTh">🗓️ DÍAS RESTANTES</div>
 
-                    {items.map((it) => (
-                      <React.Fragment key={`${t.key}-${it.materia}-${it.fecha}-${it.hora}`}>
-                        <div className="examSummaryTd examSummaryMateria">{it.materia}</div>
-                        <div className="examSummaryTd">{formatLongES(it.fecha) || "—"}</div>
-                        <div className="examSummaryTd">{it.hora || "—"}</div>
-                        <div className="examSummaryTd">{it.estado}</div>
-                      </React.Fragment>
-                    ))}
+                        {items.map((it) => (
+                          <React.Fragment key={`${t.key}-${it.materia}-${it.fecha}-${it.hora}`}>
+                            <div className="examSummaryTd examSummaryMateria">{it.materia}</div>
+                            <div className="examSummaryTd">{formatLongES(it.fecha) || "—"}</div>
+                            <div className="examSummaryTd">{it.hora || "—"}</div>
+                            <div className="examSummaryTd">{it.estado}</div>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ) : null}
         </div>
-      ) : null}
-    </div>
-  );
+      );
 } // FIN COMPONENTE PRINCIPAL
