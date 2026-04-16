@@ -462,11 +462,68 @@ export default function EvaluacionesPage(): React.ReactNode {
 
     try {
       setSavingEditor(true);
+      const supabase = getSupabase();
 
-      // Actualizar rows con los cambios de editorRows (deduplicado)
-      setRows(deduplicateRows(editorRows));
+      const cleanRows = deduplicateRows(editorRows);
 
-      // Cerrar modal
+      const examsToInsert: Array<{
+        user_id: string;
+        materia: string;
+        tipo: string;
+        fecha: string;
+        hora: string;
+      }> = [];
+
+      for (const row of cleanRows) {
+        for (const t of TYPES) {
+          if (t.key === "f3" && !editorShowFinal3[row.materia]) continue;
+
+          const cell = row[t.key as keyof Row] as EvalCell;
+          const fecha = String(cell?.fecha || "").trim();
+          const hora = String(cell?.hora || "").trim();
+
+          if (!fecha) continue;
+
+          examsToInsert.push({
+            user_id: userId,
+            materia: row.materia,
+            tipo: t.label,
+            fecha,
+            hora,
+          });
+        }
+      }
+
+      const { error: deleteError } = await supabase
+        .from("student_exams")
+        .delete()
+        .eq("user_id", userId);
+
+      if (deleteError) {
+        console.error("Error deleting exams:", deleteError);
+        return;
+      }
+
+      if (examsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("student_exams")
+          .insert(examsToInsert);
+
+        if (insertError) {
+          console.error("Error inserting exams:", insertError);
+          return;
+        }
+      }
+
+      setRows(cleanRows);
+
+      try {
+        localStorage.setItem(EVAL_KEY, JSON.stringify(cleanRows));
+        window.dispatchEvent(new Event("fiuna_evaluaciones_updated"));
+      } catch {
+        // ignore
+      }
+
       setShowEditor(false);
       setEditorRows([]);
       setEditorShowFinal3({});
