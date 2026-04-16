@@ -349,7 +349,7 @@ export default function EvaluacionesPage(): React.ReactNode {
     };
   }, [loaded]);
 
-  
+
 
   useEffect(() => {
     if (!loaded) return;
@@ -752,199 +752,61 @@ export default function EvaluacionesPage(): React.ReactNode {
                   No hay materias disponibles en el editor
                 </div>
               ) : (
-                editorRows.map((r, idx) => {
-                  const showF3 = Boolean(
-                    editorShowFinal3[r.materia] ||
-                    (r.f3?.fecha || "").trim() ||
-                    (r.f3?.hora || "").trim()
-                  );
-
-                  const editorTypes = TYPES.filter((t) => t.key !== "f3" || showF3);
-
-                  return (
-                    <div
-                      key={`${r.materia || "materia"}-${idx}`}
-                      style={{
-                        border: "1px solid #dbe2ea",
-                        borderRadius: 18,
-                        background: "#ffffff",
-                        overflow: "hidden",
-                        boxShadow: "0 2px 10px rgba(15,23,42,0.04)",
-                      }}
-                    >
+                <div style={{ display: "grid", gap: 16 }}>
+                  {editorRows.map((r, idx) => {
+                    return (
                       <div
+                        key={idx}
                         style={{
-                          padding: "14px 18px",
-                          borderBottom: "1px solid #e5e7eb",
-                          fontWeight: 900,
-                          fontSize: 16,
-                          color: "#0f172a",
-                          background: "#ffffff",
+                          border: "1px solid #ccc",
+                          borderRadius: 12,
+                          padding: 12,
+                          background: "#fff",
                         }}
                       >
-                        📚 {r.materia || "MATERIA VACÍA"}
-                      </div>
+                        <div style={{ fontWeight: "bold", marginBottom: 10 }}>
+                          {r.materia}
+                        </div>
 
-                      <div style={{ padding: 16 }}>
-                        <div
-                          style={{
-                            overflowX: "auto",
-                            overflowY: "hidden",
-                            paddingBottom: 8,
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 12,
-                              minWidth: "max-content",
-                              alignItems: "stretch",
-                            }}
-                          >
-                            {editorTypes.map((t) => {
-                              const cell = (r[t.key as keyof Row] as EvalCell) || {
-                                fecha: "",
-                                hora: "",
-                              };
+                        <div style={{ display: "flex", gap: 10, overflowX: "auto" }}>
+                          {TYPES.map((t) => {
+                            const cell = r[t.key as keyof Row] as EvalCell;
 
-                              return (
-                                <div
-                                  key={`${r.materia}-${t.key}`}
-                                  style={{
-                                    width: 220,
-                                    minWidth: 220,
-                                    border: "1px solid #dbe2ea",
-                                    borderRadius: 14,
-                                    padding: 12,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 10,
-                                    background: "#f8fafc",
-                                    minHeight: 210,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontWeight: 900,
-                                      fontSize: 13,
-                                      color: "#0f172a",
-                                      lineHeight: 1.2,
-                                    }}
-                                  >
-                                    {t.label}
-                                  </div>
-
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                    <div
-                                      style={{
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        color: "#64748b",
-                                        letterSpacing: ".3px",
-                                      }}
-                                    >
-                                      FECHA
-                                    </div>
-                                    <input
-                                      type="date"
-                                      value={cell.fecha || ""}
-                                      onChange={(e) =>
-                                        setEditorCell(r.materia, t.key, "fecha", e.target.value)
-                                      }
-                                      style={{
-                                        width: "100%",
-                                        height: 42,
-                                        borderRadius: 10,
-                                        border: "1px solid #cbd5e1",
-                                        background: "#ffffff",
-                                        color: "#0f172a",
-                                        padding: "0 10px",
-                                        fontSize: 13,
-                                        outline: "none",
-                                      }}
-                                    />
-                                  </div>
-
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                    <div
-                                      style={{
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        color: "#64748b",
-                                        letterSpacing: ".3px",
-                                      }}
-                                    >
-                                      HORA
-                                    </div>
-                                    <input
-                                      type="time"
-                                      value={cell.hora || ""}
-                                      onChange={(e) =>
-                                        setEditorCell(r.materia, t.key, "hora", e.target.value)
-                                      }
-                                      style={{
-                                        width: "100%",
-                                        height: 42,
-                                        borderRadius: 10,
-                                        border: "1px solid #cbd5e1",
-                                        background: "#ffffff",
-                                        color: "#0f172a",
-                                        padding: "0 10px",
-                                        fontSize: 13,
-                                        outline: "none",
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-
-                            {!showF3 && (
+                            return (
                               <div
+                                key={t.key}
                                 style={{
-                                  width: 220,
-                                  minWidth: 220,
-                                  border: "1px dashed #cbd5e1",
-                                  borderRadius: 14,
-                                  padding: 12,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  minHeight: 210,
-                                  background: "#ffffff",
+                                  minWidth: 180,
+                                  border: "1px solid #ddd",
+                                  padding: 10,
+                                  borderRadius: 8,
                                 }}
                               >
-                                <button
-                                  onClick={() =>
-                                    setEditorShowFinal3((prev) => ({
-                                      ...prev,
-                                      [r.materia]: true,
-                                    }))
+                                <div>{t.label}</div>
+
+                                <input
+                                  type="date"
+                                  value={cell?.fecha || ""}
+                                  onChange={(e) =>
+                                    setEditorCell(r.materia, t.key, "fecha", e.target.value)
                                   }
-                                  style={{
-                                    border: "1px solid #cbd5e1",
-                                    background: "#fff",
-                                    color: "#0f172a",
-                                    borderRadius: 12,
-                                    padding: "10px 12px",
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                    fontSize: 12,
-                                    lineHeight: 1.2,
-                                  }}
-                                >
-                                  ➕ Agregar
-                                  <br />
-                                  Final 3
-                                </button>
+                                />
+
+                                <input
+                                  type="time"
+                                  value={cell?.hora || ""}
+                                  onChange={(e) =>
+                                    setEditorCell(r.materia, t.key, "hora", e.target.value)
+                                  }
+                                />
                               </div>
-                            )}
-                          </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               )}
             </div>
 
