@@ -422,6 +422,8 @@ export default function EvaluacionesPage(): React.ReactNode {
     setEditorRows(cloned);
     setEditorShowFinal3(initialShowFinal3);
     setShowEditor(true);
+    
+    console.log("DEBUG: editorRows después de clonar:", cloned.length, cloned.map(r => r.materia));
   };
 
   const closeEditorModal = (): void => {
@@ -465,6 +467,12 @@ export default function EvaluacionesPage(): React.ReactNode {
       setSavingEditor(false);
     }
   };
+
+  useEffect(() => {
+    if (showEditor && editorRows.length > 0) {
+      console.log("DEBUG: editorRows en render del modal:", editorRows.length, editorRows.map(r => r.materia));
+    }
+  }, [editorRows, showEditor]);
 
   const materiaHasAnyData = (r: Row): boolean => {
     return TYPES.some((t) => {
@@ -778,6 +786,7 @@ export default function EvaluacionesPage(): React.ReactNode {
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
                   {editorRows.map((r, idx) => {
+                    console.log(`DEBUG: Renderizando materia ${idx + 1}/${editorRows.length}:`, r.materia);
                     const showF3 = Boolean(
                       editorShowFinal3[r.materia] ||
                       (r.f3?.fecha || "").trim() ||
