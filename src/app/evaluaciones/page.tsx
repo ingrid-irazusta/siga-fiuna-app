@@ -349,53 +349,7 @@ export default function EvaluacionesPage(): React.ReactNode {
     };
   }, [loaded]);
 
-  useEffect(() => {
-    if (!loaded || !userId) return;
-
-    // Guardar cambios cuando rows cambia (desde el modal)
-    const saveToDB = async () => {
-      try {
-        const supabase = getSupabase();
-
-        // Construir lista de exámenes a insertar
-        const examsToInsert = [];
-        for (const row of rows) {
-          for (const t of TYPES) {
-            const cell = row[t.key as keyof Row] as EvalCell;
-            if (cell.fecha) {
-              examsToInsert.push({
-                user_id: userId,
-                materia: row.materia,
-                tipo: t.label,
-                fecha: cell.fecha,
-                hora: cell.hora || "",
-              });
-            }
-          }
-        }
-
-        // Eliminar todos los exámenes actuales del usuario
-        await supabase.from("student_exams").delete().eq("user_id", userId);
-
-        // Insertar nuevos (solo los que tienen fecha)
-        if (examsToInsert.length > 0) {
-          await supabase.from("student_exams").insert(examsToInsert);
-        }
-      } catch (error) {
-        console.error("Error saving exams to DB:", error);
-      }
-    };
-
-    saveToDB();
-
-    // También guardar en localStorage para compatibilidad
-    try {
-      localStorage.setItem(EVAL_KEY, JSON.stringify(rows));
-      try { window.dispatchEvent(new Event("fiuna_evaluaciones_updated")); } catch { }
-    } catch {
-      // ignore
-    }
-  }, [rows, loaded, userId]);
+  
 
   useEffect(() => {
     if (!loaded) return;
@@ -715,36 +669,62 @@ export default function EvaluacionesPage(): React.ReactNode {
               gridTemplateRows: "auto 1fr auto",
             }}
           >
-            {/* ENCABEZADO */}
             <div
               style={{
                 padding: "18px 20px",
-                borderBottom: "1px solid rgba(15,23,42,0.08)",
+                borderBottom: "1px solid #e5e7eb",
                 display: "flex",
-                alignItems: "center",
+                alignItems: "flex-start",
                 justifyContent: "space-between",
                 gap: 12,
+                background: "#fff",
               }}
             >
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>
                   Editar cronograma de exámenes
                 </div>
-                <div style={{ fontSize: 13, color: "rgba(15,23,42,0.65)", marginTop: 4 }}>
-                  Completa todo y guarda al final
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                  Completa todo y guarda al final.
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    background: "#fff7ed",
+                    border: "1px solid #fdba74",
+                    fontSize: 13,
+                    color: "#9a3412",
+                    fontWeight: 700,
+                    display: "inline-block",
+                  }}
+                >
+                  DEBUG → rows: {rows.length} | editorRows: {editorRows.length} | primera materia:{" "}
+                  {editorRows?.[0]?.materia || "VACÍA"}
                 </div>
               </div>
+
               <button
-                className="btn"
                 onClick={closeEditorModal}
                 disabled={savingEditor}
-                style={{ minWidth: "auto", padding: "10px 12px" }}
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  color: "#0f172a",
+                  fontSize: 22,
+                  cursor: savingEditor ? "not-allowed" : "pointer",
+                  flexShrink: 0,
+                }}
               >
-                ✕
+                ×
               </button>
             </div>
 
-            {/* CUERPO - MATERIAS CON SCROLL HORIZONTAL */}
             <div
               style={{
                 overflowY: "auto",
@@ -754,18 +734,22 @@ export default function EvaluacionesPage(): React.ReactNode {
                 background: "#f8fafc",
               }}
             >
-              {!editorRows || editorRows.length === 0 ? (
+              {editorRows.length === 0 ? (
                 <div
                   style={{
+                    minHeight: 240,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    minHeight: 300,
                     color: "#64748b",
+                    fontWeight: 700,
                     fontSize: 14,
+                    border: "1px dashed #cbd5e1",
+                    borderRadius: 16,
+                    background: "#fff",
                   }}
                 >
-                  No hay materias disponibles
+                  No hay materias disponibles en el editor
                 </div>
               ) : (
                 editorRows.map((r, idx) => {
@@ -779,7 +763,7 @@ export default function EvaluacionesPage(): React.ReactNode {
 
                   return (
                     <div
-                      key={`${r.materia || "MATERIA"}-${idx}`}
+                      key={`${r.materia || "materia"}-${idx}`}
                       style={{
                         border: "1px solid #dbe2ea",
                         borderRadius: 18,
@@ -788,7 +772,6 @@ export default function EvaluacionesPage(): React.ReactNode {
                         boxShadow: "0 2px 10px rgba(15,23,42,0.04)",
                       }}
                     >
-                      {/* Título de materia - FIJO */}
                       <div
                         style={{
                           padding: "14px 18px",
@@ -799,10 +782,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                           background: "#ffffff",
                         }}
                       >
-                        📚 {r.materia || "Materia"}
+                        📚 {r.materia || "MATERIA VACÍA"}
                       </div>
 
-                      {/* Scroll horizontal por instancias */}
                       <div style={{ padding: 16 }}>
                         <div
                           style={{
@@ -813,12 +795,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                         >
                           <div
                             style={{
-                              display: "grid",
-                              gridAutoFlow: "column",
-                              gridAutoColumns: "200px",
+                              display: "flex",
                               gap: 12,
                               minWidth: "max-content",
-                              alignItems: "start",
+                              alignItems: "stretch",
                             }}
                           >
                             {editorTypes.map((t) => {
@@ -831,15 +811,18 @@ export default function EvaluacionesPage(): React.ReactNode {
                                 <div
                                   key={`${r.materia}-${t.key}`}
                                   style={{
+                                    width: 220,
+                                    minWidth: 220,
                                     border: "1px solid #dbe2ea",
                                     borderRadius: 14,
                                     padding: 12,
-                                    display: "grid",
+                                    display: "flex",
+                                    flexDirection: "column",
                                     gap: 10,
                                     background: "#f8fafc",
+                                    minHeight: 210,
                                   }}
                                 >
-                                  {/* Nombre de instancia */}
                                   <div
                                     style={{
                                       fontWeight: 900,
@@ -851,8 +834,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     {t.label}
                                   </div>
 
-                                  {/* FECHA */}
-                                  <div style={{ display: "grid", gap: 4 }}>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                     <div
                                       style={{
                                         fontSize: 11,
@@ -864,7 +846,6 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       FECHA
                                     </div>
                                     <input
-                                      className="examInput"
                                       type="date"
                                       value={cell.fecha || ""}
                                       onChange={(e) =>
@@ -872,19 +853,19 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        minHeight: 40,
+                                        height: 42,
                                         borderRadius: 10,
                                         border: "1px solid #cbd5e1",
                                         background: "#ffffff",
                                         color: "#0f172a",
-                                        padding: "8px 10px",
-                                        fontSize: 12,
+                                        padding: "0 10px",
+                                        fontSize: 13,
+                                        outline: "none",
                                       }}
                                     />
                                   </div>
 
-                                  {/* HORA */}
-                                  <div style={{ display: "grid", gap: 4 }}>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                     <div
                                       style={{
                                         fontSize: 11,
@@ -896,7 +877,6 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       HORA
                                     </div>
                                     <input
-                                      className="examInput"
                                       type="time"
                                       value={cell.hora || ""}
                                       onChange={(e) =>
@@ -904,13 +884,14 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        minHeight: 40,
+                                        height: 42,
                                         borderRadius: 10,
                                         border: "1px solid #cbd5e1",
                                         background: "#ffffff",
                                         color: "#0f172a",
-                                        padding: "8px 10px",
-                                        fontSize: 12,
+                                        padding: "0 10px",
+                                        fontSize: 13,
+                                        outline: "none",
                                       }}
                                     />
                                   </div>
@@ -918,31 +899,43 @@ export default function EvaluacionesPage(): React.ReactNode {
                               );
                             })}
 
-                            {/* Botón para agregar Final 3 */}
                             {!showF3 && (
                               <div
                                 style={{
+                                  width: 220,
+                                  minWidth: 220,
                                   border: "1px dashed #cbd5e1",
                                   borderRadius: 14,
                                   padding: 12,
-                                  display: "grid",
-                                  alignContent: "center",
+                                  display: "flex",
+                                  alignItems: "center",
                                   justifyContent: "center",
-                                  minHeight: 160,
+                                  minHeight: 210,
                                   background: "#ffffff",
                                 }}
                               >
                                 <button
-                                  className="btn btnGhost"
                                   onClick={() =>
                                     setEditorShowFinal3((prev) => ({
                                       ...prev,
                                       [r.materia]: true,
                                     }))
                                   }
-                                  style={{ fontSize: 12 }}
+                                  style={{
+                                    border: "1px solid #cbd5e1",
+                                    background: "#fff",
+                                    color: "#0f172a",
+                                    borderRadius: 12,
+                                    padding: "10px 12px",
+                                    fontWeight: 800,
+                                    cursor: "pointer",
+                                    fontSize: 12,
+                                    lineHeight: 1.2,
+                                  }}
                                 >
-                                  ➕ Agregar<br />Final 3
+                                  ➕ Agregar
+                                  <br />
+                                  Final 3
                                 </button>
                               </div>
                             )}
@@ -955,7 +948,6 @@ export default function EvaluacionesPage(): React.ReactNode {
               )}
             </div>
 
-            {/* PIE - BOTONES DE ACCIÓN */}
             <div
               style={{
                 padding: "14px 20px",
@@ -964,20 +956,37 @@ export default function EvaluacionesPage(): React.ReactNode {
                 justifyContent: "space-between",
                 gap: 10,
                 flexWrap: "wrap",
+                background: "#fff",
               }}
             >
               <button
-                className="btn"
                 onClick={closeEditorModal}
                 disabled={savingEditor}
+                style={{
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  color: "#0f172a",
+                  borderRadius: 14,
+                  padding: "12px 18px",
+                  fontWeight: 800,
+                  cursor: savingEditor ? "not-allowed" : "pointer",
+                }}
               >
                 Cancelar
               </button>
 
               <button
-                className="btn btnPrimary"
                 onClick={saveEditorToDB}
                 disabled={savingEditor}
+                style={{
+                  border: "1px solid #7dd3fc",
+                  background: "#e0f2fe",
+                  color: "#0f172a",
+                  borderRadius: 14,
+                  padding: "12px 18px",
+                  fontWeight: 900,
+                  cursor: savingEditor ? "not-allowed" : "pointer",
+                }}
               >
                 {savingEditor ? "Guardando..." : "💾 Guardar cronograma"}
               </button>
@@ -1020,4 +1029,4 @@ export default function EvaluacionesPage(): React.ReactNode {
       ) : null}
     </div>
   );
-}
+} // FIN COMPONENTE PRINCIPAL
