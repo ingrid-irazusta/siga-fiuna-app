@@ -712,14 +712,14 @@ export default function EvaluacionesPage(): React.ReactNode {
             alignItems: "flex-start",
             justifyContent: "center",
             zIndex: 9999,
-            padding: "36px 14px 18px",
+            padding: "72px 18px 24px",
             overflowY: "auto",
           }}
         >
           <div
             style={{
               width: "min(1120px, 100%)",
-              maxHeight: "90vh",
+              maxHeight: "calc(100vh - 96px)",
               overflow: "hidden",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
               borderRadius: 24,
@@ -737,7 +737,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                 alignItems: "flex-start",
                 justifyContent: "space-between",
                 gap: 14,
-                background: "rgba(255,255,255,0.92)",
+                background: "rgba(255,255,255,0.96)",
+                position: "relative",
+                zIndex: 3,
+                flexShrink: 0,
               }}
             >
               <div style={{ minWidth: 0 }}>
@@ -745,7 +748,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                   Editar cronograma de exámenes
                 </div>
                 <div style={{ fontSize: 13, color: "#64748b", marginTop: 5, lineHeight: 1.35 }}>
-                  Completa todo y guarda al final. Podés desplazarte horizontalmente en cada materia.
+                  Completa el cronograma por materia. Cada bloque tiene su propio desplazamiento horizontal.
                 </div>
               </div>
 
@@ -772,10 +775,11 @@ export default function EvaluacionesPage(): React.ReactNode {
             <div
               style={{
                 overflowY: "auto",
-                padding: 18,
+                padding: "18px 18px 16px",
                 display: "grid",
                 gap: 14,
                 background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
+                minHeight: 0,
               }}
             >
               {editorRows.length === 0 ? (
@@ -843,6 +847,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                             overflowX: "auto",
                             overflowY: "hidden",
                             WebkitOverflowScrolling: "touch",
+                            scrollBehavior: "smooth",
                           }}
                         >
                           <div
@@ -1012,7 +1017,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                 justifyContent: "space-between",
                 gap: 10,
                 flexWrap: "wrap",
-                background: "rgba(255,255,255,0.96)",
+                background: "rgba(255,255,255,0.98)",
+                flexShrink: 0,
+                position: "relative",
+                zIndex: 3,
               }}
             >
               <button
