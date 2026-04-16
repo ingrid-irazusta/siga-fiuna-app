@@ -146,9 +146,24 @@ function buildFromInicioCourses(): Row[] {
 
 // FUNCIÓN para deduplicar rows
 function deduplicateRows(rows: Row[]): Row[] {
-  return Array.from(
-    new Map(rows.map(r => [r.materia, r])).values()
-  );
+  // Normalizar: convertir a lowercase y eliminar acentos
+  const normalize = (str: string): string => {
+    return str
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""); // Elimina diacríticos
+  };
+
+  const seen = new Map<string, Row>();
+  for (const row of rows) {
+    const normalized = normalize(row.materia);
+    // Si no existe con este nombre normalizado, lo agregamos
+    // Si existe, mantenemos el primero
+    if (!seen.has(normalized)) {
+      seen.set(normalized, row);
+    }
+  }
+  return Array.from(seen.values());
 }
 
 export default function EvaluacionesPage(): React.ReactNode {
@@ -395,12 +410,8 @@ export default function EvaluacionesPage(): React.ReactNode {
   }, [showEditor, loaded]);
 
   const openEditorModal = (): void => {
-    console.log("DEBUG: rows antes de deduplicar:", rows.length, rows.map(r => r.materia));
-    
     // Deduplicar rows para asegurar que no hay duplicados
     const dedupRows = deduplicateRows(rows);
-    
-    console.log("DEBUG: rows después de deduplicar:", dedupRows.length, dedupRows.map(r => r.materia));
 
     // Clonar rows a editorRows para edición local
     const cloned = dedupRows.map((r) => ({
@@ -422,8 +433,6 @@ export default function EvaluacionesPage(): React.ReactNode {
     setEditorRows(cloned);
     setEditorShowFinal3(initialShowFinal3);
     setShowEditor(true);
-    
-    console.log("DEBUG: editorRows después de clonar:", cloned.length, cloned.map(r => r.materia));
   };
 
   const closeEditorModal = (): void => {
@@ -470,7 +479,7 @@ export default function EvaluacionesPage(): React.ReactNode {
 
   useEffect(() => {
     if (showEditor && editorRows.length > 0) {
-      console.log("DEBUG: editorRows en render del modal:", editorRows.length, editorRows.map(r => r.materia));
+      // Modal abierto con datos
     }
   }, [editorRows, showEditor]);
 
@@ -786,7 +795,6 @@ export default function EvaluacionesPage(): React.ReactNode {
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
                   {editorRows.map((r, idx) => {
-                    console.log(`DEBUG: Renderizando materia ${idx + 1}/${editorRows.length}:`, r.materia);
                     const showF3 = Boolean(
                       editorShowFinal3[r.materia] ||
                       (r.f3?.fecha || "").trim() ||
