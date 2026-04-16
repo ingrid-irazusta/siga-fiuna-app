@@ -356,12 +356,18 @@ export default function EvaluacionesPage(): React.ReactNode {
       const fromInicio = buildFromInicioCourses();
       setRows((prev) => {
         if (Array.isArray(prev) && prev.length > 0 && fromInicio.length === 0) return prev;
-        const prevMap = new Map(prev.map((r) => [r.materia, r]));
-        const next = fromInicio.map((base) => {
-          const old = prevMap.get(base.materia);
-          return old ? { ...base, ...old, materia: base.materia } : base;
-        });
-        return deduplicateRows(next);
+        
+        // Crear map con todas las materias actuales
+        const all = new Map(prev.map((r) => [r.materia, r]));
+        
+        // Actualizar/agregar materias desde localStorage
+        for (const base of fromInicio) {
+          const old = all.get(base.materia);
+          all.set(base.materia, old ? { ...base, ...old, materia: base.materia } : base);
+        }
+        
+        // Convertir a array y deduplicar
+        return deduplicateRows(Array.from(all.values()));
       });
     };
 
@@ -389,8 +395,12 @@ export default function EvaluacionesPage(): React.ReactNode {
   }, [showEditor, loaded]);
 
   const openEditorModal = (): void => {
+    console.log("DEBUG: rows antes de deduplicar:", rows.length, rows.map(r => r.materia));
+    
     // Deduplicar rows para asegurar que no hay duplicados
     const dedupRows = deduplicateRows(rows);
+    
+    console.log("DEBUG: rows después de deduplicar:", dedupRows.length, dedupRows.map(r => r.materia));
 
     // Clonar rows a editorRows para edición local
     const cloned = dedupRows.map((r) => ({
