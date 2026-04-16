@@ -39,6 +39,50 @@
   --text-topbar: #F8FAFC;
 }
 
+/* Dark mode overrides para mayor contraste */
+:root.dark-mode .muted {
+  color: #CBD5E1;
+}
+
+:root.dark-mode .badgeLime {
+  border-color: rgba(200, 255, 60, 0.5);
+  background: rgba(200, 255, 60, 0.2);
+  color: #CAFFBE;
+  font-weight: 700;
+}
+
+:root.dark-mode .badgeDanger {
+  border-color: rgba(255, 100, 100, 0.5);
+  background: rgba(255, 100, 100, 0.2);
+  color: #FF9999;
+  font-weight: 700;
+}
+
+:root.dark-mode .badgeInfo {
+  border-color: rgba(0, 200, 255, 0.5);
+  background: rgba(0, 200, 255, 0.2);
+  color: #0DD9FF;
+  font-weight: 700;
+}
+
+:root.dark-mode .badge {
+  color: #F8FAFC;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root.dark-mode .pill {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #B0BAC9;
+}
+
+:root.dark-mode .kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #E2E8F0;
+}
+
 /* =============================
    Menú móvil (hamburguesa)
    Estilos GLOBAL para que funcionen incluso con Portal.
@@ -360,14 +404,17 @@ button, input, select { font: inherit; }
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 10px 12px;
-  background: rgba(255,255,255,0.9);
+  background: var(--card);
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  color: var(--text);
 }
 .smallBtn:hover{ transform: translateY(-1px); box-shadow: var(--shadow2); }
 .smallBtnPrimary{
-  border-color: rgba(0,176,255,0.35);
-  background: rgba(0,176,255,0.10);
+  border-color: var(--primary2);
+  background: var(--primary2);
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .main{
@@ -379,7 +426,7 @@ button, input, select { font: inherit; }
   z-index: 10;
   padding: 12px 0;
   margin-bottom: 12px;
-  background: linear-gradient(to bottom, rgba(244,246,248,0.92), rgba(244,246,248,0.70), rgba(244,246,248,0));
+  background: linear-gradient(to bottom, var(--bg-topbar), rgba(244,246,248,0.70), rgba(244,246,248,0));
   backdrop-filter: blur(8px);
 }
 .topbarRow{
@@ -397,7 +444,7 @@ button, input, select { font: inherit; }
 }
 .select{
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.85);
+  background: var(--card);
   padding: 10px 12px;
   border-radius: 14px;
   color: var(--text);
@@ -405,31 +452,36 @@ button, input, select { font: inherit; }
 }
 .input{
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.85);
+  background: var(--card);
   padding: 10px 12px;
   border-radius: 14px;
   color: var(--text);
   outline: none;
 }
-.input:focus,.select:focus{box-shadow: 0 0 0 3px rgba(0,176,255,0.18)}
+.input:focus,.select:focus{box-shadow: 0 0 0 3px var(--primary2);}
 .btn{
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.85);
+  background: var(--card);
   padding: 10px 12px;
   border-radius: 14px;
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  color: var(--text);
 }
 .btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow2); }
 .btnPrimary{
-  border-color: rgba(0,176,255,0.35);
-  background: rgba(0,176,255,0.10);
+  border-color: var(--primary2);
+  background: var(--primary2);
+  color: var(--primary);
+  font-weight: 600;
 }
 
 /* Estado "éxito" del botón Actualizar (2s) */
 .btnSuccess{
-  border-color: rgba(34,197,94,0.55);
-  background: rgba(34,197,94,0.18);
+  border-color: var(--success);
+  background: rgba(78, 228, 108, 0.15);
+  color: var(--success);
+  font-weight: 600;
 }
 
 /* Mini loader para el botón "Actualizar" (sin cambiar layout general) */
@@ -437,8 +489,8 @@ button, input, select { font: inherit; }
   width: 12px;
   height: 12px;
   border-radius: 999px;
-  border: 2px solid rgba(2,6,23,0.25);
-  border-top-color: rgba(2,6,23,0.55);
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
   animation: fiunaSpin 0.8s linear infinite;
 }
 @keyframes fiunaSpin{
@@ -554,8 +606,9 @@ button, input, select { font: inherit; }
 }
 .bottomItemActive{
   background: var(--primary2);
-  border-color: rgba(0, 176, 255, 0.28);
-  color: var(--text);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
 }
 .bottomLabel{ font-size: 11px; }
 
@@ -574,7 +627,7 @@ button, input, select { font: inherit; }
   border-radius: 22px;
   border: 1px solid var(--border);
   overflow: hidden;
-  background: rgba(255,255,255,0.75);
+  background: var(--card);
 }
 .abacoScroll{
   overflow: auto;
@@ -586,7 +639,7 @@ button, input, select { font: inherit; }
   min-width: 100%;
 }
 .abacoTable th, .abacoTable td{
-  border: 1px solid rgba(15, 23, 42, 0.10);
+  border: 1px solid var(--border);
   text-align: center;
   padding: 0;
   /* Tamaño base responsive: en móvil se achica solo, en PC queda cómodo */
@@ -597,6 +650,7 @@ button, input, select { font: inherit; }
      - Celdas (nota 1-5): ~14
   */
   font-weight: 700;
+  color: var(--text);
 }
 
 /* Desktop/PC: encabezados más pequeños y celdas más legibles */
@@ -642,11 +696,12 @@ button, input, select { font: inherit; }
   .bigNota{ font-size: 30px; }
 }
 .abacoTable th{
-  background: rgba(2,6,23,0.80);
-  color: #fff;
+  background: var(--primary2);
+  color: var(--primary);
   position: sticky;
   top: 0;
   z-index: 3;
+  font-weight: 700;
 }
 .abacoTable th.leftSticky{
   left: 0;
@@ -698,7 +753,7 @@ button, input, select { font: inherit; }
   overflow: auto; /* si no entra, permite scroll suave */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y pinch-zoom;
-  background: rgba(255,255,255,0.75);
+  background: var(--card);
 }
 .abacoFitInner{
   transform-origin: top left;
@@ -710,7 +765,7 @@ button, input, select { font: inherit; }
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  background: rgba(255,255,255,0.92);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .abacoZoomGroup{
@@ -721,13 +776,19 @@ button, input, select { font: inherit; }
 }
 .abacoBtn{
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.9);
+  background: var(--card);
   padding: 8px 10px;
   border-radius: 12px;
   cursor: pointer;
   font-weight: 800;
+  color: var(--text);
+  transition: all 0.2s ease;
 }
-.abacoBtn:hover{ box-shadow: var(--shadow2); }
+.abacoBtn:hover{ 
+  box-shadow: var(--shadow2);
+  background: var(--primary2);
+  border-color: var(--primary);
+}
 
 @media (max-width: 900px){
   /* En móvil priorizamos “auto-fit”: evitamos el scroll horizontal (si hiciera falta, el zoom lo reduce) */
@@ -739,7 +800,7 @@ button, input, select { font: inherit; }
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.7);
+  background: var(--card);
 }
 .calcBar{
   display:flex;
@@ -936,13 +997,14 @@ button, input, select { font: inherit; }
     font-weight: 900;
   }
 }
-.smallKey{ color: rgba(15,23,42,0.65); font-weight: 800; }
+.smallKey{ color: var(--muted); font-weight: 800; }
 .fakeInput{
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 8px 10px;
-  background: rgba(255,255,255,0.85);
+  background: var(--card);
   font-weight: 800;
+  color: var(--text);
 }
 
 /* Inputs reales (misma estética que fakeInput, pero editables) */
@@ -951,16 +1013,17 @@ button, input, select { font: inherit; }
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 8px 10px;
-  background: rgba(255,255,255,0.85);
+  background: var(--card);
   font-weight: 800;
   font-size: inherit;
-  color: inherit;
+  color: var(--text);
   outline: none;
 }
 
 .profileField::placeholder{
-  color: rgba(15,23,42,0.45);
+  color: var(--muted);
   font-weight: 800;
+  opacity: 0.6;
 }
 
 .profileSelect{
@@ -970,7 +1033,7 @@ button, input, select { font: inherit; }
   background: transparent;
   font: inherit;
   font-weight: 800;
-  color: inherit;
+  color: var(--text);
   appearance: none;
   flex: 1;
   padding: 0;
@@ -984,15 +1047,16 @@ button, input, select { font: inherit; }
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 8px 10px;
-  background: rgba(255,255,255,0.85);
+  background: var(--card);
   min-height: 34px;
+  color: var(--text);
 }
 .checkMini{
   display:inline-flex;
   align-items:center;
   gap: 8px;
   font-weight: 900;
-  color: rgba(15,23,42,0.80);
+  color: var(--text);
 }
 .bigDays{
   font-size: 44px;
@@ -1013,7 +1077,7 @@ button, input, select { font: inherit; }
 }
 .centerNote{
   text-align:center;
-  color: rgba(15,23,42,0.65);
+  color: var(--muted);
   font-weight: 800;
   font-size: 12px;
 }
@@ -1028,7 +1092,7 @@ button, input, select { font: inherit; }
   padding: 10px 10px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255,255,255,0.75);
+  background: var(--card);
 }
 @media (max-width: 720px){
   .classItem{

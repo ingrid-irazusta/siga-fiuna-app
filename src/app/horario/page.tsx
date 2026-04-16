@@ -826,24 +826,26 @@ export default function HorarioPage() {
     
     .calEvTitle {
       font-weight: 700;
-      font-size: 0.6rem;
-      line-height: 1;
+      font-size: 0.7rem;
+      line-height: 1.2;
     }
     
     .calEvMeta {
-      font-size: 0.55rem;
-      opacity: 0.85;
-      line-height: 1;
+      font-size: 0.62rem;
+      opacity: 1;
+      line-height: 1.1;
     }
     
     .calEvTime {
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 0.62rem;
     }
     
     .calEvProf {
-      font-size: 0.55rem;
-      opacity: 0.8;
-      line-height: 1;
+      font-size: 0.62rem;
+      opacity: 0.95;
+      line-height: 1.1;
+      font-weight: 600;
     }
     
     .printBtn {
@@ -858,11 +860,11 @@ export default function HorarioPage() {
     }
     
     @media print {
-      @page { size: A4 portrait; margin: 3mm; }
+      @page { size: A4 landscape; margin: 4mm; }
       .printBtn { display: none; }
-      body { margin: 0; padding: 0; }
+      body { margin: 0; padding: 0; background: #fff; }
       .calWeek { border: none; }
-      .calWeekHead, .calWeekBody { background: #fff; }
+      .calWeekHead, .calWeekBody, .calDayCol { background: #fff; }
     }
   </style>
 </head>
