@@ -769,17 +769,17 @@ export default function EvaluacionesPage(): React.ReactNode {
             alignItems: "flex-start",
             justifyContent: "center",
             zIndex: 9999,
-            padding: "72px 18px 24px",
+            padding: "72px 12px 24px",
             overflowY: "auto",
           }}
         >
           <div
             style={{
-              width: "min(1120px, 100%)",
+              width: "min(900px, 100%)",
               maxHeight: "calc(100vh - 96px)",
               overflow: "hidden",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
-              borderRadius: 24,
+              borderRadius: 20,
               boxShadow: "0 30px 80px rgba(2,6,23,0.22)",
               border: "1px solid rgba(148,163,184,0.22)",
               display: "grid",
@@ -788,12 +788,12 @@ export default function EvaluacionesPage(): React.ReactNode {
           >
             <div
               style={{
-                padding: "18px 22px 16px",
+                padding: "16px 20px 14px",
                 borderBottom: "1px solid rgba(148,163,184,0.18)",
                 display: "flex",
                 alignItems: "flex-start",
                 justifyContent: "space-between",
-                gap: 14,
+                gap: 12,
                 background: "rgba(255,255,255,0.96)",
                 position: "relative",
                 zIndex: 3,
@@ -801,11 +801,11 @@ export default function EvaluacionesPage(): React.ReactNode {
               }}
             >
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 900, fontSize: 20, color: "#0f172a", letterSpacing: "-0.02em" }}>
-                  Editar cronograma de exámenes
+                <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a", letterSpacing: "-0.02em" }}>
+                  ✏️ Editar cronograma de exámenes
                 </div>
-                <div style={{ fontSize: 13, color: "#64748b", marginTop: 5, lineHeight: 1.35 }}>
-                  Completa el cronograma por materia. Cada bloque tiene su propio desplazamiento horizontal.
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, lineHeight: 1.3 }}>
+                  Ajusta fechas y horarios. Cada materia tiene su propio desplazamiento.
                 </div>
               </div>
 
@@ -813,16 +813,27 @@ export default function EvaluacionesPage(): React.ReactNode {
                 onClick={closeEditorModal}
                 disabled={savingEditor}
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 14,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
                   border: "1px solid rgba(148,163,184,0.28)",
                   background: "rgba(255,255,255,0.9)",
                   color: "#0f172a",
-                  fontSize: 22,
+                  fontSize: 20,
                   cursor: savingEditor ? "not-allowed" : "pointer",
                   flexShrink: 0,
                   boxShadow: "0 4px 16px rgba(15,23,42,0.06)",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!savingEditor) {
+                    (e.target as HTMLElement).style.background = "rgba(239,68,68,0.1)";
+                    (e.target as HTMLElement).style.borderColor = "rgba(239,68,68,0.3)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.background = "rgba(255,255,255,0.9)";
+                  (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.28)";
                 }}
               >
                 ×
@@ -832,9 +843,9 @@ export default function EvaluacionesPage(): React.ReactNode {
             <div
               style={{
                 overflowY: "auto",
-                padding: "18px 18px 16px",
+                padding: "14px 14px 12px",
                 display: "grid",
-                gap: 14,
+                gap: 12,
                 background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
                 minHeight: 0,
               }}
@@ -842,22 +853,22 @@ export default function EvaluacionesPage(): React.ReactNode {
               {editorRows.length === 0 ? (
                 <div
                   style={{
-                    minHeight: 240,
+                    minHeight: 180,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "#64748b",
                     fontWeight: 700,
-                    fontSize: 14,
+                    fontSize: 13,
                     border: "1px dashed #cbd5e1",
-                    borderRadius: 16,
+                    borderRadius: 14,
                     background: "#fff",
                   }}
                 >
-                  No hay materias disponibles en el editor
+                  📚 No hay materias disponibles
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gap: 12 }}>
                   {editorRows.map((r, idx) => {
                     const showF3 = Boolean(
                       editorShowFinal3[r.materia] ||
@@ -872,22 +883,22 @@ export default function EvaluacionesPage(): React.ReactNode {
                         key={`${r.materia || "materia"}-${idx}`}
                         style={{
                           border: "1px solid rgba(148,163,184,0.18)",
-                          borderRadius: 22,
+                          borderRadius: 16,
                           background: "#ffffff",
-                          boxShadow: "0 10px 28px rgba(15,23,42,0.05)",
+                          boxShadow: "0 6px 20px rgba(15,23,42,0.04)",
                           overflow: "hidden",
                         }}
                       >
                         <div
                           style={{
                             fontWeight: 900,
-                            fontSize: 17,
+                            fontSize: 15,
                             color: "#0f172a",
-                            letterSpacing: "-0.02em",
+                            letterSpacing: "-0.01em",
                             display: "flex",
                             alignItems: "center",
                             gap: 8,
-                            padding: "14px 16px",
+                            padding: "12px 14px",
                             borderBottom: "1px solid rgba(148,163,184,0.14)",
                             background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
                             position: "sticky",
@@ -895,12 +906,12 @@ export default function EvaluacionesPage(): React.ReactNode {
                             zIndex: 1,
                           }}
                         >
-                          📚 {r.materia || "MATERIA VACÍA"}
+                          📚 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.materia || "MATERIA"}</span>
                         </div>
 
                         <div
                           style={{
-                            padding: "12px 14px 14px",
+                            padding: "10px 12px 12px",
                             overflowX: "auto",
                             overflowY: "hidden",
                             WebkitOverflowScrolling: "touch",
@@ -911,8 +922,8 @@ export default function EvaluacionesPage(): React.ReactNode {
                             style={{
                               display: "grid",
                               gridAutoFlow: "column",
-                              gridAutoColumns: "176px",
-                              gap: 10,
+                              gridAutoColumns: "160px",
+                              gap: 8,
                               minWidth: "max-content",
                               alignItems: "stretch",
                             }}
@@ -927,26 +938,26 @@ export default function EvaluacionesPage(): React.ReactNode {
                                 <div
                                   key={`${r.materia}-${t.key}`}
                                   style={{
-                                    minWidth: 176,
-                                    width: 176,
+                                    minWidth: 160,
+                                    width: 160,
                                     border: "1px solid rgba(148,163,184,0.18)",
-                                    borderRadius: 14,
-                                    padding: 10,
+                                    borderRadius: 12,
+                                    padding: 9,
                                     background: "#ffffff",
                                     display: "flex",
                                     flexDirection: "column",
-                                    gap: 7,
-                                    boxShadow: "0 1px 4px rgba(15,23,42,0.03)",
+                                    gap: 6,
+                                    boxShadow: "0 1px 3px rgba(15,23,42,0.03)",
                                   }}
                                 >
                                   <div
                                     style={{
                                       fontWeight: 900,
                                       color: "#0f172a",
-                                      fontSize: 13.5,
-                                      letterSpacing: "-0.01em",
-                                      paddingBottom: 2,
-                                      lineHeight: 1.15,
+                                      fontSize: 12,
+                                      letterSpacing: "-0.005em",
+                                      paddingBottom: 1,
+                                      lineHeight: 1.2,
                                     }}
                                   >
                                     {t.label}
@@ -956,14 +967,15 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     style={{
                                       display: "flex",
                                       flexDirection: "column",
-                                      gap: 4,
-                                      fontSize: 10.5,
+                                      gap: 3,
+                                      fontSize: 9.5,
                                       fontWeight: 800,
                                       color: "#64748b",
-                                      letterSpacing: ".04em",
+                                      letterSpacing: ".03em",
+                                      textTransform: "uppercase",
                                     }}
                                   >
-                                    <span>FECHA</span>
+                                    <span>Fecha</span>
                                     <input
                                       type="date"
                                       value={cell.fecha || ""}
@@ -972,14 +984,25 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        height: 36,
-                                        borderRadius: 10,
+                                        height: 32,
+                                        borderRadius: 8,
                                         border: "1px solid rgba(148,163,184,0.28)",
                                         background: "#ffffff",
                                         color: "#0f172a",
-                                        padding: "0 9px",
-                                        fontSize: 12,
+                                        padding: "0 7px",
+                                        fontSize: 11,
                                         boxShadow: "inset 0 1px 2px rgba(15,23,42,0.02)",
+                                        fontFamily: "inherit",
+                                        outline: "none",
+                                        transition: "all 0.2s ease",
+                                      }}
+                                      onFocus={(e) => {
+                                        (e.target as HTMLElement).style.borderColor = "rgba(0,176,255,0.4)";
+                                        (e.target as HTMLElement).style.boxShadow = "0 0 0 3px rgba(0,176,255,0.08)";
+                                      }}
+                                      onBlur={(e) => {
+                                        (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.28)";
+                                        (e.target as HTMLElement).style.boxShadow = "inset 0 1px 2px rgba(15,23,42,0.02)";
                                       }}
                                     />
                                   </label>
@@ -988,14 +1011,15 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     style={{
                                       display: "flex",
                                       flexDirection: "column",
-                                      gap: 4,
-                                      fontSize: 10.5,
+                                      gap: 3,
+                                      fontSize: 9.5,
                                       fontWeight: 800,
                                       color: "#64748b",
-                                      letterSpacing: ".04em",
+                                      letterSpacing: ".03em",
+                                      textTransform: "uppercase",
                                     }}
                                   >
-                                    <span>HORA</span>
+                                    <span>Hora</span>
                                     <input
                                       type="time"
                                       value={cell.hora || ""}
@@ -1004,14 +1028,25 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       }
                                       style={{
                                         width: "100%",
-                                        height: 36,
-                                        borderRadius: 10,
+                                        height: 32,
+                                        borderRadius: 8,
                                         border: "1px solid rgba(148,163,184,0.28)",
                                         background: "#ffffff",
                                         color: "#0f172a",
-                                        padding: "0 9px",
-                                        fontSize: 12,
+                                        padding: "0 7px",
+                                        fontSize: 11,
                                         boxShadow: "inset 0 1px 2px rgba(15,23,42,0.02)",
+                                        fontFamily: "inherit",
+                                        outline: "none",
+                                        transition: "all 0.2s ease",
+                                      }}
+                                      onFocus={(e) => {
+                                        (e.target as HTMLElement).style.borderColor = "rgba(0,176,255,0.4)";
+                                        (e.target as HTMLElement).style.boxShadow = "0 0 0 3px rgba(0,176,255,0.08)";
+                                      }}
+                                      onBlur={(e) => {
+                                        (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.28)";
+                                        (e.target as HTMLElement).style.boxShadow = "inset 0 1px 2px rgba(15,23,42,0.02)";
                                       }}
                                     />
                                   </label>
@@ -1022,12 +1057,12 @@ export default function EvaluacionesPage(): React.ReactNode {
                             {!showF3 && (
                               <div
                                 style={{
-                                  minWidth: 176,
-                                  width: 176,
+                                  minWidth: 160,
+                                  width: 160,
                                   border: "1px dashed rgba(148,163,184,0.38)",
-                                  borderRadius: 14,
-                                  padding: 10,
-                                  background: "#ffffff",
+                                  borderRadius: 12,
+                                  padding: 9,
+                                  background: "#fafbfc",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -1044,16 +1079,25 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     border: "1px solid rgba(148,163,184,0.24)",
                                     background: "#ffffff",
                                     color: "#0f172a",
-                                    borderRadius: 12,
-                                    padding: "10px 12px",
+                                    borderRadius: 10,
+                                    padding: "8px 10px",
                                     fontWeight: 800,
                                     cursor: "pointer",
-                                    fontSize: 11.5,
+                                    fontSize: 10.5,
                                     boxShadow: "0 2px 8px rgba(15,23,42,0.03)",
-                                    lineHeight: 1.15,
+                                    lineHeight: 1.2,
+                                    transition: "all 0.2s ease",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    (e.target as HTMLElement).style.background = "rgba(0,176,255,0.1)";
+                                    (e.target as HTMLElement).style.borderColor = "rgba(0,176,255,0.3)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    (e.target as HTMLElement).style.background = "#ffffff";
+                                    (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.24)";
                                   }}
                                 >
-                                  ➕ Agregar Final 3
+                                  ➕ Final 3
                                 </button>
                               </div>
                             )}
@@ -1068,11 +1112,11 @@ export default function EvaluacionesPage(): React.ReactNode {
 
             <div
               style={{
-                padding: "14px 20px 16px",
+                padding: "12px 16px 14px",
                 borderTop: "1px solid rgba(148,163,184,0.18)",
                 display: "flex",
-                justifyContent: "space-between",
-                gap: 10,
+                justifyContent: "flex-end",
+                gap: 8,
                 flexWrap: "wrap",
                 background: "rgba(255,255,255,0.98)",
                 flexShrink: 0,
@@ -1087,11 +1131,23 @@ export default function EvaluacionesPage(): React.ReactNode {
                   border: "1px solid rgba(148,163,184,0.28)",
                   background: "#ffffff",
                   color: "#0f172a",
-                  borderRadius: 14,
-                  padding: "12px 18px",
+                  borderRadius: 10,
+                  padding: "10px 16px",
                   fontWeight: 800,
+                  fontSize: 13,
                   cursor: savingEditor ? "not-allowed" : "pointer",
-                  boxShadow: "0 2px 10px rgba(15,23,42,0.04)",
+                  boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!savingEditor) {
+                    (e.target as HTMLElement).style.background = "#f8f9fa";
+                    (e.target as HTMLElement).style.boxShadow = "0 4px 12px rgba(15,23,42,0.08)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.background = "#ffffff";
+                  (e.target as HTMLElement).style.boxShadow = "0 2px 8px rgba(15,23,42,0.04)";
                 }}
               >
                 Cancelar
@@ -1104,14 +1160,26 @@ export default function EvaluacionesPage(): React.ReactNode {
                   border: "1px solid #7dd3fc",
                   background: "linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%)",
                   color: "#082f49",
-                  borderRadius: 14,
-                  padding: "12px 18px",
+                  borderRadius: 10,
+                  padding: "10px 16px",
                   fontWeight: 900,
+                  fontSize: 13,
                   cursor: savingEditor ? "not-allowed" : "pointer",
                   boxShadow: "0 8px 20px rgba(14,165,233,0.16)",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!savingEditor) {
+                    (e.target as HTMLElement).style.boxShadow = "0 12px 28px rgba(14,165,233,0.25)";
+                    (e.target as HTMLElement).style.transform = "translateY(-1px)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.boxShadow = "0 8px 20px rgba(14,165,233,0.16)";
+                  (e.target as HTMLElement).style.transform = "translateY(0)";
                 }}
               >
-                {savingEditor ? "Guardando..." : "💾 Guardar cronograma"}
+                {savingEditor ? "⏳ Guardando..." : "💾 Guardar"}
               </button>
             </div>
           </div>

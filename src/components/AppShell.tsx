@@ -140,7 +140,7 @@ export default function AppShell({ children }: AppShellProps) {
           {navItems.map((it) => {
             const active = it.href === "/" ? pathname === "/" : pathname?.startsWith(it.href);
             return (
-              <Link key={it.href} href={it.href} className={`appNavItem ${active ? "active" : ""}`} onClick={() => setNavOpen(false)}>
+              <Link key={it.href} href={it.href} prefetch={false} className={`appNavItem ${active ? "active" : ""}`} onClick={() => setNavOpen(false)}>
                 {it.label}
               </Link>
             );
