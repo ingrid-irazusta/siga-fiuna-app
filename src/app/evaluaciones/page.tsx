@@ -752,7 +752,7 @@ export default function EvaluacionesPage(): React.ReactNode {
       >
         {rows.length === 0 ? (
           <div className="muted" style={{ padding: 10 }}>
-            No hay materias. Agregá materias en Inicio → "Materias en curso".
+            No hay materias. Agregá materias en Inicio → &quot;Materias en curso&quot;.
           </div>
         ) : null}
       </Card>
@@ -778,10 +778,10 @@ export default function EvaluacionesPage(): React.ReactNode {
               width: "min(900px, 100%)",
               maxHeight: "calc(100vh - 96px)",
               overflow: "hidden",
-              background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              background: "var(--card)",
               borderRadius: 20,
               boxShadow: "0 30px 80px rgba(2,6,23,0.22)",
-              border: "1px solid rgba(148,163,184,0.22)",
+              border: "1px solid var(--border)",
               display: "grid",
               gridTemplateRows: "auto 1fr auto",
             }}
@@ -789,22 +789,22 @@ export default function EvaluacionesPage(): React.ReactNode {
             <div
               style={{
                 padding: "16px 20px 14px",
-                borderBottom: "1px solid rgba(148,163,184,0.18)",
+                borderBottom: "1px solid var(--border)",
                 display: "flex",
                 alignItems: "flex-start",
                 justifyContent: "space-between",
                 gap: 12,
-                background: "rgba(255,255,255,0.96)",
+                background: "var(--card)",
                 position: "relative",
                 zIndex: 3,
                 flexShrink: 0,
               }}
             >
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a", letterSpacing: "-0.02em" }}>
+                <div style={{ fontWeight: 900, fontSize: 18, color: "var(--text)", letterSpacing: "-0.02em" }}>
                   ✏️ Editar cronograma de exámenes
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, lineHeight: 1.3 }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, lineHeight: 1.3 }}>
                   Ajusta fechas y horarios. Cada materia tiene su propio desplazamiento.
                 </div>
               </div>
@@ -816,9 +816,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  border: "1px solid rgba(148,163,184,0.28)",
-                  background: "rgba(255,255,255,0.9)",
-                  color: "#0f172a",
+                  border: "1px solid var(--border)",
+                  background: "var(--card)",
+                  color: "var(--text)",
                   fontSize: 20,
                   cursor: savingEditor ? "not-allowed" : "pointer",
                   flexShrink: 0,
@@ -846,7 +846,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                 padding: "14px 14px 12px",
                 display: "grid",
                 gap: 12,
-                background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
+                background: "var(--bg)",
                 minHeight: 0,
               }}
             >
@@ -857,12 +857,12 @@ export default function EvaluacionesPage(): React.ReactNode {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "#64748b",
+                    color: "var(--muted)",
                     fontWeight: 700,
                     fontSize: 13,
-                    border: "1px dashed #cbd5e1",
+                    border: "1px dashed var(--border)",
                     borderRadius: 14,
-                    background: "#fff",
+                    background: "var(--card)",
                   }}
                 >
                   📚 No hay materias disponibles
@@ -882,9 +882,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                       <div
                         key={`${r.materia || "materia"}-${idx}`}
                         style={{
-                          border: "1px solid rgba(148,163,184,0.18)",
+                          border: "1px solid var(--border)",
                           borderRadius: 16,
-                          background: "#ffffff",
+                          background: "var(--card)",
                           boxShadow: "0 6px 20px rgba(15,23,42,0.04)",
                           overflow: "hidden",
                         }}
@@ -893,14 +893,14 @@ export default function EvaluacionesPage(): React.ReactNode {
                           style={{
                             fontWeight: 900,
                             fontSize: 15,
-                            color: "#0f172a",
+                            color: "var(--text)",
                             letterSpacing: "-0.01em",
                             display: "flex",
                             alignItems: "center",
                             gap: 8,
                             padding: "12px 14px",
-                            borderBottom: "1px solid rgba(148,163,184,0.14)",
-                            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                            borderBottom: "1px solid var(--border)",
+                            background: "var(--card)",
                             position: "sticky",
                             top: 0,
                             zIndex: 1,
@@ -940,10 +940,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                                   style={{
                                     minWidth: 160,
                                     width: 160,
-                                    border: "1px solid rgba(148,163,184,0.18)",
+                                    border: "1px solid var(--border)",
                                     borderRadius: 12,
                                     padding: 9,
-                                    background: "#ffffff",
+                                    background: "var(--card)",
                                     display: "flex",
                                     flexDirection: "column",
                                     gap: 6,
@@ -953,7 +953,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                                   <div
                                     style={{
                                       fontWeight: 900,
-                                      color: "#0f172a",
+                                      color: "var(--text)",
                                       fontSize: 12,
                                       letterSpacing: "-0.005em",
                                       paddingBottom: 1,
@@ -970,7 +970,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       gap: 3,
                                       fontSize: 9.5,
                                       fontWeight: 800,
-                                      color: "#64748b",
+                                      color: "var(--muted)",
                                       letterSpacing: ".03em",
                                       textTransform: "uppercase",
                                     }}
@@ -986,9 +986,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                                         width: "100%",
                                         height: 32,
                                         borderRadius: 8,
-                                        border: "1px solid rgba(148,163,184,0.28)",
-                                        background: "#ffffff",
-                                        color: "#0f172a",
+                                        border: "1px solid var(--border)",
+                                        background: "var(--card)",
+                                        color: "var(--text)",
                                         padding: "0 7px",
                                         fontSize: 11,
                                         boxShadow: "inset 0 1px 2px rgba(15,23,42,0.02)",
@@ -1014,7 +1014,7 @@ export default function EvaluacionesPage(): React.ReactNode {
                                       gap: 3,
                                       fontSize: 9.5,
                                       fontWeight: 800,
-                                      color: "#64748b",
+                                      color: "var(--muted)",
                                       letterSpacing: ".03em",
                                       textTransform: "uppercase",
                                     }}
@@ -1030,9 +1030,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                                         width: "100%",
                                         height: 32,
                                         borderRadius: 8,
-                                        border: "1px solid rgba(148,163,184,0.28)",
-                                        background: "#ffffff",
-                                        color: "#0f172a",
+                                        border: "1px solid var(--border)",
+                                        background: "var(--card)",
+                                        color: "var(--text)",
                                         padding: "0 7px",
                                         fontSize: 11,
                                         boxShadow: "inset 0 1px 2px rgba(15,23,42,0.02)",
@@ -1059,10 +1059,10 @@ export default function EvaluacionesPage(): React.ReactNode {
                                 style={{
                                   minWidth: 160,
                                   width: 160,
-                                  border: "1px dashed rgba(148,163,184,0.38)",
+                                  border: "1px dashed var(--border)",
                                   borderRadius: 12,
                                   padding: 9,
-                                  background: "#fafbfc",
+                                  background: "var(--bg)",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -1076,9 +1076,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     }))
                                   }
                                   style={{
-                                    border: "1px solid rgba(148,163,184,0.24)",
-                                    background: "#ffffff",
-                                    color: "#0f172a",
+                                    border: "1px solid var(--border)",
+                                    background: "var(--card)",
+                                    color: "var(--text)",
                                     borderRadius: 10,
                                     padding: "8px 10px",
                                     fontWeight: 800,
@@ -1113,12 +1113,12 @@ export default function EvaluacionesPage(): React.ReactNode {
             <div
               style={{
                 padding: "12px 16px 14px",
-                borderTop: "1px solid rgba(148,163,184,0.18)",
+                borderTop: "1px solid var(--border)",
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: 8,
                 flexWrap: "wrap",
-                background: "rgba(255,255,255,0.98)",
+                background: "var(--card)",
                 flexShrink: 0,
                 position: "relative",
                 zIndex: 3,
@@ -1128,9 +1128,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                 onClick={closeEditorModal}
                 disabled={savingEditor}
                 style={{
-                  border: "1px solid rgba(148,163,184,0.28)",
-                  background: "#ffffff",
-                  color: "#0f172a",
+                  border: "1px solid var(--border)",
+                  background: "var(--card)",
+                  color: "var(--text)",
                   borderRadius: 10,
                   padding: "10px 16px",
                   fontWeight: 800,
@@ -1157,9 +1157,9 @@ export default function EvaluacionesPage(): React.ReactNode {
                 onClick={saveEditorToDB}
                 disabled={savingEditor}
                 style={{
-                  border: "1px solid #7dd3fc",
-                  background: "linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%)",
-                  color: "#082f49",
+                  border: "1px solid var(--primary)",
+                  background: "var(--primary2)",
+                  color: "var(--primary)",
                   borderRadius: 10,
                   padding: "10px 16px",
                   fontWeight: 900,

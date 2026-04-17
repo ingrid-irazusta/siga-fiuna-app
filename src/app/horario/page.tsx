@@ -1068,7 +1068,7 @@ export default function HorarioPage() {
             {(schedule[activeDay] || []).length === 0 ? (
               <div className="calEmpty">
                 <div className="calEmptyTitle">Día libre</div>
-                <div className="muted">Tocá "Agregar" para crear una clase.</div>
+                <div className="muted">Tocá &quot;Agregar&quot; para crear una clase.</div>
               </div>
             ) : (
               (schedule[activeDay] || []).map((ev) => (

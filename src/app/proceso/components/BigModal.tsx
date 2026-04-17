@@ -51,8 +51,7 @@ export default function BigModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background:
-          "radial-gradient(80% 60% at 50% 40%, rgba(255,255,255,0.12), rgba(2,6,23,0.65))",
+        background: "rgba(2, 6, 23, 0.5)",
         backdropFilter: "blur(8px)",
       }}
     >
@@ -61,9 +60,9 @@ export default function BigModal({
           width: "min(980px, 100%)",
           maxHeight: "92vh",
           overflow: "hidden",
-          background: "white",
+          background: "var(--card)",
           borderRadius: 18,
-          border: "1px solid rgba(2,6,23,0.12)",
+          border: "1px solid var(--border)",
           boxShadow: "0 30px 80px rgba(2,6,23,0.35)",
           transform: "translateY(30px)",
         }}

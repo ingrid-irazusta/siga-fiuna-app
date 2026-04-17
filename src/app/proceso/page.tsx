@@ -905,8 +905,8 @@ if (isLoading) {
                     >
                       <div
                         style={{
-                          background: "white",
-                          border: "1px solid rgba(2,6,23,0.10)",
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
                           borderRadius: 16,
                           padding: 12,
                           boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
@@ -1082,7 +1082,7 @@ if (isLoading) {
 
                       <div
                         style={{
-                          background: "white",
+                          background: "var(--card)",
                           border: "1px solid rgba(2,6,23,0.10)",
                           borderRadius: 16,
                           padding: 12,
@@ -1168,7 +1168,7 @@ if (isLoading) {
 
                     <div
                       style={{
-                        background: "white",
+                        background: "var(--card)",
                         border: "1px solid rgba(2,6,23,0.10)",
                         borderRadius: 16,
                         padding: 12,
@@ -1237,7 +1237,7 @@ if (isLoading) {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                         <div
                           style={{
-                            background: "white",
+                            background: "var(--card)",
                             border: "1px solid rgba(2,6,23,0.10)",
                             borderRadius: 14,
                             padding: 12,
@@ -1254,7 +1254,7 @@ if (isLoading) {
 
                         <div
                           style={{
-                            background: "white",
+                            background: "var(--card)",
                             border: "1px solid rgba(2,6,23,0.10)",
                             borderRadius: 14,
                             padding: 12,
@@ -1286,7 +1286,7 @@ if (isLoading) {
 
                     <div
                       style={{
-                        background: "white",
+                        background: "var(--card)",
                         border: "1px solid rgba(2,6,23,0.10)",
                         borderRadius: 16,
                         padding: 12,
@@ -1979,7 +1979,7 @@ if (isLoading) {
                         style={{
                           border: "1px solid rgba(2,6,23,0.10)",
                           borderRadius: 16,
-                          background: "white",
+                          background: "var(--card)",
                           padding: 12,
                           display: "grid",
                           gap: 10,
@@ -2184,7 +2184,7 @@ if (isLoading) {
                           style={{
                             border: "1px solid rgba(2,6,23,0.10)",
                             borderRadius: 16,
-                            background: "white",
+                            background: "var(--card)",
                             padding: 12,
                             display: "grid",
                             gap: 12,
@@ -2198,7 +2198,7 @@ if (isLoading) {
                               padding: 10,
                               borderRadius: 14,
                               border: "1px solid rgba(2,6,23,0.10)",
-                              background: "white",
+                              background: "var(--card)",
                             }}
                           >
                             <input
@@ -2343,7 +2343,7 @@ if (isLoading) {
                                 border: "1px solid rgba(2,6,23,0.10)",
                                 borderRadius: 16,
                                 padding: 12,
-                                background: "white",
+                                background: "var(--card)",
                               }}
                             >
                               <div style={{ fontWeight: 950, marginBottom: 8 }}>
@@ -2452,7 +2452,7 @@ if (isLoading) {
                                 border: "1px solid rgba(2,6,23,0.10)",
                                 borderRadius: 16,
                                 padding: 12,
-                                background: "white",
+                                background: "var(--card)",
                               }}
                             >
                               <div style={{ fontWeight: 950, marginBottom: 8 }}>
@@ -2604,7 +2604,7 @@ if (isLoading) {
                                 border: "1px solid rgba(2,6,23,0.10)",
                                 borderRadius: 16,
                                 padding: 12,
-                                background: "white",
+                                background: "var(--card)",
                               }}
                             >
                               <div style={{ fontWeight: 950, marginBottom: 8 }}>

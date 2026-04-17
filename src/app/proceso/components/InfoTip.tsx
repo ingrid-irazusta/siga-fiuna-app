@@ -47,11 +47,11 @@ export default function InfoTip({ text, scale = 1 }: InfoTipProps) {
             width: 260,
             padding: "10px 12px",
             borderRadius: 12,
-            background: "white",
-            border: "1px solid rgba(2,6,23,0.12)",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             boxShadow: "0 10px 30px rgba(2,6,23,0.10)",
             fontSize: 12,
-            color: "rgba(15,23,42,0.9)",
+            color: "var(--text)",
           }}
         >
           {text}
