@@ -133,14 +133,14 @@
 .title {
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text);
   margin: 0;
   letter-spacing: -0.5px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   margin: 8px 0 0;
   font-weight: 500;
 }
@@ -157,10 +157,10 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background-color: #fee;
-  border: 1px solid #fcc;
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid var(--danger);
   border-radius: 8px;
-  color: #c33;
+  color: var(--danger);
   font-size: 14px;
   animation: slideDown 0.3s ease-out;
 }
@@ -170,10 +170,10 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background-color: #efe;
-  border: 1px solid #cfc;
+  background-color: rgba(78, 228, 108, 0.1);
+  border: 1px solid var(--success);
   border-radius: 8px;
-  color: #3c3;
+  color: var(--success);
   font-size: 14px;
   animation: slideDown 0.3s ease-out;
 }
@@ -193,7 +193,7 @@
 .inputGroup label {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text);
 }
 
 .inputGroup input {
@@ -254,13 +254,13 @@
   align-items: center;
   justify-content: center;
   transition: opacity 0.2s ease;
-  color: #1a1a1a;
+  color: var(--text);
 }
 
 .togglePassword svg {
   width: 18px;
   height: 18px;
-  stroke: #1a1a1a;
+  stroke: var(--text);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -276,7 +276,7 @@
 
 .submitButton {
   padding: 12px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -294,7 +294,7 @@
 
 .submitButton:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 10px 20px var(--shadow2);
 }
 
 .submitButton:active:not(:disabled) {
@@ -325,19 +325,19 @@
   text-align: center;
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border);
 }
 
 .footer p {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
 }
 
 .toggleButton {
   background: none;
   border: none;
-  color: #667eea;
+  color: var(--primary);
   font-weight: 600;
   cursor: pointer;
   font-size: 14px;
@@ -347,7 +347,7 @@
 }
 
 .toggleButton:hover:not(:disabled) {
-  color: #764ba2;
+  color: var(--primary);
   text-decoration: underline;
 }
 
@@ -359,7 +359,7 @@
 .forgotLink {
   background: none;
   border: none;
-  color: #667eea;
+  color: var(--primary);
   font-size: 13px;
   padding: 0;
   cursor: pointer;
@@ -370,7 +370,7 @@
 }
 
 .forgotLink:hover:not(:disabled) {
-  color: #764ba2;
+  color: var(--primary);
 }
 
 .forgotLink:disabled {
@@ -380,9 +380,9 @@
 
 .backButton {
   padding: 10px 20px;
-  background: #f5f5f5;
-  color: #666;
-  border: 1px solid #e0e0e0;
+  background: var(--surface-soft);
+  color: var(--muted);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
@@ -391,8 +391,8 @@
 }
 
 .backButton:hover:not(:disabled) {
-  background: #e8e8e8;
-  color: #333;
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .backButton:disabled {
@@ -487,11 +487,11 @@
 .switchMode p {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
 }
 
 .switchMode a {
-  color: #667eea;
+  color: var(--primary);
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -499,6 +499,6 @@
 }
 
 .switchMode a:hover {
-  color: #764ba2;
+  color: var(--primary);
   text-decoration: underline;
 }

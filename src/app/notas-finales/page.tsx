@@ -916,7 +916,7 @@ export default function NotasFinalesPage() {
           padding: 10px;
           border: 1px solid var(--border);
           border-radius: 14px;
-          background: rgba(255, 255, 255, 0.9);
+          background: var(--card);
         }
         .nfKpiValue {
           font-size: 26px;
@@ -926,14 +926,14 @@ export default function NotasFinalesPage() {
         .nfKpiLabel {
           font-size: 12px;
           font-weight: 800;
-          color: rgba(15, 23, 42, 0.7);
+          color: var(--muted);
           margin-top: 4px;
         }
         .nfProgress {
           margin-top: 10px;
           height: 10px;
           border-radius: 999px;
-          background: rgba(148, 163, 184, 0.25);
+          background: var(--border2);
           overflow: hidden;
         }
         .nfProgressBar {
@@ -974,7 +974,7 @@ export default function NotasFinalesPage() {
           padding: 10px;
           border-top: 1px solid var(--border);
           border-right: 1px solid var(--border);
-          background: white;
+          background: var(--card);
         }
         .nfNotasCell {
           padding: 10px;
@@ -989,7 +989,7 @@ export default function NotasFinalesPage() {
         }
         .nfMateriaBase {
           font-weight: 800;
-          color: rgba(15, 23, 42, 0.9);
+          color: var(--text);
         }
         .nfMateriaWrap {
           display: flex;
@@ -1004,12 +1004,13 @@ export default function NotasFinalesPage() {
         }
         .nfDel {
           border: 1px solid var(--border);
-          background: white;
+          background: var(--card);
           border-radius: 12px;
           padding: 8px 10px;
           font-weight: 950;
           cursor: pointer;
           line-height: 1;
+          color: var(--text);
         }
         .nfDel:active {
           transform: translateY(1px);
