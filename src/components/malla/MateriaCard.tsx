@@ -3,11 +3,11 @@ import { CSSProperties, MouseEvent, ChangeEvent } from "react";
 type Estado = "aprobada" | "habilitada" | "bloqueada" | string;
 
 function estadoStyle(estado: Estado): CSSProperties {
-  // Colores según prompt
-  if (estado === "aprobada") return { background: "#A5D6A7" };
-  if (estado === "habilitada") return { background: "#90CAF9" };
-  if (estado === "bloqueada") return { background: "#EEEEEE" };
-  return { background: "#EEEEEE" };
+  // Colores adaptativos según tema
+  if (estado === "aprobada") return { background: "var(--success)", color: "white", fontWeight: 700 };
+  if (estado === "habilitada") return { background: "var(--primary)", color: "white", fontWeight: 700 };
+  if (estado === "bloqueada") return { background: "var(--card)", color: "var(--muted)", border: "1px solid var(--border)" };
+  return { background: "var(--card)", color: "var(--muted)", border: "1px solid var(--border)" };
 }
 
 interface Materia {
