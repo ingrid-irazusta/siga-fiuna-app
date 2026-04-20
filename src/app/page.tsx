@@ -1536,7 +1536,7 @@ export default function Page() {
           >
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                <div style={{ fontWeight: 900, color: "rgba(15,23,42,0.7)" }}>Aprobadas</div>
+                <div style={{ fontWeight: 900, color: "var(--text)" }}>Aprobadas</div>
                 <div style={{ fontWeight: 950, fontSize: 18 }}>{notasKpis.aprobadas}/{notasKpis.total}</div>
               </div>
 
@@ -1669,7 +1669,7 @@ export default function Page() {
                                           padding: "8px 12px",
                                           borderRadius: 12,
                                           border: "1px solid var(--border)",
-                                          background: active ? "#22c55e" : "#f8fafc",
+                                          background: active ? "var(--success)" : "var(--surface-soft)",
                                           color: active ? "#ffffff" : "var(--text)",
                                           fontWeight: 800,
                                           cursor: "pointer",
@@ -1740,7 +1740,7 @@ export default function Page() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(15,23,42,0.45)",
+              background: "var(--card)",
               display: "flex",
               alignItems: "flex-start", // 👈 clave
               justifyContent: "center",
@@ -1757,13 +1757,13 @@ export default function Page() {
                 background: "var(--card)",
                 borderRadius: 18,
                 boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
-                border: "1px solid rgba(15,23,42,0.08)",
+                border: "1px solid var(--border)",
               }}
             >
               <div
                 style={{
                   padding: "18px 20px",
-                  borderBottom: "1px solid rgba(15,23,42,0.08)",
+                  borderBottom: "1px solid var(--border)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -1774,7 +1774,7 @@ export default function Page() {
                   <div style={{ fontWeight: 900, fontSize: 18 }}>
                     Clases encontradas en la distribución
                   </div>
-                  <div style={{ fontSize: 13, color: "rgba(15,23,42,0.65)", marginTop: 4 }}>
+                  <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                     Selecciona las clases que corresponden a tu horario.
                   </div>
                 </div>
@@ -1803,7 +1803,7 @@ export default function Page() {
                       <div
                         key={group.materia}
                         style={{
-                          border: "1px solid rgba(15,23,42,0.08)",
+                          border: "1px solid var(--border)",
                           borderRadius: 14,
                           padding: 14,
                           display: "grid",
@@ -1829,10 +1829,10 @@ export default function Page() {
                                   padding: 12,
                                   borderRadius: 12,
                                   border: checked
-                                    ? "1px solid rgba(34,197,94,0.45)"
-                                    : "1px solid rgba(15,23,42,0.08)",
+                                    ? "1px solid var(--success)"
+                                    : "1px solid var(--border)",
                                   background: checked
-                                    ? "rgba(34,197,94,0.08)"
+                                    ? "var(--success2)"
                                     : "var(--card)",
                                   cursor: "pointer",
                                 }}
@@ -1903,7 +1903,7 @@ export default function Page() {
               <div
                 style={{
                   padding: "16px 20px",
-                  borderTop: "1px solid rgba(15,23,42,0.08)",
+                  borderTop: "1px solid var(--border)",
                   display: "flex",
                   justifyContent: "space-between",
                   gap: 10,

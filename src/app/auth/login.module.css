@@ -31,7 +31,7 @@
 .backgroundShape1 {
   width: 300px;
   height: 300px;
-  background: white;
+  background: var(--surface-soft);
   top: -100px;
   right: -100px;
   animation: float 20s infinite ease-in-out;
@@ -40,7 +40,7 @@
 .backgroundShape2 {
   width: 200px;
   height: 200px;
-  background: white;
+  background: var(--surface-soft);
   bottom: -50px;
   left: -50px;
   animation: float 15s infinite ease-in-out 2s;
@@ -49,7 +49,7 @@
 .backgroundShape3 {
   width: 250px;
   height: 250px;
-  background: white;
+  background: var(--surface-soft);
   top: 50%;
   left: 10%;
   animation: float 25s infinite ease-in-out 4s;
@@ -76,7 +76,7 @@
 }
 
 .card {
-  background: white;
+  background: var(--card);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   padding: 40px 60px;
@@ -200,8 +200,8 @@
   width: 100%;
   padding: 14px 16px;
   border-radius: 8px;
-  border: 1px solid #ccc;
-  background: #f0f4ff;
+  border: 1px solid var(--border);
+  background: var(--card);
   font-size: 16px;
   box-sizing: border-box;
 }
@@ -209,9 +209,9 @@
 
 .inputGroup input:focus {
   outline: none;
-  border-color: #667eea;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--primary);
+  background: var(--card);
+  box-shadow: 0 0 0 3px var(--primary2);
 }
 
 .inputGroup input:disabled {
@@ -230,17 +230,17 @@
   padding: 14px 16px;
   padding-right: 44px;
   border-radius: 8px;
-  border: 1px solid #ccc;
-  background: #f0f4ff;
+  border: 1px solid var(--border);
+  background: var(--card);
   font-size: 16px;
   box-sizing: border-box;
 }
 
 .passwordInputWrapper input:focus {
   outline: none;
-  border-color: #667eea;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--primary);
+  background: var(--card);
+  box-shadow: 0 0 0 3px var(--primary2);
 }
 
 .togglePassword {

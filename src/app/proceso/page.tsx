@@ -728,15 +728,15 @@ if (isLoading) {
             fontSize: 12,
             border: "1px solid rgba(2,6,23,0.12)",
             background: "rgba(2,6,23,0.04)",
-            color: "rgba(15,23,42,0.75)",
+            color: "var(--muted)",
           };
 
           if (v === "SI") {
             return {
               ...base,
-              border: "1px solid rgba(46,125,50,0.25)",
-              background: "rgba(46,125,50,0.12)",
-              color: "rgba(46,125,50,0.95)",
+              border: "1px solid var(--success)",
+              background: "var(--success2)",
+              color: "var(--success)",
             };
           }
 
@@ -946,7 +946,7 @@ if (isLoading) {
                             </colgroup>
 
                             <thead>
-                              <tr style={{ fontSize: 12, color: "rgba(15,23,42,0.75)" }}>
+                              <tr style={{ fontSize: 12, color: "var(--muted)" }}>
                                 <th style={{ textAlign: "left", padding: "6px 8px" }}>
                                   INSTANCIA
                                 </th>
@@ -1337,7 +1337,7 @@ if (isLoading) {
                             alignItems: "center",
                             gap: 8,
                             fontSize: 12,
-                            color: "rgba(15,23,42,0.75)",
+                            color: "var(--muted)",
                           }}
                         >
                           <input
@@ -1509,7 +1509,7 @@ if (isLoading) {
                         </colgroup>
 
                         <thead>
-                          <tr style={{ fontSize: 12, color: "rgba(15,23,42,0.75)" }}>
+                          <tr style={{ fontSize: 12, color: "var(--muted)" }}>
                             <th
                               style={{
                                 padding: "4px 6px",
@@ -2002,12 +2002,12 @@ if (isLoading) {
                             }}
                           >
                             <thead>
-                              <tr style={{ color: "rgba(15,23,42,0.65)", fontSize: 12 }}>
+                              <tr style={{ color: "var(--muted)", fontSize: 12 }}>
                                 <th
                                   style={{
                                     textAlign: "left",
                                     padding: "8px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.10)",
+                                    borderBottom: "1px solid var(--border)",
                                   }}
                                 >
                                   CRITERIO
@@ -2229,7 +2229,7 @@ if (isLoading) {
                                 Es mi 3ra oportunidad
                               </div>
                               <div
-                                style={{ fontSize: 11, color: "rgba(15,23,42,0.55)" }}
+                                style={{ fontSize: 11, color: "var(--muted)" }}
                               >
                                 (En 3ra oportunidad no se puede exonerar)
                               </div>
@@ -2518,7 +2518,7 @@ if (isLoading) {
                                       <div
                                         style={{
                                           fontSize: 11,
-                                          color: "rgba(15,23,42,0.55)",
+                                          color: "var(--muted)",
                                         }}
                                       >
                                         (Se muestra, pero no se puede editar sin firma)
@@ -2584,8 +2584,8 @@ if (isLoading) {
                                             fontWeight: 900,
                                             padding: "4px 10px",
                                             borderRadius: 999,
-                                            background: "rgba(255,255,255,0.55)",
-                                            border: "1px solid rgba(2,6,23,0.08)",
+                                            background: "var(--surface-soft)",
+                                            border: "1px solid var(--border)",
                                           }}
                                         >
                                           {msg}
