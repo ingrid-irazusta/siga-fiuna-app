@@ -1221,12 +1221,12 @@ export default function Page() {
                         position: "absolute",
                         top: "100%",
                         right: 0,
-                        background: "white",
+                        background: "var(--card)",
                         border: "1px solid var(--border)",
                         borderRadius: "8px",
                         marginTop: "4px",
                         minWidth: "100px",
-                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.08)",
                         zIndex: 100,
                       }}
                     >
@@ -1494,7 +1494,7 @@ export default function Page() {
                                 </div>
 
                                 {observacion && (
-                                  <div className="metaLine" style={{ color: "#b45309", fontWeight: 600 }}>
+                                  <div className="metaLine" style={{ color: "var(--danger)", fontWeight: 600 }}>
                                     ⚠️ {observacion}
                                   </div>
                                 )}
@@ -1754,7 +1754,7 @@ export default function Page() {
                 width: "min(860px, 100%)", // 👈 un poco más compacto
                 maxHeight: "85vh", // 👈 evita que toque arriba/abajo
                 overflowY: "auto",
-                background: "#ffffff",
+                background: "var(--card)",
                 borderRadius: 18,
                 boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
                 border: "1px solid rgba(15,23,42,0.08)",
@@ -1833,7 +1833,7 @@ export default function Page() {
                                     : "1px solid rgba(15,23,42,0.08)",
                                   background: checked
                                     ? "rgba(34,197,94,0.08)"
-                                    : "#ffffff",
+                                    : "var(--card)",
                                   cursor: "pointer",
                                 }}
                               >
@@ -1884,8 +1884,8 @@ export default function Page() {
                               style={{
                                 padding: "6px 10px",
                                 borderRadius: 999,
-                                background: "#ffffff",
-                                border: "1px solid rgba(15,23,42,0.08)",
+                                background: "var(--card)",
+                                border: "1px solid var(--border)",
                                 fontWeight: 700,
                                 fontSize: 13,
                               }}

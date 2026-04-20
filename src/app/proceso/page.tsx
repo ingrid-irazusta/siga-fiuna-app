@@ -872,11 +872,11 @@ if (isLoading) {
                   <div
                     style={{
                       padding: "10px 12px",
-                      background: "rgba(0,176,255,0.12)",
+                      background: "var(--primary2)",
                       border: "1px solid rgba(2,6,23,0.10)",
                       borderRadius: 14,
                       fontWeight: 950,
-                      color: "#1565C0",
+                      color: "var(--primary)",
                     }}
                   >
                     {txt}
@@ -886,7 +886,7 @@ if (isLoading) {
                 return (
                   <div
                     style={{
-                      background: "#F4F6F8",
+                      background: "var(--bg)",
                       borderRadius: 16,
                       padding: 12,
                       display: "grid",
@@ -1094,26 +1094,26 @@ if (isLoading) {
                         {sectionTitle("💡 Recomendación rápida")}
 
                         {!simValido ? (
-                          <div style={{ fontSize: 13, color: "rgba(15,23,42,0.85)" }}>
+                          <div style={{ fontSize: 13, color: "var(--text)" }}>
                             Primero cumplí <b>mínimos</b> y el <b>peso total</b>. Sin eso
                             no conviene planificar recu/final/exoneración.
                           </div>
                         ) : simEx.ok ? (
-                          <div style={{ fontSize: 13, color: "rgba(15,23,42,0.85)" }}>
+                          <div style={{ fontSize: 13, color: "var(--text)" }}>
                             Ya exonerás. Normalmente conviene <b>no arriesgar</b> y
                             conservar.
                           </div>
                         ) : simHab ? (
-                          <div style={{ fontSize: 13, color: "rgba(15,23,42,0.85)" }}>
+                          <div style={{ fontSize: 13, color: "var(--text)" }}>
                             Tenés firma. Podés estimar el <b>final</b> y ver si te conviene.
                           </div>
                         ) : simRecuperatorio ? (
-                          <div style={{ fontSize: 13, color: "rgba(15,23,42,0.85)" }}>
+                          <div style={{ fontSize: 13, color: "var(--text)" }}>
                             Estás habilitada para <b>recuperatorio</b>. Probá escenarios y
                             mirá si llegás a exonerar.
                           </div>
                         ) : (
-                          <div style={{ fontSize: 13, color: "rgba(15,23,42,0.85)" }}>
+                          <div style={{ fontSize: 13, color: "var(--text)" }}>
                             Aún no habilita recu ni firma. Necesitás subir tu proceso.
                           </div>
                         )}
@@ -1131,13 +1131,13 @@ if (isLoading) {
                           <div
                             style={{ display: "flex", justifyContent: "space-between" }}
                           >
-                            <span style={{ color: "rgba(15,23,42,0.70)" }}>Mínimos</span>
+                            <span style={{ color: "var(--muted)" }}>Mínimos</span>
                             <b>{simPesoOk ? (simCumpleMin ? "SI" : "NO") : "-"}</b>
                           </div>
                           <div
                             style={{ display: "flex", justifyContent: "space-between" }}
                           >
-                            <span style={{ color: "rgba(15,23,42,0.70)" }}>
+                            <span style={{ color: "var(--muted)" }}>
                               Recuperatorio
                             </span>
                             <b>{simValido ? (simRecuperatorio ? "SI" : "NO") : "-"}</b>
@@ -1145,13 +1145,13 @@ if (isLoading) {
                           <div
                             style={{ display: "flex", justifyContent: "space-between" }}
                           >
-                            <span style={{ color: "rgba(15,23,42,0.70)" }}>Firma</span>
+                            <span style={{ color: "var(--muted)" }}>Firma</span>
                             <b>{simValido ? (simHab ? "SI" : "NO") : "-"}</b>
                           </div>
                           <div
                             style={{ display: "flex", justifyContent: "space-between" }}
                           >
-                            <span style={{ color: "rgba(15,23,42,0.70)" }}>
+                            <span style={{ color: "var(--muted)" }}>
                               Exoneración
                             </span>
                             <b>
@@ -1187,7 +1187,7 @@ if (isLoading) {
                           flexWrap: "wrap",
                         }}
                       >
-                        <span style={{ fontSize: 12, color: "rgba(15,23,42,0.70)" }}>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
                           % recu esperado
                         </span>
 
@@ -1207,7 +1207,7 @@ if (isLoading) {
                           style={{ width: 90, textAlign: "center", fontWeight: 950 }}
                         />
 
-                        <span style={{ fontSize: 12, color: "rgba(15,23,42,0.70)" }}>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
                           Reemplaza: <b>{simTarget.label}</b>
                         </span>
 
@@ -1221,9 +1221,9 @@ if (isLoading) {
                             border: "1px solid rgba(2,6,23,0.10)",
                             background:
                               simValido && simRecuperatorio
-                                ? "rgba(15,150,90,0.12)"
+                                ? "rgba(78,228,108,0.12)"
                                 : "rgba(2,6,23,0.06)",
-                            color: "rgba(15,23,42,0.85)",
+                            color: "var(--text)",
                           }}
                         >
                           {simValido
@@ -1244,7 +1244,7 @@ if (isLoading) {
                             boxShadow: "0 8px 22px rgba(2,6,23,0.06)",
                           }}
                         >
-                          <div style={{ fontSize: 12, color: "rgba(15,23,42,0.70)" }}>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
                             Total simulado con recu
                           </div>
                           <div style={{ fontWeight: 950, fontSize: 28, lineHeight: 1.1 }}>
@@ -1261,7 +1261,7 @@ if (isLoading) {
                             boxShadow: "0 8px 22px rgba(2,6,23,0.06)",
                           }}
                         >
-                          <div style={{ fontSize: 12, color: "rgba(15,23,42,0.70)" }}>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
                             Exoneración posible en 2º final
                           </div>
                           <div style={{ fontWeight: 950, fontSize: 16 }}>
@@ -1275,7 +1275,7 @@ if (isLoading) {
                             style={{
                               marginTop: 6,
                               fontSize: 12,
-                              color: "rgba(15,23,42,0.70)",
+                              color: "var(--muted)",
                             }}
                           >
                             (Reemplaza el parcial de menor rendimiento)
@@ -1297,7 +1297,7 @@ if (isLoading) {
                     >
                       {sectionTitle("🎓 Escenario con final")}
 
-                      <div style={{ fontSize: 13, color: "rgba(15,23,42,0.85)" }}>
+                      <div style={{ fontSize: 13, color: "var(--text)" }}>
                         Ingresá cuánto creés que vas a sacar en el final y te estima la{" "}
                         <b>nota (1–5)</b>. (Regla: si el final es menor a 40 puntos ⇒ 1
                         directo.)
@@ -1311,7 +1311,7 @@ if (isLoading) {
                           flexWrap: "wrap",
                         }}
                       >
-                        <span style={{ fontSize: 12, color: "rgba(15,23,42,0.70)" }}>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
                           Puntaje de final esperado
                         </span>
 
@@ -1363,9 +1363,9 @@ if (isLoading) {
                             borderRadius: 999,
                             border: "1px solid rgba(2,6,23,0.10)",
                             background: simHabFinal
-                              ? "rgba(15,150,90,0.12)"
+                              ? "rgba(78,228,108,0.12)"
                               : "rgba(2,6,23,0.06)",
-                            color: "rgba(15,23,42,0.85)",
+                            color: "var(--text)",
                           }}
                         >
                           {simHabFinal ? "Con firma" : "Sin firma"}
@@ -1381,7 +1381,7 @@ if (isLoading) {
                             background: "rgba(2,6,23,0.02)",
                           }}
                         >
-                          <div style={{ fontSize: 12, color: "rgba(15,23,42,0.70)" }}>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
                             Proceso usado para el cálculo
                           </div>
                           <div style={{ fontWeight: 950, fontSize: 22 }}>
@@ -1397,7 +1397,7 @@ if (isLoading) {
                             background: "rgba(0,176,255,0.08)",
                           }}
                         >
-                          <div style={{ fontSize: 12, color: "rgba(15,23,42,0.70)" }}>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
                             Nota final estimada
                           </div>
                           <div style={{ fontWeight: 950, fontSize: 28 }}>
@@ -1436,10 +1436,10 @@ if (isLoading) {
                   <div
                     style={{
                       padding: "10px 12px",
-                      background: "rgba(21,101,192,0.10)",
+                      background: "var(--primary2)",
                       borderBottom: "1px solid var(--border)",
                       fontWeight: 950,
-                      color: "#1565C0",
+                      color: "var(--primary)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -1942,10 +1942,10 @@ if (isLoading) {
                   <div
                     style={{
                       padding: "10px 12px",
-                      background: "rgba(15, 150, 90, 0.12)",
+                      background: "rgba(78, 228, 108, 0.12)",
                       borderBottom: "1px solid var(--border)",
                       fontWeight: 950,
-                      color: "#0f9d58",
+                      color: "var(--success)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -1985,7 +1985,7 @@ if (isLoading) {
                           gap: 10,
                         }}
                       >
-                        <div style={{ fontWeight: 950, color: "#0f9d58" }}>RESUMEN</div>
+                        <div style={{ fontWeight: 950, color: "var(--success)" }}>RESUMEN</div>
 
                         <div
                           style={{
@@ -2223,7 +2223,7 @@ if (isLoading) {
                                 style={{
                                   fontSize: 13,
                                   fontWeight: 950,
-                                  color: "rgba(15,23,42,0.85)",
+                                  color: "var(--text)",
                                 }}
                               >
                                 Es mi 3ra oportunidad
@@ -2236,7 +2236,7 @@ if (isLoading) {
                             </div>
                           </label>
 
-                          <div style={{ fontWeight: 950, color: "rgba(15,23,42,0.85)" }}>
+                          <div style={{ fontWeight: 950, color: "var(--text)" }}>
                             ELEGÍ QUÉ VAS A HACER
                           </div>
 
