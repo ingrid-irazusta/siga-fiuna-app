@@ -827,13 +827,13 @@ export default function EvaluacionesPage(): React.ReactNode {
                 }}
                 onMouseEnter={(e) => {
                   if (!savingEditor) {
-                    (e.target as HTMLElement).style.background = "rgba(239,68,68,0.1)";
-                    (e.target as HTMLElement).style.borderColor = "rgba(239,68,68,0.3)";
+                    (e.target as HTMLElement).style.background = "var(--danger2)";
+                    (e.target as HTMLElement).style.borderColor = "var(--danger)";
                   }
                 }}
                 onMouseLeave={(e) => {
-                  (e.target as HTMLElement).style.background = "rgba(255,255,255,0.9)";
-                  (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.28)";
+                  (e.target as HTMLElement).style.background = "var(--card)";
+                  (e.target as HTMLElement).style.borderColor = "var(--border)";
                 }}
               >
                 ×
@@ -997,11 +997,11 @@ export default function EvaluacionesPage(): React.ReactNode {
                                         transition: "all 0.2s ease",
                                       }}
                                       onFocus={(e) => {
-                                        (e.target as HTMLElement).style.borderColor = "rgba(0,176,255,0.4)";
-                                        (e.target as HTMLElement).style.boxShadow = "0 0 0 3px rgba(0,176,255,0.08)";
+                                        (e.target as HTMLElement).style.borderColor = "var(--primary)";
+                                        (e.target as HTMLElement).style.boxShadow = "0 0 0 3px var(--primary2)";
                                       }}
                                       onBlur={(e) => {
-                                        (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.28)";
+                                        (e.target as HTMLElement).style.borderColor = "var(--border)";
                                         (e.target as HTMLElement).style.boxShadow = "inset 0 1px 2px rgba(15,23,42,0.02)";
                                       }}
                                     />
@@ -1041,11 +1041,11 @@ export default function EvaluacionesPage(): React.ReactNode {
                                         transition: "all 0.2s ease",
                                       }}
                                       onFocus={(e) => {
-                                        (e.target as HTMLElement).style.borderColor = "rgba(0,176,255,0.4)";
-                                        (e.target as HTMLElement).style.boxShadow = "0 0 0 3px rgba(0,176,255,0.08)";
+                                        (e.target as HTMLElement).style.borderColor = "var(--primary)";
+                                        (e.target as HTMLElement).style.boxShadow = "0 0 0 3px var(--primary2)";
                                       }}
                                       onBlur={(e) => {
-                                        (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.28)";
+                                        (e.target as HTMLElement).style.borderColor = "var(--border)";
                                         (e.target as HTMLElement).style.boxShadow = "inset 0 1px 2px rgba(15,23,42,0.02)";
                                       }}
                                     />
@@ -1089,12 +1089,12 @@ export default function EvaluacionesPage(): React.ReactNode {
                                     transition: "all 0.2s ease",
                                   }}
                                   onMouseEnter={(e) => {
-                                    (e.target as HTMLElement).style.background = "rgba(0,176,255,0.1)";
-                                    (e.target as HTMLElement).style.borderColor = "rgba(0,176,255,0.3)";
+                                    (e.target as HTMLElement).style.background = "var(--primary2)";
+                                    (e.target as HTMLElement).style.borderColor = "var(--primary)";
                                   }}
                                   onMouseLeave={(e) => {
-                                    (e.target as HTMLElement).style.background = "#ffffff";
-                                    (e.target as HTMLElement).style.borderColor = "rgba(148,163,184,0.24)";
+                                    (e.target as HTMLElement).style.background = "var(--card)";
+                                    (e.target as HTMLElement).style.borderColor = "var(--border)";
                                   }}
                                 >
                                   ➕ Final 3
@@ -1141,12 +1141,12 @@ export default function EvaluacionesPage(): React.ReactNode {
                 }}
                 onMouseEnter={(e) => {
                   if (!savingEditor) {
-                    (e.target as HTMLElement).style.background = "#f8f9fa";
-                    (e.target as HTMLElement).style.boxShadow = "0 4px 12px rgba(15,23,42,0.08)";
+                    (e.target as HTMLElement).style.background = "var(--bg)";
+                    (e.target as HTMLElement).style.boxShadow = "0 4px 12px var(--shadow2)";
                   }
                 }}
                 onMouseLeave={(e) => {
-                  (e.target as HTMLElement).style.background = "#ffffff";
+                  (e.target as HTMLElement).style.background = "var(--card)";
                   (e.target as HTMLElement).style.boxShadow = "0 2px 8px rgba(15,23,42,0.04)";
                 }}
               >

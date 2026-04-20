@@ -1586,7 +1586,7 @@ button, input, select { font: inherit; }
 
 /* Summary list */
 .examSummaryCard{
-  border:1px solid rgba(0,0,0,.08);
+  border:1px solid var(--border);
   border-radius:18px;
   padding:0;
   background:var(--card);
@@ -1601,9 +1601,9 @@ button, input, select { font: inherit; }
   padding:10px 12px;
 
   /* 👇 NUEVO look */
-  background: rgba(14,165,233,0.14);          /* celeste suave */
-  color: #0277BD;                             /* azul serio */
-  border-bottom: 1px solid rgba(2,6,23,0.10);
+  background: var(--primary2);          /* celeste suave */
+  color: var(--primary);                             /* azul serio */
+  border-bottom: 1px solid var(--border);
 }
 
 
@@ -1625,14 +1625,14 @@ button, input, select { font: inherit; }
   font-weight:900;
   opacity:.9;
   padding:8px 10px;
-  border-bottom:1px solid rgba(0,0,0,.08);
-  background: rgba(14,165,233,0.14);
+  border-bottom:1px solid var(--border);
+  background: var(--primary2);
 }
 
 .examSummaryTd{
   font-size:13px;
   padding:8px 10px;
-  border-bottom:1px solid rgba(0,0,0,.06);
+  border-bottom:1px solid var(--border2);
 }
 
 .examSummaryMateria{
@@ -1658,14 +1658,14 @@ button, input, select { font: inherit; }
 
 
 .btnSoft{
-  border:1px solid rgba(0,0,0,.10);
-  background: rgba(0,0,0,.03);
+  border:1px solid var(--border);
+  background: var(--card);
   border-radius:14px;
   padding:10px 14px;
   font-weight:900;
   cursor:pointer;
 }
-.btnSoft:hover{ background: rgba(0,0,0,.05); }
+.btnSoft:hover{ background: var(--bg); }
 
 
 /* =========================
