@@ -87,6 +87,27 @@ interface ScoreRowProps {
 const COURSES_KEY = "fiuna_os_current_courses_v1";
 const PROCESS_KEY = "fiuna_os_proceso_v1";
 const DEFAULT_ITEMS: CourseItem[] = [];
+function normalizeSemestre(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  const raw = String(value ?? "").trim().toLowerCase();
+
+  if (!raw) return 1;
+
+  const match = raw.match(/\d+/);
+  if (match) return Number(match[0]);
+
+  if (
+    raw.includes("optativa") ||
+    raw.includes("complementaria") ||
+    raw.includes("ciclo profesional") ||
+    raw.includes("profesional")
+  ) {
+    return 5;
+  }
+
+  return 1;
+}
 
 // ============= UTILITY FUNCTIONS =============
 
@@ -243,14 +264,26 @@ async function loadCourses(userId: string): Promise<Course[]> {
     const supabase = getSupabase();
     const { data: coursesData } = await supabase
       .from("student_courses")
-      .select("semestre, materia")
+      .select("semestre, materia, tipo")
       .eq("user_id", userId)
       .order("semestre", { ascending: true });
 
-    return (coursesData || []).map((c) => ({
-      mat: c.materia,
-      sem: c.semestre,
-    }));
+    return (coursesData || []).map((c) => {
+      const semBase = normalizeSemestre(c.semestre);
+      const tipo = normText((c as any).tipo);
+
+      const sem =
+        tipo.includes("optativa") ||
+          tipo.includes("complementaria") ||
+          tipo.includes("ciclo profesional")
+          ? 5
+          : semBase;
+
+      return {
+        mat: c.materia,
+        sem,
+      };
+    });
   } catch {
     return [];
   }
@@ -296,7 +329,7 @@ function mergeCoursesIntoItems(courses: Course[], existingItems: CourseItem[]): 
   const cleaned = (courses || [])
     .map((c) => ({
       nombre: String(c?.mat || "").trim(),
-      semestre: Number(c?.sem) || 1,
+      semestre: normalizeSemestre(c?.sem),
     }))
     .filter((c) => c.nombre);
 
@@ -448,6 +481,8 @@ export default function ProcesoPage() {
   const [simUseRecuForFinalByItem, setSimUseRecuForFinalByItem] = useState<Record<string, boolean>>({});
   const [didLoadProceso, setDidLoadProceso] = useState<boolean>(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [editingItems, setEditingItems] = useState<Record<string, boolean>>({});
+  const [draftRowsById, setDraftRowsById] = useState<Record<string, Row[]>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -613,6 +648,82 @@ export default function ProcesoPage() {
       children: Array.isArray(r.children) ? r.children.map((c) => ({ ...c })) : undefined,
     }));
   };
+  const startEditing = (it: CourseItem) => {
+    setDraftRowsById((prev) => ({
+      ...prev,
+      [it.id]: cloneRowsDeep(it.rows),
+    }));
+    setEditingItems((prev) => ({
+      ...prev,
+      [it.id]: true,
+    }));
+  };
+
+  const cancelEditing = (id: string) => {
+    setEditingItems((prev) => ({
+      ...prev,
+      [id]: false,
+    }));
+    setDraftRowsById((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+  };
+
+  const saveEditing = (id: string) => {
+    const draft = draftRowsById[id];
+    if (!draft) return;
+
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, rows: cloneRowsDeep(draft) } : it))
+    );
+
+    setEditingItems((prev) => ({
+      ...prev,
+      [id]: false,
+    }));
+
+    setDraftRowsById((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+  };
+
+  const updateDraftRow = (itemId: string, rid: string, patch: Partial<Row>) => {
+    setDraftRowsById((prev) => {
+      const rows = cloneRowsDeep(prev[itemId] || []);
+      return {
+        ...prev,
+        [itemId]: rows.map((r) => (r.rid === rid ? { ...r, ...patch } : r)),
+      };
+    });
+  };
+
+  const updateDraftChild = (
+    itemId: string,
+    groupRid: string,
+    childRid: string,
+    patch: Partial<ChildRow>
+  ) => {
+    setDraftRowsById((prev) => {
+      const rows = cloneRowsDeep(prev[itemId] || []);
+      return {
+        ...prev,
+        [itemId]: rows.map((r) =>
+          r.rid !== groupRid
+            ? r
+            : {
+              ...r,
+              children: (r.children || []).map((c) =>
+                c.rid === childRid ? { ...c, ...patch } : c
+              ),
+            }
+        ),
+      };
+    });
+  };
 
   const updateSimPct = (itemId: string, rid: string, pctValue: number) => {
     setSimRowsById((prev) => {
@@ -640,7 +751,7 @@ export default function ProcesoPage() {
   };
 
 
-if (isLoading) {
+  if (isLoading) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
         <p>Cargando...</p>
@@ -653,8 +764,8 @@ if (isLoading) {
       <div style={{ padding: 24 }}>
         <Card title="No hay materias">
           <p>No se encontraron materias registradas.</p>
-          <button 
-            className="btn" 
+          <button
+            className="btn"
             onClick={syncFromInicio}
             style={{ marginTop: 12 }}
           >
@@ -669,8 +780,14 @@ if (isLoading) {
     <div className="grid" style={{ gap: 14 }}>
       {items.map((it) => {
         const withLab = !!it.withLab;
-        const total = calcProcessTotal(it.rows);
-        const rows = Array.isArray(it.rows) ? it.rows : [];
+        const isEditing = !!editingItems[it.id];
+        const rows = isEditing
+          ? draftRowsById[it.id] || cloneRowsDeep(it.rows)
+          : Array.isArray(it.rows)
+            ? it.rows
+            : [];
+
+        const total = calcProcessTotal(rows);
 
         const pesoTotal = calcPesoTotal(rows);
         const pesoOk = pesoTotal === 100;
@@ -786,8 +903,8 @@ if (isLoading) {
           realPreferExo && realExPossible.ok
             ? realExPossible.nota
             : realHasFirma && realFinalOn
-            ? calcNotaFinalFIUNA(realProcesoParaFinal, realExamPct)
-            : null;
+              ? calcNotaFinalFIUNA(realProcesoParaFinal, realExamPct)
+              : null;
 
         const realCanExonerar = validoParaReglas && !it.realThirdAttempt && !!realExPossible.ok;
 
@@ -799,11 +916,11 @@ if (isLoading) {
           <Card
             key={it.id}
             title={
-              <div 
-                style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: 10, 
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
                   flexWrap: "wrap",
                   cursor: "pointer",
                   userSelect: "none"
@@ -819,120 +936,733 @@ if (isLoading) {
             }
           >
             {isExpanded && (
-            <>
-            <BigModal
-              open={simOpenId === it.id}
-              title={`🧪 Simulador — ${it.nombre}`}
-              onClose={() => setSimOpenId(null)}
-            >
-              {(() => {
-                const simRows = simRowsById[it.id] || cloneRowsDeep(it.rows);
-                const simTotal = calcProcessTotal(simRows);
-                const simPesoTotal = calcPesoTotal(simRows);
-                const simPesoOk = simPesoTotal === 100;
-                const simCumpleMin = calcCumpleMinimos(simRows);
-                const simValido = simPesoOk && simCumpleMin;
+              <>
+                <BigModal
+                  open={simOpenId === it.id}
+                  title={`🧪 Simulador — ${it.nombre}`}
+                  onClose={() => setSimOpenId(null)}
+                >
+                  {(() => {
+                    const simRows = simRowsById[it.id] || cloneRowsDeep(it.rows);
+                    const simTotal = calcProcessTotal(simRows);
+                    const simPesoTotal = calcPesoTotal(simRows);
+                    const simPesoOk = simPesoTotal === 100;
+                    const simCumpleMin = calcCumpleMinimos(simRows);
+                    const simValido = simPesoOk && simCumpleMin;
 
-                const sp1 =
-                  simRows.find((x) => x.rid === "p1") ||
-                  simRows.find((x) => normText(x?.label).includes("parcial 1"));
-                const sp2 =
-                  simRows.find((x) => x.rid === "p2") ||
-                  simRows.find((x) => normText(x?.label).includes("parcial 2"));
-                const sp1pct = clampNum(sp1?.pct ?? 0, 0, 100);
-                const sp2pct = clampNum(sp2?.pct ?? 0, 0, 100);
+                    const sp1 =
+                      simRows.find((x) => x.rid === "p1") ||
+                      simRows.find((x) => normText(x?.label).includes("parcial 1"));
+                    const sp2 =
+                      simRows.find((x) => x.rid === "p2") ||
+                      simRows.find((x) => normText(x?.label).includes("parcial 2"));
+                    const sp1pct = clampNum(sp1?.pct ?? 0, 0, 100);
+                    const sp2pct = clampNum(sp2?.pct ?? 0, 0, 100);
 
-                const simRecuperatorio =
-                  simValido && (simTotal >= 30 || sp1pct >= 40 || sp2pct >= 40);
-                const simHab = simValido && simTotal >= 50;
+                    const simRecuperatorio =
+                      simValido && (simTotal >= 30 || sp1pct >= 40 || sp2pct >= 40);
+                    const simHab = simValido && simTotal >= 50;
 
-                const simEx = simValido
-                  ? calcExoneracion(it.semestre, simTotal)
-                  : { ok: false, nota: null };
+                    const simEx = simValido
+                      ? calcExoneracion(it.semestre, simTotal)
+                      : { ok: false, nota: null };
 
-                const simRecuPct = clampNum(simRecuPctByItem[it.id] ?? 60, 0, 100);
-                const simTarget = recuTarget(simRows);
-                const simTotalConRecu = calcTotalConRecu(simRows, simRecuPct);
-                const simExConRecu = simValido
-                  ? calcExoneracion(it.semestre, simTotalConRecu)
-                  : { ok: false, nota: null };
+                    const simRecuPct = clampNum(simRecuPctByItem[it.id] ?? 60, 0, 100);
+                    const simTarget = recuTarget(simRows);
+                    const simTotalConRecu = calcTotalConRecu(simRows, simRecuPct);
+                    const simExConRecu = simValido
+                      ? calcExoneracion(it.semestre, simTotalConRecu)
+                      : { ok: false, nota: null };
 
-                const simFinalPct = clampNum(simFinalPctByItem[it.id] ?? 60, 0, 100);
-                const useRecuForFinal = !!simUseRecuForFinalByItem[it.id];
+                    const simFinalPct = clampNum(simFinalPctByItem[it.id] ?? 60, 0, 100);
+                    const useRecuForFinal = !!simUseRecuForFinalByItem[it.id];
 
-                const baseFinalProceso =
-                  useRecuForFinal && simRecuperatorio ? simTotalConRecu : simTotal;
+                    const baseFinalProceso =
+                      useRecuForFinal && simRecuperatorio ? simTotalConRecu : simTotal;
 
-                const simHabFinal = simValido && baseFinalProceso >= 50;
-                const simNotaFinal = simHabFinal
-                  ? calcNotaFinalFIUNA(baseFinalProceso, simFinalPct)
-                  : 1;
+                    const simHabFinal = simValido && baseFinalProceso >= 50;
+                    const simNotaFinal = simHabFinal
+                      ? calcNotaFinalFIUNA(baseFinalProceso, simFinalPct)
+                      : 1;
 
-                const sectionTitle = (txt: string) => (
+                    const sectionTitle = (txt: string) => (
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          background: "var(--primary2)",
+                          border: "1px solid rgba(2,6,23,0.10)",
+                          borderRadius: 14,
+                          fontWeight: 950,
+                          color: "var(--primary)",
+                        }}
+                      >
+                        {txt}
+                      </div>
+                    );
+
+                    return (
+                      <div
+                        style={{
+                          background: "var(--bg)",
+                          borderRadius: 16,
+                          padding: 12,
+                          display: "grid",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          className="simTwoCols"
+                          style={{
+                            display: "grid",
+                            gap: 12,
+                            alignItems: "start",
+                            minWidth: 0,
+                            maxWidth: "100%",
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: "var(--card)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 16,
+                              padding: 12,
+                              boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
+                              display: "grid",
+                              gap: 10,
+                            }}
+                          >
+                            {sectionTitle("📋 Proceso editable (solo simulador)")}
+
+                            {!simPesoOk && (
+                              <div
+                                style={{
+                                  padding: "8px 10px",
+                                  borderRadius: 12,
+                                  background: "rgba(220,38,38,0.10)",
+                                  border: "1px solid rgba(220,38,38,0.18)",
+                                  color: "rgba(220,38,38,0.95)",
+                                  fontWeight: 900,
+                                  fontSize: 12,
+                                }}
+                              >
+                                ⚠️ La suma de PESO debe ser 100. Ahora es: {simPesoTotal}
+                              </div>
+                            )}
+
+                            <div style={{ overflowX: "auto" }}>
+                              <table
+                                style={{
+                                  width: "100%",
+                                  borderCollapse: "collapse",
+                                  tableLayout: "fixed",
+                                }}
+                              >
+                                <colgroup>
+                                  <col style={{ width: "70%" }} />
+                                  <col style={{ width: "30%" }} />
+                                </colgroup>
+
+                                <thead>
+                                  <tr style={{ fontSize: 12, color: "var(--muted)" }}>
+                                    <th style={{ textAlign: "left", padding: "6px 8px" }}>
+                                      INSTANCIA
+                                    </th>
+                                    <th style={{ textAlign: "center", padding: "6px 8px" }}>
+                                      % HECHO
+                                    </th>
+                                  </tr>
+                                </thead>
+
+                                <tbody>
+                                  {simRows.flatMap((r) => {
+                                    const isGroup = !!r.isGroup;
+                                    const hasKids =
+                                      Array.isArray(r.children) && r.children.length > 0;
+                                    const g = hasKids ? groupTotals(r) : null;
+
+                                    const mainRow = (
+                                      <tr
+                                        key={r.rid}
+                                        style={{ borderTop: "1px solid rgba(2,6,23,0.08)" }}
+                                      >
+                                        <td style={{ padding: "6px 8px", fontWeight: 900 }}>
+                                          {String(r?.label ?? "")}
+                                        </td>
+
+                                        <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                                          <input
+                                            className="input numMini"
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            value={String(
+                                              isGroup && hasKids
+                                                ? g!.pctGrupo
+                                                : r?.pct ?? 0
+                                            )}
+                                            disabled={isGroup && hasKids}
+                                            onChange={(e) => {
+                                              const v = clampNum(e.target.value, 0, 100);
+                                              setSimRowsById((prev) => ({
+                                                ...prev,
+                                                [it.id]: simRows.map((x) =>
+                                                  x.rid === r.rid ? { ...x, pct: v } : x
+                                                ),
+                                              }));
+                                            }}
+                                            style={{
+                                              width: 90,
+                                              textAlign: "center",
+                                              fontWeight: 900,
+                                              opacity: isGroup && hasKids ? 0.65 : 1,
+                                              cursor:
+                                                isGroup && hasKids ? "not-allowed" : "text",
+                                            }}
+                                          />
+                                        </td>
+                                      </tr>
+                                    );
+
+                                    if (!isGroup) return [mainRow];
+
+                                    const kids = Array.isArray(r.children) ? r.children : [];
+                                    const kidsRows = kids.map((k) => (
+                                      <tr
+                                        key={`${r.rid}__${k.rid}`}
+                                        style={{
+                                          borderTop: "1px solid rgba(2,6,23,0.06)",
+                                          background: "rgba(2,6,23,0.03)",
+                                        }}
+                                      >
+                                        <td style={{ padding: "6px 8px", fontSize: 12 }}>
+                                          <span style={{ opacity: 0.65, marginRight: 6 }}>↳</span>
+                                          <span style={{ fontWeight: 800 }}>
+                                            {String(k?.label ?? "")}
+                                          </span>
+                                        </td>
+                                        <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                                          <input
+                                            className="input numMini"
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            value={String(k?.pct ?? 0)}
+                                            onChange={(e) => {
+                                              const v = clampNum(e.target.value, 0, 100);
+                                              setSimRowsById((prev) => ({
+                                                ...prev,
+                                                [it.id]: simRows.map((x) =>
+                                                  x.rid !== r.rid
+                                                    ? x
+                                                    : {
+                                                      ...x,
+                                                      children: kids.map((z) =>
+                                                        z.rid === k.rid
+                                                          ? { ...z, pct: v }
+                                                          : z
+                                                      ),
+                                                    }
+                                                ),
+                                              }));
+                                            }}
+                                            style={{
+                                              width: 90,
+                                              textAlign: "center",
+                                              fontWeight: 900,
+                                            }}
+                                          />
+                                        </td>
+                                      </tr>
+                                    ));
+
+                                    return [mainRow, ...kidsRows];
+                                  })}
+
+                                  <tr style={{ borderTop: "1px solid rgba(2,6,23,0.12)" }}>
+                                    <td style={{ padding: "8px", fontWeight: 950 }}>
+                                      TOTAL PROCESO (simulado)
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "8px",
+                                        textAlign: "center",
+                                        fontWeight: 950,
+                                      }}
+                                    >
+                                      {simTotal}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              background: "var(--card)",
+                              border: "1px solid rgba(2,6,23,0.10)",
+                              borderRadius: 16,
+                              padding: 12,
+                              boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
+                              display: "grid",
+                              gap: 10,
+                            }}
+                          >
+                            {sectionTitle("💡 Recomendación rápida")}
+
+                            {!simValido ? (
+                              <div style={{ fontSize: 13, color: "var(--text)" }}>
+                                Primero cumplí <b>mínimos</b> y el <b>peso total</b>. Sin eso
+                                no conviene planificar recu/final/exoneración.
+                              </div>
+                            ) : simEx.ok ? (
+                              <div style={{ fontSize: 13, color: "var(--text)" }}>
+                                Ya exonerás. Normalmente conviene <b>no arriesgar</b> y
+                                conservar.
+                              </div>
+                            ) : simHab ? (
+                              <div style={{ fontSize: 13, color: "var(--text)" }}>
+                                Tenés firma. Podés estimar el <b>final</b> y ver si te conviene.
+                              </div>
+                            ) : simRecuperatorio ? (
+                              <div style={{ fontSize: 13, color: "var(--text)" }}>
+                                Estás habilitada para <b>recuperatorio</b>. Probá escenarios y
+                                mirá si llegás a exonerar.
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 13, color: "var(--text)" }}>
+                                Aún no habilita recu ni firma. Necesitás subir tu proceso.
+                              </div>
+                            )}
+
+                            <div
+                              style={{
+                                marginTop: 8,
+                                borderTop: "1px solid rgba(2,6,23,0.08)",
+                                paddingTop: 10,
+                                display: "grid",
+                                gap: 8,
+                                fontSize: 13,
+                              }}
+                            >
+                              <div
+                                style={{ display: "flex", justifyContent: "space-between" }}
+                              >
+                                <span style={{ color: "var(--muted)" }}>Mínimos</span>
+                                <b>{simPesoOk ? (simCumpleMin ? "SI" : "NO") : "-"}</b>
+                              </div>
+                              <div
+                                style={{ display: "flex", justifyContent: "space-between" }}
+                              >
+                                <span style={{ color: "var(--muted)" }}>
+                                  Recuperatorio
+                                </span>
+                                <b>{simValido ? (simRecuperatorio ? "SI" : "NO") : "-"}</b>
+                              </div>
+                              <div
+                                style={{ display: "flex", justifyContent: "space-between" }}
+                              >
+                                <span style={{ color: "var(--muted)" }}>Firma</span>
+                                <b>{simValido ? (simHab ? "SI" : "NO") : "-"}</b>
+                              </div>
+                              <div
+                                style={{ display: "flex", justifyContent: "space-between" }}
+                              >
+                                <span style={{ color: "var(--muted)" }}>
+                                  Exoneración
+                                </span>
+                                <b>
+                                  {simValido
+                                    ? simEx.ok
+                                      ? `SI (nota ${simEx.nota})`
+                                      : "NO"
+                                    : "-"}
+                                </b>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            background: "var(--card)",
+                            border: "1px solid rgba(2,6,23,0.10)",
+                            borderRadius: 16,
+                            padding: 12,
+                            boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
+                            display: "grid",
+                            gap: 10,
+                          }}
+                        >
+                          {sectionTitle("🧪 Escenario con recuperatorio")}
+
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 10,
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                              % recu esperado
+                            </span>
+
+                            <input
+                              className="input numMini"
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={String(simRecuPct)}
+                              disabled={!(simValido && simRecuperatorio)}
+                              onChange={(e) =>
+                                setSimRecuPctByItem((prev) => ({
+                                  ...prev,
+                                  [it.id]: clampNum(e.target.value, 0, 100),
+                                }))
+                              }
+                              style={{ width: 90, textAlign: "center", fontWeight: 950 }}
+                            />
+
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                              Reemplaza: <b>{simTarget.label}</b>
+                            </span>
+
+                            <span
+                              style={{
+                                marginLeft: "auto",
+                                fontSize: 12,
+                                fontWeight: 900,
+                                padding: "6px 10px",
+                                borderRadius: 999,
+                                border: "1px solid rgba(2,6,23,0.10)",
+                                background:
+                                  simValido && simRecuperatorio
+                                    ? "rgba(78,228,108,0.12)"
+                                    : "rgba(2,6,23,0.06)",
+                                color: "var(--text)",
+                              }}
+                            >
+                              {simValido
+                                ? simRecuperatorio
+                                  ? "Habilitado"
+                                  : "No habilitado"
+                                : "No aplica"}
+                            </span>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div
+                              style={{
+                                background: "var(--card)",
+                                border: "1px solid rgba(2,6,23,0.10)",
+                                borderRadius: 14,
+                                padding: 12,
+                                boxShadow: "0 8px 22px rgba(2,6,23,0.06)",
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                                Total simulado con recu
+                              </div>
+                              <div style={{ fontWeight: 950, fontSize: 28, lineHeight: 1.1 }}>
+                                {simValido && simRecuperatorio ? simTotalConRecu : "-"}
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                background: "var(--card)",
+                                border: "1px solid rgba(2,6,23,0.10)",
+                                borderRadius: 14,
+                                padding: 12,
+                                boxShadow: "0 8px 22px rgba(2,6,23,0.06)",
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                                Exoneración posible en 2º final
+                              </div>
+                              <div style={{ fontWeight: 950, fontSize: 16 }}>
+                                {simValido && simRecuperatorio
+                                  ? simExConRecu.ok
+                                    ? `SI (nota ${simExConRecu.nota})`
+                                    : "NO"
+                                  : "-"}
+                              </div>
+                              <div
+                                style={{
+                                  marginTop: 6,
+                                  fontSize: 12,
+                                  color: "var(--muted)",
+                                }}
+                              >
+                                (Reemplaza el parcial de menor rendimiento)
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            background: "var(--card)",
+                            border: "1px solid rgba(2,6,23,0.10)",
+                            borderRadius: 16,
+                            padding: 12,
+                            boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
+                            display: "grid",
+                            gap: 10,
+                          }}
+                        >
+                          {sectionTitle("🎓 Escenario con final")}
+
+                          <div style={{ fontSize: 13, color: "var(--text)" }}>
+                            Ingresá cuánto creés que vas a sacar en el final y te estima la{" "}
+                            <b>nota (1–5)</b>. (Regla: si el final es menor a 40 puntos ⇒ 1
+                            directo.)
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 10,
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                              Puntaje de final esperado
+                            </span>
+
+                            <input
+                              className="input numMini"
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={String(simFinalPct)}
+                              onChange={(e) =>
+                                setSimFinalPctByItem((prev) => ({
+                                  ...prev,
+                                  [it.id]: clampNum(e.target.value, 0, 100),
+                                }))
+                              }
+                              style={{ width: 90, textAlign: "center", fontWeight: 950 }}
+                              disabled={!simHabFinal}
+                            />
+
+                            <label
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                fontSize: 12,
+                                color: "var(--muted)",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={useRecuForFinal}
+                                onChange={(e) =>
+                                  setSimUseRecuForFinalByItem((prev) => ({
+                                    ...prev,
+                                    [it.id]: e.target.checked,
+                                  }))
+                                }
+                                disabled={!(simValido && simRecuperatorio)}
+                              />
+                              Usar "Total con recu" si aplica
+                            </label>
+
+                            <span
+                              style={{
+                                marginLeft: "auto",
+                                fontSize: 12,
+                                fontWeight: 900,
+                                padding: "6px 10px",
+                                borderRadius: 999,
+                                border: "1px solid rgba(2,6,23,0.10)",
+                                background: simHabFinal
+                                  ? "rgba(78,228,108,0.12)"
+                                  : "rgba(2,6,23,0.06)",
+                                color: "var(--text)",
+                              }}
+                            >
+                              {simHabFinal ? "Con firma" : "Sin firma"}
+                            </span>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div
+                              style={{
+                                border: "1px solid rgba(2,6,23,0.10)",
+                                borderRadius: 14,
+                                padding: 12,
+                                background: "rgba(2,6,23,0.02)",
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                                Proceso usado para el cálculo
+                              </div>
+                              <div style={{ fontWeight: 950, fontSize: 22 }}>
+                                {simHabFinal ? baseFinalProceso : "-"}
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                border: "1px solid rgba(2,6,23,0.10)",
+                                borderRadius: 14,
+                                padding: 12,
+                                background: "rgba(0,176,255,0.08)",
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                                Nota final estimada
+                              </div>
+                              <div style={{ fontWeight: 950, fontSize: 28 }}>
+                                {simHabFinal ? simNotaFinal : "-"}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </BigModal>
+
+                <div style={{ display: "grid", gap: 12 }}>
                   <div
+                    className="procTwoCards"
                     style={{
-                      padding: "10px 12px",
-                      background: "var(--primary2)",
-                      border: "1px solid rgba(2,6,23,0.10)",
-                      borderRadius: 14,
-                      fontWeight: 950,
-                      color: "var(--primary)",
-                    }}
-                  >
-                    {txt}
-                  </div>
-                );
-
-                return (
-                  <div
-                    style={{
-                      background: "var(--bg)",
-                      borderRadius: 16,
-                      padding: 12,
                       display: "grid",
                       gap: 12,
+                      alignItems: "stretch",
+                      minWidth: 0,
+                      maxWidth: "100%",
                     }}
                   >
                     <div
-                      className="simTwoCols"
                       style={{
-                        display: "grid",
-                        gap: 12,
-                        alignItems: "start",
+                        border: "1px solid var(--border)",
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
                         minWidth: 0,
-                        maxWidth: "100%",
+                        width: "100%",
                       }}
                     >
                       <div
                         style={{
-                          background: "var(--card)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 16,
-                          padding: 12,
-                          boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
-                          display: "grid",
-                          gap: 10,
+                          padding: "10px 12px",
+                          background: "var(--primary2)",
+                          borderBottom: "1px solid var(--border)",
+                          fontWeight: 950,
+                          color: "var(--primary)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          minHeight: 44,
                         }}
                       >
-                        {sectionTitle("📋 Proceso editable (solo simulador)")}
 
-                        {!simPesoOk && (
-                          <div
-                            style={{
-                              padding: "8px 10px",
-                              borderRadius: 12,
-                              background: "rgba(220,38,38,0.10)",
-                              border: "1px solid rgba(220,38,38,0.18)",
-                              color: "rgba(220,38,38,0.95)",
-                              fontWeight: 900,
-                              fontSize: 12,
-                            }}
-                          >
-                            ⚠️ La suma de PESO debe ser 100. Ahora es: {simPesoTotal}
-                          </div>
-                        )}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span>📊 PROCESO DE EVALUACIÓN</span>
 
-                        <div style={{ overflowX: "auto" }}>
+                          {!isEditing ? (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => startEditing(it)}
+                              style={{
+                                borderRadius: 999,
+                                fontWeight: 950,
+                                fontSize: 12,
+                                padding: "6px 12px",
+                                height: 32,
+                              }}
+                              title="Editar proceso"
+                            >
+                              ✏️ Editar
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => saveEditing(it.id)}
+                                style={{
+                                  borderRadius: 999,
+                                  fontWeight: 950,
+                                  fontSize: 12,
+                                  padding: "6px 12px",
+                                  height: 32,
+                                }}
+                                title="Guardar proceso"
+                              >
+                                💾 Guardar
+                              </button>
+
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => cancelEditing(it.id)}
+                                style={{
+                                  borderRadius: 999,
+                                  fontWeight: 950,
+                                  fontSize: 12,
+                                  padding: "6px 12px",
+                                  height: 32,
+                                }}
+                                title="Cancelar edición"
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        <button
+                          className="btn procHeaderGhostBtn simBtnDesktop"
+                          onClick={() => openSim(it)}
+                          style={{
+                            borderRadius: 999,
+                            fontWeight: 950,
+                            fontSize: 12,
+                            padding: "6px 12px",
+                            height: 32,
+                          }}
+                          type="button"
+                        >
+                          🧪 Abrir simulador
+                        </button>
+                      </div>
+
+                      {!pesoOk && (
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            borderBottom: "1px solid var(--border)",
+                            background: "rgba(220,38,38,0.10)",
+                            color: "rgba(220,38,38,0.95)",
+                            fontWeight: 900,
+                            fontSize: 12,
+                          }}
+                        >
+                          ⚠️ La suma de PESO debe ser 100. Ahora es: {pesoTotal}
+                        </div>
+                      )}
+
+                      <div
+                        className="procTableWrap procEvalWrap"
+                        style={{
+                          padding: 8,
+                          overflowX: "auto",
+                          WebkitOverflowScrolling: "touch",
+                          touchAction: "pan-x",
+                          flex: 1,
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
                           <table
                             style={{
                               width: "100%",
@@ -941,1731 +1671,1181 @@ if (isLoading) {
                             }}
                           >
                             <colgroup>
-                              <col style={{ width: "70%" }} />
-                              <col style={{ width: "30%" }} />
+                              <col style={{ width: 60 }} />
+                              <col style={{ width: 50 }} />
+                              <col style={{ width: 50 }} />
+                              <col style={{ width: 50 }} />
+                              <col style={{ width: 40 }} />
+                              <col style={{ width: 40 }} />
                             </colgroup>
 
                             <thead>
                               <tr style={{ fontSize: 12, color: "var(--muted)" }}>
-                                <th style={{ textAlign: "left", padding: "6px 8px" }}>
+                                <th
+                                  style={{
+                                    padding: "4px 6px",
+                                    whiteSpace: "nowrap",
+                                    textAlign: "left",
+                                  }}
+                                >
                                   INSTANCIA
                                 </th>
-                                <th style={{ textAlign: "center", padding: "6px 8px" }}>
-                                  % HECHO
+                                <th
+                                  style={{
+                                    padding: "4px 6px",
+                                    whiteSpace: "nowrap",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  PESO
                                 </th>
+                                <th
+                                  style={{
+                                    padding: "4px 6px",
+                                    whiteSpace: "nowrap",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  MIN REQ.
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "4px 6px",
+                                    whiteSpace: "nowrap",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  %HECHO
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "4px 6px",
+                                    whiteSpace: "nowrap",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  TOTAL
+                                </th>
+                                <th style={{ padding: "4px 6px", textAlign: "center" }} />
                               </tr>
                             </thead>
 
                             <tbody>
-                              {simRows.flatMap((r) => {
+                              {rows.flatMap((r) => {
+                                const isP = r.rid === "p1" || r.rid === "p2";
                                 const isGroup = !!r.isGroup;
+
                                 const hasKids =
                                   Array.isArray(r.children) && r.children.length > 0;
                                 const g = hasKids ? groupTotals(r) : null;
+                                const totalRow =
+                                  isGroup && hasKids ? g!.totalGrupo : rowTotalOf(r);
 
-                                const mainRow = (
+                                const groupRow = (
                                   <tr
                                     key={r.rid}
-                                    style={{ borderTop: "1px solid rgba(2,6,23,0.08)" }}
+                                    style={{
+                                      borderTop: "1px solid rgba(2,6,23,0.08)",
+                                      background: "transparent",
+                                    }}
                                   >
-                                    <td style={{ padding: "6px 8px", fontWeight: 900 }}>
-                                      {String(r?.label ?? "")}
+                                    <td style={{ padding: "4px 6px", textAlign: "left" }}>
+                                      {isP || !isEditing ? (
+                                        <div style={{ fontWeight: 900, padding: "4px 6px" }}>
+                                          {String(r?.label ?? "")}
+                                        </div>
+                                      ) : (
+                                        <input
+                                          className="input numMini"
+                                          value={String(r?.label ?? "")}
+                                          onChange={(e) =>
+                                            updateDraftRow(it.id, r.rid, { label: e.target.value })
+                                          }
+                                          style={{
+                                            width: "100%",
+                                            padding: "4px 6px",
+                                            fontWeight: 900,
+                                          }}
+                                        />
+                                      )}
                                     </td>
 
-                                    <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                                    <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                      <input
+                                        className="input numMini"
+                                        type="number"
+                                        min={0}
+                                        max={999}
+                                        value={String(
+                                          isGroup && hasKids
+                                            ? g!.pesoGrupo
+                                            : r?.peso ?? 0
+                                        )}
+
+                                        disabled={!isEditing || (isGroup && hasKids)}
+                                        onChange={(e) => {
+                                          if (!isEditing || (isGroup && hasKids)) return;
+                                          updateDraftRow(it.id, r.rid, { peso: clampNum(e.target.value, 0, 999) });
+                                        }}
+                                        style={{
+                                          width: 72,
+                                          minWidth: 72,
+                                          maxWidth: 72,
+                                          padding: "4px 6px",
+                                          fontWeight: 800,
+                                          textAlign: "center",
+                                          opacity: isGroup && hasKids ? 0.7 : 1,
+                                          cursor: isGroup && hasKids ? "not-allowed" : "text",
+                                        }}
+                                      />
+                                    </td>
+
+                                    <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                      {isP ? (
+                                        <span style={{ opacity: 0.6 }}> </span>
+                                      ) : (
+                                        <input
+                                          className="input numMini"
+                                          type="number"
+                                          min={0}
+                                          max={999}
+                                          value={String(r?.min ?? 0)}
+                                          disabled={!isEditing}
+                                          onChange={(e) =>
+                                            updateDraftRow(it.id, r.rid, { min: clampNum(e.target.value, 0, 999) })
+                                          }
+                                          style={{
+                                            width: 72,
+                                            minWidth: 72,
+                                            maxWidth: 72,
+                                            padding: "4px 6px",
+                                            fontWeight: 800,
+                                            textAlign: "center",
+                                          }}
+                                        />
+                                      )}
+                                    </td>
+
+                                    <td style={{ padding: "4px 6px", textAlign: "center" }}>
                                       <input
                                         className="input numMini"
                                         type="number"
                                         min={0}
                                         max={100}
                                         value={String(
-                                          isGroup && hasKids
-                                            ? g!.pctGrupo
-                                            : r?.pct ?? 0
+                                          isGroup && hasKids ? g!.pctGrupo : r?.pct ?? 0
                                         )}
-                                        disabled={isGroup && hasKids}
+
+                                        disabled={!isEditing || (isGroup && hasKids)}
                                         onChange={(e) => {
-                                          const v = clampNum(e.target.value, 0, 100);
-                                          setSimRowsById((prev) => ({
-                                            ...prev,
-                                            [it.id]: simRows.map((x) =>
-                                              x.rid === r.rid ? { ...x, pct: v } : x
-                                            ),
-                                          }));
+                                          if (!isEditing || (isGroup && hasKids)) return;
+                                          updateDraftRow(it.id, r.rid, { pct: clampNum(e.target.value, 0, 100) });
                                         }}
                                         style={{
-                                          width: 90,
+                                          width: 72,
+                                          minWidth: 72,
+                                          maxWidth: 72,
+                                          padding: "4px 6px",
+                                          fontWeight: 800,
                                           textAlign: "center",
-                                          fontWeight: 900,
-                                          opacity: isGroup && hasKids ? 0.65 : 1,
-                                          cursor:
-                                            isGroup && hasKids ? "not-allowed" : "text",
+                                          opacity: isGroup && hasKids ? 0.7 : 1,
+                                          cursor: isGroup && hasKids ? "not-allowed" : "text",
                                         }}
                                       />
+                                    </td>
+
+                                    <td
+                                      style={{
+                                        padding: "4px 6px",
+                                        fontWeight: 950,
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      {totalRow}
+                                    </td>
+
+                                    <td
+                                      style={{
+                                        padding: "4px 6px",
+                                        textAlign: "center",
+                                        width: 44,
+                                        minWidth: 44,
+                                      }}
+                                    >
+                                      {!isEditing ? (
+                                        <span />
+                                      ) : isP ? (
+                                        <span />
+                                      ) : isGroup ? (
+                                        hasKids ? (
+                                          <button
+                                            className="btn"
+                                            onClick={() => addSubRow(it.id, r.rid)}
+                                            style={{
+                                              width: 34,
+                                              height: 34,
+                                              padding: 0,
+                                              borderRadius: 999,
+                                            }}
+                                            title="Agregar subfila"
+                                          >
+                                            +
+                                          </button>
+                                        ) : (
+                                          <button
+                                            className="btn"
+                                            onClick={() => removeRow(it.id, r.rid)}
+                                            style={{
+                                              width: 34,
+                                              height: 34,
+                                              padding: 0,
+                                              borderRadius: 999,
+                                            }}
+                                            title="Eliminar grupo"
+                                          >
+                                            ✕
+                                          </button>
+                                        )
+                                      ) : (
+                                        <button
+                                          className="btn"
+                                          onClick={() => removeRow(it.id, r.rid)}
+                                          style={{
+                                            width: 34,
+                                            height: 34,
+                                            padding: 0,
+                                            borderRadius: 999,
+                                          }}
+                                          title="Eliminar fila"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
                                     </td>
                                   </tr>
                                 );
 
-                                if (!isGroup) return [mainRow];
+                                if (!isGroup) return [groupRow];
 
                                 const kids = Array.isArray(r.children) ? r.children : [];
-                                const kidsRows = kids.map((k) => (
-                                  <tr
-                                    key={`${r.rid}__${k.rid}`}
-                                    style={{
-                                      borderTop: "1px solid rgba(2,6,23,0.06)",
-                                      background: "rgba(2,6,23,0.03)",
-                                    }}
-                                  >
-                                    <td style={{ padding: "6px 8px", fontSize: 12 }}>
-                                      <span style={{ opacity: 0.65, marginRight: 6 }}>↳</span>
-                                      <span style={{ fontWeight: 800 }}>
-                                        {String(k?.label ?? "")}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                                      <input
-                                        className="input numMini"
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        value={String(k?.pct ?? 0)}
-                                        onChange={(e) => {
-                                          const v = clampNum(e.target.value, 0, 100);
-                                          setSimRowsById((prev) => ({
-                                            ...prev,
-                                            [it.id]: simRows.map((x) =>
-                                              x.rid !== r.rid
-                                                ? x
-                                                : {
-                                                    ...x,
-                                                    children: kids.map((z) =>
-                                                      z.rid === k.rid
-                                                        ? { ...z, pct: v }
-                                                        : z
-                                                    ),
-                                                  }
-                                            ),
-                                          }));
-                                        }}
-                                        style={{
-                                          width: 90,
-                                          textAlign: "center",
-                                          fontWeight: 900,
-                                        }}
-                                      />
-                                    </td>
-                                  </tr>
-                                ));
+                                const kidsRows = kids.map((k) => {
+                                  const kidTotal = rowTotalOf(k);
+                                  return (
+                                    <tr
+                                      key={`${r.rid}__${k.rid}`}
+                                      style={{
+                                        borderTop: "1px solid rgba(2,6,23,0.06)",
+                                        background: "rgba(2,6,23,0.03)",
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      <td style={{ padding: "4px 6px", textAlign: "left" }}>
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 20,
+                                          }}
+                                        >
+                                          <span className="muted"> </span>
+                                          <input
+                                            className="input numMini"
+                                            value={String(k?.label ?? "")}
+                                            disabled={!isEditing}
+                                            onChange={(e) => {
+                                              updateDraftChild(it.id, r.rid, k.rid, {
+                                                label: e.target.value,
+                                              });
+                                            }}
+                                            style={{
+                                              width: "100%",
+                                              padding: "4px 6px",
+                                              fontWeight: 800,
+                                              opacity: !isEditing ? 0.7 : 1,
+                                              cursor: !isEditing ? "not-allowed" : "text",
+                                            }}
+                                          />
+                                        </div>
+                                      </td>
 
-                                return [mainRow, ...kidsRows];
+                                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                        <input
+                                          className="input numMini"
+                                          type="number"
+                                          min={0}
+                                          max={999}
+                                          value={String(k?.peso ?? 0)}
+                                          disabled={!isEditing}
+                                          onChange={(e) => {
+                                            updateDraftChild(it.id, r.rid, k.rid, {
+                                              peso: clampNum(e.target.value, 0, 999),
+                                            });
+                                          }}
+                                          style={{
+                                            width: 72,
+                                            minWidth: 72,
+                                            maxWidth: 72,
+                                            padding: "4px 6px",
+                                            fontWeight: 800,
+                                            textAlign: "center",
+                                            opacity: !isEditing ? 0.7 : 1,
+                                            cursor: !isEditing ? "not-allowed" : "text",
+                                          }}
+                                        />
+                                      </td>
+
+                                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                        <span className="muted" style={{ fontSize: 12 }}></span>
+                                      </td>
+
+                                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                        <input
+                                          className="input numMini"
+                                          type="number"
+                                          min={0}
+                                          max={100}
+                                          value={String(k?.pct ?? 0)}
+                                          disabled={!isEditing}
+                                          onChange={(e) => {
+                                            updateDraftChild(it.id, r.rid, k.rid, {
+                                              pct: clampNum(e.target.value, 0, 100),
+                                            });
+                                          }}
+                                          style={{
+                                            width: 72,
+                                            minWidth: 72,
+                                            maxWidth: 72,
+                                            padding: "4px 6px",
+                                            fontWeight: 800,
+                                            textAlign: "center",
+                                            opacity: !isEditing ? 0.7 : 1,
+                                            cursor: !isEditing ? "not-allowed" : "text",
+                                          }}
+                                        />
+                                      </td>
+
+                                      <td
+                                        style={{
+                                          padding: "4px 6px",
+                                          fontWeight: 950,
+                                          textAlign: "center",
+                                        }}
+                                      >
+                                        {kidTotal}
+                                      </td>
+
+                                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                        {isEditing ? (
+                                          <button
+                                            className="btn"
+                                            onClick={() => removeSubRow(it.id, r.rid, k.rid)}
+                                            style={{
+                                              width: 34,
+                                              height: 34,
+                                              padding: 0,
+                                              borderRadius: 999,
+                                            }}
+                                            title="Eliminar subfila"
+                                          >
+                                            ✕
+                                          </button>
+                                        ) : (
+                                          <span />
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+
+                                return [groupRow, ...kidsRows];
                               })}
 
                               <tr style={{ borderTop: "1px solid rgba(2,6,23,0.12)" }}>
-                                <td style={{ padding: "8px", fontWeight: 950 }}>
-                                  TOTAL PROCESO (simulado)
-                                </td>
                                 <td
+                                  colSpan={4}
                                   style={{
-                                    padding: "8px",
-                                    textAlign: "center",
+                                    padding: "6px 6px",
                                     fontWeight: 950,
-                                  }}
-                                >
-                                  {simTotal}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          background: "var(--card)",
-                          border: "1px solid rgba(2,6,23,0.10)",
-                          borderRadius: 16,
-                          padding: 12,
-                          boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
-                          display: "grid",
-                          gap: 10,
-                        }}
-                      >
-                        {sectionTitle("💡 Recomendación rápida")}
-
-                        {!simValido ? (
-                          <div style={{ fontSize: 13, color: "var(--text)" }}>
-                            Primero cumplí <b>mínimos</b> y el <b>peso total</b>. Sin eso
-                            no conviene planificar recu/final/exoneración.
-                          </div>
-                        ) : simEx.ok ? (
-                          <div style={{ fontSize: 13, color: "var(--text)" }}>
-                            Ya exonerás. Normalmente conviene <b>no arriesgar</b> y
-                            conservar.
-                          </div>
-                        ) : simHab ? (
-                          <div style={{ fontSize: 13, color: "var(--text)" }}>
-                            Tenés firma. Podés estimar el <b>final</b> y ver si te conviene.
-                          </div>
-                        ) : simRecuperatorio ? (
-                          <div style={{ fontSize: 13, color: "var(--text)" }}>
-                            Estás habilitada para <b>recuperatorio</b>. Probá escenarios y
-                            mirá si llegás a exonerar.
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 13, color: "var(--text)" }}>
-                            Aún no habilita recu ni firma. Necesitás subir tu proceso.
-                          </div>
-                        )}
-
-                        <div
-                          style={{
-                            marginTop: 8,
-                            borderTop: "1px solid rgba(2,6,23,0.08)",
-                            paddingTop: 10,
-                            display: "grid",
-                            gap: 8,
-                            fontSize: 13,
-                          }}
-                        >
-                          <div
-                            style={{ display: "flex", justifyContent: "space-between" }}
-                          >
-                            <span style={{ color: "var(--muted)" }}>Mínimos</span>
-                            <b>{simPesoOk ? (simCumpleMin ? "SI" : "NO") : "-"}</b>
-                          </div>
-                          <div
-                            style={{ display: "flex", justifyContent: "space-between" }}
-                          >
-                            <span style={{ color: "var(--muted)" }}>
-                              Recuperatorio
-                            </span>
-                            <b>{simValido ? (simRecuperatorio ? "SI" : "NO") : "-"}</b>
-                          </div>
-                          <div
-                            style={{ display: "flex", justifyContent: "space-between" }}
-                          >
-                            <span style={{ color: "var(--muted)" }}>Firma</span>
-                            <b>{simValido ? (simHab ? "SI" : "NO") : "-"}</b>
-                          </div>
-                          <div
-                            style={{ display: "flex", justifyContent: "space-between" }}
-                          >
-                            <span style={{ color: "var(--muted)" }}>
-                              Exoneración
-                            </span>
-                            <b>
-                              {simValido
-                                ? simEx.ok
-                                  ? `SI (nota ${simEx.nota})`
-                                  : "NO"
-                                : "-"}
-                            </b>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        background: "var(--card)",
-                        border: "1px solid rgba(2,6,23,0.10)",
-                        borderRadius: 16,
-                        padding: 12,
-                        boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
-                        display: "grid",
-                        gap: 10,
-                      }}
-                    >
-                      {sectionTitle("🧪 Escenario con recuperatorio")}
-
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 10,
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                          % recu esperado
-                        </span>
-
-                        <input
-                          className="input numMini"
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={String(simRecuPct)}
-                          disabled={!(simValido && simRecuperatorio)}
-                          onChange={(e) =>
-                            setSimRecuPctByItem((prev) => ({
-                              ...prev,
-                              [it.id]: clampNum(e.target.value, 0, 100),
-                            }))
-                          }
-                          style={{ width: 90, textAlign: "center", fontWeight: 950 }}
-                        />
-
-                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                          Reemplaza: <b>{simTarget.label}</b>
-                        </span>
-
-                        <span
-                          style={{
-                            marginLeft: "auto",
-                            fontSize: 12,
-                            fontWeight: 900,
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(2,6,23,0.10)",
-                            background:
-                              simValido && simRecuperatorio
-                                ? "rgba(78,228,108,0.12)"
-                                : "rgba(2,6,23,0.06)",
-                            color: "var(--text)",
-                          }}
-                        >
-                          {simValido
-                            ? simRecuperatorio
-                              ? "Habilitado"
-                              : "No habilitado"
-                            : "No aplica"}
-                        </span>
-                      </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <div
-                          style={{
-                            background: "var(--card)",
-                            border: "1px solid rgba(2,6,23,0.10)",
-                            borderRadius: 14,
-                            padding: 12,
-                            boxShadow: "0 8px 22px rgba(2,6,23,0.06)",
-                          }}
-                        >
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                            Total simulado con recu
-                          </div>
-                          <div style={{ fontWeight: 950, fontSize: 28, lineHeight: 1.1 }}>
-                            {simValido && simRecuperatorio ? simTotalConRecu : "-"}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            background: "var(--card)",
-                            border: "1px solid rgba(2,6,23,0.10)",
-                            borderRadius: 14,
-                            padding: 12,
-                            boxShadow: "0 8px 22px rgba(2,6,23,0.06)",
-                          }}
-                        >
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                            Exoneración posible en 2º final
-                          </div>
-                          <div style={{ fontWeight: 950, fontSize: 16 }}>
-                            {simValido && simRecuperatorio
-                              ? simExConRecu.ok
-                                ? `SI (nota ${simExConRecu.nota})`
-                                : "NO"
-                              : "-"}
-                          </div>
-                          <div
-                            style={{
-                              marginTop: 6,
-                              fontSize: 12,
-                              color: "var(--muted)",
-                            }}
-                          >
-                            (Reemplaza el parcial de menor rendimiento)
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        background: "var(--card)",
-                        border: "1px solid rgba(2,6,23,0.10)",
-                        borderRadius: 16,
-                        padding: 12,
-                        boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
-                        display: "grid",
-                        gap: 10,
-                      }}
-                    >
-                      {sectionTitle("🎓 Escenario con final")}
-
-                      <div style={{ fontSize: 13, color: "var(--text)" }}>
-                        Ingresá cuánto creés que vas a sacar en el final y te estima la{" "}
-                        <b>nota (1–5)</b>. (Regla: si el final es menor a 40 puntos ⇒ 1
-                        directo.)
-                      </div>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 10,
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                          Puntaje de final esperado
-                        </span>
-
-                        <input
-                          className="input numMini"
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={String(simFinalPct)}
-                          onChange={(e) =>
-                            setSimFinalPctByItem((prev) => ({
-                              ...prev,
-                              [it.id]: clampNum(e.target.value, 0, 100),
-                            }))
-                          }
-                          style={{ width: 90, textAlign: "center", fontWeight: 950 }}
-                          disabled={!simHabFinal}
-                        />
-
-                        <label
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            fontSize: 12,
-                            color: "var(--muted)",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={useRecuForFinal}
-                            onChange={(e) =>
-                              setSimUseRecuForFinalByItem((prev) => ({
-                                ...prev,
-                                [it.id]: e.target.checked,
-                              }))
-                            }
-                            disabled={!(simValido && simRecuperatorio)}
-                          />
-                          Usar "Total con recu" si aplica
-                        </label>
-
-                        <span
-                          style={{
-                            marginLeft: "auto",
-                            fontSize: 12,
-                            fontWeight: 900,
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(2,6,23,0.10)",
-                            background: simHabFinal
-                              ? "rgba(78,228,108,0.12)"
-                              : "rgba(2,6,23,0.06)",
-                            color: "var(--text)",
-                          }}
-                        >
-                          {simHabFinal ? "Con firma" : "Sin firma"}
-                        </span>
-                      </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <div
-                          style={{
-                            border: "1px solid rgba(2,6,23,0.10)",
-                            borderRadius: 14,
-                            padding: 12,
-                            background: "rgba(2,6,23,0.02)",
-                          }}
-                        >
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                            Proceso usado para el cálculo
-                          </div>
-                          <div style={{ fontWeight: 950, fontSize: 22 }}>
-                            {simHabFinal ? baseFinalProceso : "-"}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            border: "1px solid rgba(2,6,23,0.10)",
-                            borderRadius: 14,
-                            padding: 12,
-                            background: "rgba(0,176,255,0.08)",
-                          }}
-                        >
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                            Nota final estimada
-                          </div>
-                          <div style={{ fontWeight: 950, fontSize: 28 }}>
-                            {simHabFinal ? simNotaFinal : "-"}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </BigModal>
-
-            <div style={{ display: "grid", gap: 12 }}>
-              <div
-                className="procTwoCards"
-                style={{
-                  display: "grid",
-                  gap: 12,
-                  alignItems: "stretch",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                }}
-              >
-                <div
-                  style={{
-                    border: "1px solid var(--border)",
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    minWidth: 0,
-                    width: "100%",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "10px 12px",
-                      background: "var(--primary2)",
-                      borderBottom: "1px solid var(--border)",
-                      fontWeight: 950,
-                      color: "var(--primary)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      minHeight: 44,
-                    }}
-                  >
-                    <span>📊 PROCESO DE EVALUACIÓN</span>
-
-                    <button
-                      className="btn procHeaderGhostBtn simBtnDesktop"
-                      style={{
-                        borderRadius: 999,
-                        fontWeight: 950,
-                        fontSize: 12,
-                        padding: "6px 12px",
-                        height: 32,
-                      }}
-                      type="button"
-                      tabIndex={-1}
-                      aria-hidden="true"
-                    >
-                      🧪 Abrir simulador
-                    </button>
-                  </div>
-
-                  {!pesoOk && (
-                    <div
-                      style={{
-                        padding: "8px 12px",
-                        borderBottom: "1px solid var(--border)",
-                        background: "rgba(220,38,38,0.10)",
-                        color: "rgba(220,38,38,0.95)",
-                        fontWeight: 900,
-                        fontSize: 12,
-                      }}
-                    >
-                      ⚠️ La suma de PESO debe ser 100. Ahora es: {pesoTotal}
-                    </div>
-                  )}
-
-                  <div
-                    className="procTableWrap procEvalWrap"
-                    style={{
-                      padding: 8,
-                      overflowX: "auto",
-                      WebkitOverflowScrolling: "touch",
-                      touchAction: "pan-x",
-                      flex: 1,
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <table
-                        style={{
-                          width: "100%",
-                          borderCollapse: "collapse",
-                          tableLayout: "fixed",
-                        }}
-                      >
-                        <colgroup>
-                          <col style={{ width: 60 }} />
-                          <col style={{ width: 50 }} />
-                          <col style={{ width: 50 }} />
-                          <col style={{ width: 50 }} />
-                          <col style={{ width: 40 }} />
-                          <col style={{ width: 40 }} />
-                        </colgroup>
-
-                        <thead>
-                          <tr style={{ fontSize: 12, color: "var(--muted)" }}>
-                            <th
-                              style={{
-                                padding: "4px 6px",
-                                whiteSpace: "nowrap",
-                                textAlign: "left",
-                              }}
-                            >
-                              INSTANCIA
-                            </th>
-                            <th
-                              style={{
-                                padding: "4px 6px",
-                                whiteSpace: "nowrap",
-                                textAlign: "center",
-                              }}
-                            >
-                              PESO
-                            </th>
-                            <th
-                              style={{
-                                padding: "4px 6px",
-                                whiteSpace: "nowrap",
-                                textAlign: "center",
-                              }}
-                            >
-                              MIN REQ.
-                            </th>
-                            <th
-                              style={{
-                                padding: "4px 6px",
-                                whiteSpace: "nowrap",
-                                textAlign: "center",
-                              }}
-                            >
-                              %HECHO
-                            </th>
-                            <th
-                              style={{
-                                padding: "4px 6px",
-                                whiteSpace: "nowrap",
-                                textAlign: "center",
-                              }}
-                            >
-                              TOTAL
-                            </th>
-                            <th style={{ padding: "4px 6px", textAlign: "center" }} />
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {rows.flatMap((r) => {
-                            const isP = r.rid === "p1" || r.rid === "p2";
-                            const isGroup = !!r.isGroup;
-
-                            const hasKids =
-                              Array.isArray(r.children) && r.children.length > 0;
-                            const g = hasKids ? groupTotals(r) : null;
-                            const totalRow =
-                              isGroup && hasKids ? g!.totalGrupo : rowTotalOf(r);
-
-                            const groupRow = (
-                              <tr
-                                key={r.rid}
-                                style={{
-                                  borderTop: "1px solid rgba(2,6,23,0.08)",
-                                  background: "transparent",
-                                }}
-                              >
-                                <td style={{ padding: "4px 6px", textAlign: "left" }}>
-                                  {isP ? (
-                                    <div style={{ fontWeight: 900, padding: "4px 6px" }}>
-                                      {String(r?.label ?? "")}
-                                    </div>
-                                  ) : (
-                                    <input
-                                      className="input numMini"
-                                      value={String(r?.label ?? "")}
-                                      onChange={(e) =>
-                                        updateRow(it.id, r.rid, { label: e.target.value })
-                                      }
-                                      style={{
-                                        width: "100%",
-                                        padding: "4px 6px",
-                                        fontWeight: 900,
-                                      }}
-                                    />
-                                  )}
-                                </td>
-
-                                <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                                  <input
-                                    className="input numMini"
-                                    type="number"
-                                    min={0}
-                                    max={999}
-                                    value={String(
-                                      isGroup && hasKids
-                                        ? g!.pesoGrupo
-                                        : r?.peso ?? 0
-                                    )}
-                                    disabled={isGroup && hasKids}
-                                    onChange={(e) => {
-                                      if (isGroup && hasKids) return;
-                                      updateRow(it.id, r.rid, { peso: clampNum(e.target.value, 0, 999) });
-                                    }}
-                                    style={{
-                                      width: 72,
-                                      minWidth: 72,
-                                      maxWidth: 72,
-                                      padding: "4px 6px",
-                                      fontWeight: 800,
-                                      textAlign: "center",
-                                      opacity: isGroup && hasKids ? 0.7 : 1,
-                                      cursor: isGroup && hasKids ? "not-allowed" : "text",
-                                    }}
-                                  />
-                                </td>
-
-                                <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                                  {isP ? (
-                                    <span style={{ opacity: 0.6 }}> </span>
-                                  ) : (
-                                    <input
-                                      className="input numMini"
-                                      type="number"
-                                      min={0}
-                                      max={999}
-                                      value={String(r?.min ?? 0)}
-                                      onChange={(e) =>
-                                        updateRow(it.id, r.rid, { min: clampNum(e.target.value, 0, 999) })
-                                      }
-                                      style={{
-                                        width: 72,
-                                        minWidth: 72,
-                                        maxWidth: 72,
-                                        padding: "4px 6px",
-                                        fontWeight: 800,
-                                        textAlign: "center",
-                                      }}
-                                    />
-                                  )}
-                                </td>
-
-                                <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                                  <input
-                                    className="input numMini"
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    value={String(
-                                      isGroup && hasKids ? g!.pctGrupo : r?.pct ?? 0
-                                    )}
-                                    disabled={isGroup && hasKids}
-                                    onChange={(e) =>
-                                      updateRow(it.id, r.rid, { pct: clampNum(e.target.value, 0, 100) })
-                                    }
-                                    style={{
-                                      width: 72,
-                                      minWidth: 72,
-                                      maxWidth: 72,
-                                      padding: "4px 6px",
-                                      fontWeight: 800,
-                                      textAlign: "center",
-                                      opacity: isGroup && hasKids ? 0.7 : 1,
-                                      cursor: isGroup && hasKids ? "not-allowed" : "text",
-                                    }}
-                                  />
-                                </td>
-
-                                <td
-                                  style={{
-                                    padding: "4px 6px",
-                                    fontWeight: 950,
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  {totalRow}
-                                </td>
-
-                                <td
-                                  style={{
-                                    padding: "4px 6px",
-                                    textAlign: "center",
-                                    width: 44,
-                                    minWidth: 44,
-                                  }}
-                                >
-                                  {isP ? (
-                                    <span />
-                                  ) : isGroup ? (
-                                    hasKids ? (
-                                      <button
-                                        className="btn"
-                                        onClick={() => addSubRow(it.id, r.rid)}
-                                        style={{
-                                          width: 34,
-                                          height: 34,
-                                          padding: 0,
-                                          borderRadius: 999,
-                                        }}
-                                        title="Agregar subfila"
-                                      >
-                                        +
-                                      </button>
-                                    ) : (
-                                      <button
-                                        className="btn"
-                                        onClick={() => removeRow(it.id, r.rid)}
-                                        style={{
-                                          width: 34,
-                                          height: 34,
-                                          padding: 0,
-                                          borderRadius: 999,
-                                        }}
-                                        title="Eliminar grupo"
-                                      >
-                                        ✕
-                                      </button>
-                                    )
-                                  ) : (
-                                    <button
-                                      className="btn"
-                                      onClick={() => removeRow(it.id, r.rid)}
-                                      style={{
-                                        width: 34,
-                                        height: 34,
-                                        padding: 0,
-                                        borderRadius: 999,
-                                      }}
-                                      title="Eliminar fila"
-                                    >
-                                      ✕
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-
-                            if (!isGroup) return [groupRow];
-
-                            const kids = Array.isArray(r.children) ? r.children : [];
-                            const kidsRows = kids.map((k) => {
-                              const kidTotal = rowTotalOf(k);
-                              return (
-                                <tr
-                                  key={`${r.rid}__${k.rid}`}
-                                  style={{
-                                    borderTop: "1px solid rgba(2,6,23,0.06)",
-                                    background: "rgba(2,6,23,0.03)",
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  <td style={{ padding: "4px 6px", textAlign: "left" }}>
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 20,
-                                      }}
-                                    >
-                                      <span className="muted"> </span>
-                                      <input
-                                        className="input numMini"
-                                        value={String(k?.label ?? "")}
-                                        onChange={(e) => {
-                                          updateRow(it.id, r.rid, {
-                                            children: kids.map((x) =>
-                                              x.rid === k.rid
-                                                ? { ...x, label: e.target.value }
-                                                : x
-                                            ),
-                                          });
-                                        }}
-                                        style={{
-                                          width: "100%",
-                                          padding: "4px 6px",
-                                          fontWeight: 800,
-                                        }}
-                                      />
-                                    </div>
-                                  </td>
-
-                                  <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                                    <input
-                                      className="input numMini"
-                                      type="number"
-                                      min={0}
-                                      max={999}
-                                      value={String(k?.peso ?? 0)}
-                                      onChange={(e) => {
-                                        updateRow(it.id, r.rid, {
-                                          children: kids.map((x) =>
-                                            x.rid === k.rid
-                                              ? { ...x, peso: clampNum(e.target.value, 0, 999) }
-                                              : x
-                                          ),
-                                        });
-                                      }}
-                                      style={{
-                                        width: 72,
-                                        minWidth: 72,
-                                        maxWidth: 72,
-                                        padding: "4px 6px",
-                                        fontWeight: 800,
-                                        textAlign: "center",
-                                      }}
-                                    />
-                                  </td>
-
-                                  <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                                    <span className="muted" style={{ fontSize: 12 }}></span>
-                                  </td>
-
-                                  <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                                    <input
-                                      className="input numMini"
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      value={String(k?.pct ?? 0)}
-                                      onChange={(e) => {
-                                        updateRow(it.id, r.rid, {
-                                          children: kids.map((x) =>
-                                            x.rid === k.rid
-                                              ? { ...x, pct: clampNum(e.target.value, 0, 100) }
-                                              : x
-                                          ),
-                                        });
-                                      }}
-                                      style={{
-                                        width: 72,
-                                        minWidth: 72,
-                                        maxWidth: 72,
-                                        padding: "4px 6px",
-                                        fontWeight: 800,
-                                        textAlign: "center",
-                                      }}
-                                    />
-                                  </td>
-
-                                  <td
-                                    style={{
-                                      padding: "4px 6px",
-                                      fontWeight: 950,
-                                      textAlign: "center",
-                                    }}
-                                  >
-                                    {kidTotal}
-                                  </td>
-
-                                  <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                                    <button
-                                      className="btn"
-                                      onClick={() => removeSubRow(it.id, r.rid, k.rid)}
-                                      style={{
-                                        width: 34,
-                                        height: 34,
-                                        padding: 0,
-                                        borderRadius: 999,
-                                      }}
-                                      title="Eliminar subfila"
-                                    >
-                                      ✕
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            });
-
-                            return [groupRow, ...kidsRows];
-                          })}
-
-                          <tr style={{ borderTop: "1px solid rgba(2,6,23,0.12)" }}>
-                            <td
-                              colSpan={4}
-                              style={{
-                                padding: "6px 6px",
-                                fontWeight: 950,
-                                textAlign: "left",
-                              }}
-                            >
-                              TOTAL PROCESO
-                            </td>
-                            <td
-                              style={{
-                                padding: "6px 6px",
-                                fontWeight: 950,
-                                textAlign: "center",
-                              }}
-                            >
-                              {total}
-                            </td>
-                            <td style={{ padding: "6px 6px" }} />
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: "flex",
-                      gap: 12,
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button
-                      className="btn"
-                      onClick={() => addGroup(it.id)}
-                      style={{ padding: "6px 10px", fontSize: 12 }}
-                    >
-                      + Agregar Instancia
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    border: "1px solid var(--border)",
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    minWidth: 0,
-                    width: "100%",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "10px 12px",
-                      background: "rgba(78, 228, 108, 0.12)",
-                      borderBottom: "1px solid var(--border)",
-                      fontWeight: 950,
-                      color: "var(--success)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      minHeight: 44,
-                    }}
-                  >
-                    <span>🎓 SITUACIÓN FINAL</span>
-
-                    <button
-                      className="btn"
-                      onClick={() => openSim(it)}
-                      style={{
-                        borderRadius: 999,
-                        fontWeight: 950,
-                        fontSize: 12,
-                        padding: "6px 12px",
-                        height: 32,
-                      }}
-                    >
-                      🧪 Abrir simulador
-                    </button>
-                  </div>
-
-                  <div
-                    className="procTableWrap"
-                    style={{ padding: 12, overflowX: "hidden" }}
-                  >
-                    <div style={{ display: "grid", gap: 12 }}>
-                      <div
-                        style={{
-                          border: "1px solid rgba(2,6,23,0.10)",
-                          borderRadius: 16,
-                          background: "var(--card)",
-                          padding: 12,
-                          display: "grid",
-                          gap: 10,
-                        }}
-                      >
-                        <div style={{ fontWeight: 950, color: "var(--success)" }}>RESUMEN</div>
-
-                        <div
-                          style={{
-                            overflowX: "auto",
-                            WebkitOverflowScrolling: "touch",
-                          }}
-                        >
-                          <table
-                            style={{
-                              width: "100%",
-                              borderCollapse: "separate",
-                              borderSpacing: 0,
-                              fontSize: 13,
-                            }}
-                          >
-                            <thead>
-                              <tr style={{ color: "var(--muted)", fontSize: 12 }}>
-                                <th
-                                  style={{
                                     textAlign: "left",
-                                    padding: "8px 10px",
-                                    borderBottom: "1px solid var(--border)",
                                   }}
                                 >
-                                  CRITERIO
-                                </th>
-                                <th
-                                  style={{
-                                    textAlign: "center",
-                                    padding: "8px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.10)",
-                                    width: 110,
-                                  }}
-                                >
-                                  HABILITA
-                                </th>
-                                <th
-                                  style={{
-                                    textAlign: "center",
-                                    padding: "8px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.10)",
-                                    width: 60,
-                                  }}
-                                >
-                                  INFO
-                                </th>
-                              </tr>
-                            </thead>
-
-                            <tbody>
-                              <tr>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    fontWeight: 900,
-                                  }}
-                                >
-                                  MÍNIMOS
+                                  TOTAL PROCESO
                                 </td>
                                 <td
                                   style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                    padding: "6px 6px",
+                                    fontWeight: 950,
                                     textAlign: "center",
                                   }}
                                 >
-                                  <span style={sfPillStyle(sfMinStatus)}>
-                                    {sfMinStatus}
-                                  </span>
+                                  {total}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  <InfoTip text={sfMinInfo} />
-                                </td>
-                              </tr>
-
-                              <tr>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    fontWeight: 900,
-                                  }}
-                                >
-                                  RECUPERATORIO
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  <span style={sfPillStyle(sfRecuStatus)}>
-                                    {sfRecuStatus}
-                                  </span>
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  <InfoTip text={sfRecuInfo} />
-                                </td>
-                              </tr>
-
-                              <tr>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    fontWeight: 900,
-                                  }}
-                                >
-                                  FINAL (FIRMA)
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  <span style={sfPillStyle(sfFirmaStatus)}>
-                                    {sfFirmaStatus}
-                                  </span>
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "10px 10px",
-                                    borderBottom: "1px solid rgba(2,6,23,0.08)",
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  <InfoTip text={sfFirmaInfo} />
-                                </td>
-                              </tr>
-
-                              <tr>
-                                <td
-                                  style={{ padding: "10px 10px", fontWeight: 900 }}
-                                >
-                                  EXONERACIÓN
-                                </td>
-                                <td style={{ padding: "10px 10px", textAlign: "center" }}>
-                                  <span style={sfPillStyle(sfExoStatus)}>
-                                    {sfExoStatus}
-                                  </span>
-                                </td>
-                                <td style={{ padding: "10px 10px", textAlign: "center" }}>
-                                  <InfoTip text={sfExoInfo} />
-                                </td>
+                                <td style={{ padding: "6px 6px" }} />
                               </tr>
                             </tbody>
                           </table>
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={() =>
-                          updateItem(it.id, {
-                            realFinalPanelOpen: !realFinalPanelOpen,
-                          })
-                        }
+                      <div
                         style={{
-                          width: "100%",
-                          borderRadius: 16,
-                          padding: "12px 12px",
+                          marginTop: 10,
+                          display: "flex",
+                          gap: 12,
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        {isEditing && (
+                          <button
+                            className="btn"
+                            onClick={() => addGroup(it.id)}
+                            style={{ padding: "6px 10px", fontSize: 12 }}
+                          >
+                            + Agregar Instancia
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                        minWidth: 0,
+                        width: "100%",
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          background: "rgba(78, 228, 108, 0.12)",
+                          borderBottom: "1px solid var(--border)",
                           fontWeight: 950,
+                          color: "var(--success)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          border: "1px solid rgba(2,6,23,0.10)",
-                          background: "rgba(2,6,23,0.03)",
+                          gap: 12,
+                          minHeight: 44,
                         }}
-                        title={realFinalPanelOpen ? "Ocultar" : "Mostrar"}
                       >
-                        <span>📌 EXAMEN FINAL</span>
-                        <span style={{ fontWeight: 950 }}>
-                          {realFinalPanelOpen ? "▾" : "▸"}
-                        </span>
-                      </button>
+                        <span>🎓 SITUACIÓN FINAL</span>
 
-                      {realFinalPanelOpen && (
-                        <div
+                        <button
+                          className="btn"
+                          onClick={() => openSim(it)}
                           style={{
-                            border: "1px solid rgba(2,6,23,0.10)",
-                            borderRadius: 16,
-                            background: "var(--card)",
-                            padding: 12,
-                            display: "grid",
-                            gap: 12,
+                            borderRadius: 999,
+                            fontWeight: 950,
+                            fontSize: 12,
+                            padding: "6px 12px",
+                            height: 32,
                           }}
                         >
-                          <label
-                            style={{
-                              display: "flex",
-                              gap: 10,
-                              alignItems: "center",
-                              padding: 10,
-                              borderRadius: 14,
-                              border: "1px solid rgba(2,6,23,0.10)",
-                              background: "var(--card)",
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={!!it.realThirdAttempt}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                updateItem(
-                                  it.id,
-                                  checked
-                                    ? {
-                                        realThirdAttempt: true,
-                                        realPreferExo: false,
-                                        realFinalOn: true,
-                                      }
-                                    : { realThirdAttempt: false }
-                                );
-                              }}
-                            />
-                            <div style={{ lineHeight: 1.1 }}>
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 950,
-                                  color: "var(--text)",
-                                }}
-                              >
-                                Es mi 3ra oportunidad
-                              </div>
-                              <div
-                                style={{ fontSize: 11, color: "var(--muted)" }}
-                              >
-                                (En 3ra oportunidad no se puede exonerar)
-                              </div>
-                            </div>
-                          </label>
+                          🧪 Abrir simulador
+                        </button>
+                      </div>
 
-                          <div style={{ fontWeight: 950, color: "var(--text)" }}>
-                            ELEGÍ QUÉ VAS A HACER
-                          </div>
-
+                      <div
+                        className="procTableWrap"
+                        style={{ padding: 12, overflowX: "hidden" }}
+                      >
+                        <div style={{ display: "grid", gap: 12 }}>
                           <div
                             style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr 1fr",
-                              gap: 8,
-                              background: "rgba(2,6,23,0.04)",
-                              padding: 6,
+                              border: "1px solid rgba(2,6,23,0.10)",
                               borderRadius: 16,
-                              border: "1px solid rgba(2,6,23,0.08)",
+                              background: "var(--card)",
+                              padding: 12,
+                              display: "grid",
+                              gap: 10,
                             }}
                           >
-                            <button
-                              type="button"
-                              className="btn"
-                              onClick={() => updateItem(it.id, { realAction: "recu" })}
-                              style={{
-                                borderRadius: 14,
-                                padding: "10px 10px",
-                                fontWeight: 950,
-                                fontSize: 12,
-                                background:
-                                  it.realAction === "recu" ? "white" : "transparent",
-                                border: "1px solid rgba(2,6,23,0.08)",
-                                boxShadow:
-                                  it.realAction === "recu"
-                                    ? "0 8px 18px rgba(2,6,23,0.06)"
-                                    : "none",
-                              }}
-                            >
-                              🧪 Recu
-                            </button>
+                            <div style={{ fontWeight: 950, color: "var(--success)" }}>RESUMEN</div>
 
-                            <button
-                              type="button"
-                              className="btn"
-                              onClick={() =>
-                                updateItem(it.id, {
-                                  realAction: "final",
-                                  realPreferExo: false,
-                                  realFinalOn: true,
-                                })
-                              }
-                              style={{
-                                borderRadius: 14,
-                                padding: "10px 10px",
-                                fontWeight: 950,
-                                fontSize: 12,
-                                background:
-                                  it.realAction === "final" ? "white" : "transparent",
-                                border: "1px solid rgba(2,6,23,0.08)",
-                                boxShadow:
-                                  it.realAction === "final"
-                                    ? "0 8px 18px rgba(2,6,23,0.06)"
-                                    : "none",
-                              }}
-                            >
-                              🎓 Final
-                            </button>
-
-                            <button
-                              type="button"
-                              className="btn"
-                              onClick={() =>
-                                updateItem(it.id, {
-                                  realAction: "exo",
-                                  realPreferExo: true,
-                                  realFinalOn: false,
-                                })
-                              }
-                              style={{
-                                borderRadius: 14,
-                                padding: "10px 10px",
-                                fontWeight: 950,
-                                fontSize: 12,
-                                background:
-                                  it.realAction === "exo" ? "white" : "transparent",
-                                border: "1px solid rgba(2,6,23,0.08)",
-                                boxShadow:
-                                  it.realAction === "exo"
-                                    ? "0 8px 18px rgba(2,6,23,0.06)"
-                                    : "none",
-                              }}
-                              disabled={!realCanExonerar}
-                              title={
-                                it.realThirdAttempt
-                                  ? "En 3ra oportunidad no se puede exonerar"
-                                  : !validoParaReglas
-                                  ? "Primero cumplí mínimos y peso total"
-                                  : realCanExonerar
-                                  ? "Exonerar"
-                                  : "No disponible"
-                              }
-                            >
-                              🏅 Exoneración
-                            </button>
-                          </div>
-
-                          {it.realAction === "recu" && (
                             <div
                               style={{
-                                border: "1px solid rgba(2,6,23,0.10)",
-                                borderRadius: 16,
-                                padding: 12,
-                                background: "var(--card)",
+                                overflowX: "auto",
+                                WebkitOverflowScrolling: "touch",
                               }}
                             >
-                              <div style={{ fontWeight: 950, marginBottom: 8 }}>
-                                🧪 RECUPERATORIO
-                              </div>
-
-                              <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
-                                <div>
-                                  <button
-                                    type="button"
-                                    className="btn"
-                                    onClick={() => {
-                                      const next = !realRecuOn;
-                                      updateItem(
-                                        it.id,
-                                        next
-                                          ? { realRecuOn: true }
-                                          : {
-                                              realRecuOn: false,
-                                              realPreferExo: false,
-                                              realUseRecuForFinal: true,
-                                            }
-                                      );
-                                    }}
-                                    disabled={!realCanRecu}
-                                    style={{
-                                      borderRadius: 999,
-                                      height: 30,
-                                      padding: "0 10px",
-                                      fontSize: 11,
-                                      fontWeight: 950,
-                                      opacity: realCanRecu ? 1 : 0.5,
-                                      cursor: realCanRecu ? "pointer" : "not-allowed",
-                                    }}
-                                    title={
-                                      realCanRecu
-                                        ? "Marcar si rendiste recu"
-                                        : "No habilitado"
-                                    }
-                                  >
-                                    {realRecuOn ? "Rendiste recu: SI" : "Rendiste recu: NO"}
-                                  </button>
-                                </div>
-
-                                <div
-                                  style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "1fr 120px",
-                                    gap: 10,
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <div>
-                                    Puntaje recu:
-                                    <div style={{ fontSize: 11, opacity: 0.7 }}>
-                                      (solo se edita si está habilitado y marcás "SI")
-                                    </div>
-                                  </div>
-
-                                  <input
-                                    className="input"
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    value={String(realRecuPct)}
-                                    disabled={!(realCanRecu && realRecuOn)}
-                                    onChange={(e) =>
-                                      updateItem(it.id, { realRecuPct: clampNum(e.target.value, 0, 100) })
-                                    }
-                                    style={{
-                                      textAlign: "center",
-                                      fontWeight: 950,
-                                      borderRadius: 12,
-                                    }}
-                                  />
-                                </div>
-
-                                <div>
-                                  Reemplaza: <b>{target.label}</b>
-                                </div>
-                                <div>
-                                  Total con recu:{" "}
-                                  <b>
-                                    {realCanRecu && realRecuOn
-                                      ? realTotalConRecu ?? "-"
-                                      : "-"}
-                                  </b>
-                                </div>
-                                <div>
-                                  ¿Exonerás con recu?:{" "}
-                                  <b>
-                                    {realCanRecu && realRecuOn
-                                      ? realExConRecu.ok
-                                        ? `SI (nota ${realExConRecu.nota})`
-                                        : "NO"
-                                      : "-"}
-                                  </b>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {it.realAction === "final" && (
-                            <div
-                              style={{
-                                border: "1px solid rgba(2,6,23,0.10)",
-                                borderRadius: 16,
-                                padding: 12,
-                                background: "var(--card)",
-                              }}
-                            >
-                              <div style={{ fontWeight: 950, marginBottom: 8 }}>
-                                🎓 EXAMEN FINAL
-                              </div>
-
-                              <div style={{ display: "grid", gap: 10, fontSize: 13 }}>
-                                <div>
-                                  Necesitás firma:{" "}
-                                  <b>
-                                    {realHasFirma
-                                      ? "SI"
-                                      : `NO (${realProcesoParaFinal} / 50)`}
-                                  </b>
-                                </div>
-
-                                <div
-                                  style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "1fr 140px",
-                                    gap: 10,
-                                    alignItems: "stretch",
-                                  }}
-                                >
-                                  <div style={{ display: "grid", gap: 6 }}>
-                                    <div
+                              <table
+                                style={{
+                                  width: "100%",
+                                  borderCollapse: "separate",
+                                  borderSpacing: 0,
+                                  fontSize: 13,
+                                }}
+                              >
+                                <thead>
+                                  <tr style={{ color: "var(--muted)", fontSize: 12 }}>
+                                    <th
                                       style={{
-                                        fontSize: 11,
-                                        fontWeight: 950,
-                                        color: "rgba(21,101,192,0.85)",
-                                        textTransform: "uppercase",
+                                        textAlign: "left",
+                                        padding: "8px 10px",
+                                        borderBottom: "1px solid var(--border)",
                                       }}
                                     >
-                                      Puntaje examen
+                                      CRITERIO
+                                    </th>
+                                    <th
+                                      style={{
+                                        textAlign: "center",
+                                        padding: "8px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.10)",
+                                        width: 110,
+                                      }}
+                                    >
+                                      HABILITA
+                                    </th>
+                                    <th
+                                      style={{
+                                        textAlign: "center",
+                                        padding: "8px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.10)",
+                                        width: 60,
+                                      }}
+                                    >
+                                      INFO
+                                    </th>
+                                  </tr>
+                                </thead>
+
+                                <tbody>
+                                  <tr>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        fontWeight: 900,
+                                      }}
+                                    >
+                                      MÍNIMOS
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      <span style={sfPillStyle(sfMinStatus)}>
+                                        {sfMinStatus}
+                                      </span>
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      <InfoTip text={sfMinInfo} />
+                                    </td>
+                                  </tr>
+
+                                  <tr>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        fontWeight: 900,
+                                      }}
+                                    >
+                                      RECUPERATORIO
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      <span style={sfPillStyle(sfRecuStatus)}>
+                                        {sfRecuStatus}
+                                      </span>
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      <InfoTip text={sfRecuInfo} />
+                                    </td>
+                                  </tr>
+
+                                  <tr>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        fontWeight: 900,
+                                      }}
+                                    >
+                                      FINAL (FIRMA)
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      <span style={sfPillStyle(sfFirmaStatus)}>
+                                        {sfFirmaStatus}
+                                      </span>
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: "10px 10px",
+                                        borderBottom: "1px solid rgba(2,6,23,0.08)",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      <InfoTip text={sfFirmaInfo} />
+                                    </td>
+                                  </tr>
+
+                                  <tr>
+                                    <td
+                                      style={{ padding: "10px 10px", fontWeight: 900 }}
+                                    >
+                                      EXONERACIÓN
+                                    </td>
+                                    <td style={{ padding: "10px 10px", textAlign: "center" }}>
+                                      <span style={sfPillStyle(sfExoStatus)}>
+                                        {sfExoStatus}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: "10px 10px", textAlign: "center" }}>
+                                      <InfoTip text={sfExoInfo} />
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() =>
+                              updateItem(it.id, {
+                                realFinalPanelOpen: !realFinalPanelOpen,
+                              })
+                            }
+                            style={{
+                              width: "100%",
+                              borderRadius: 16,
+                              padding: "12px 12px",
+                              fontWeight: 950,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              border: "1px solid rgba(2,6,23,0.10)",
+                              background: "rgba(2,6,23,0.03)",
+                            }}
+                            title={realFinalPanelOpen ? "Ocultar" : "Mostrar"}
+                          >
+                            <span>📌 EXAMEN FINAL</span>
+                            <span style={{ fontWeight: 950 }}>
+                              {realFinalPanelOpen ? "▾" : "▸"}
+                            </span>
+                          </button>
+
+                          {realFinalPanelOpen && (
+                            <div
+                              style={{
+                                border: "1px solid rgba(2,6,23,0.10)",
+                                borderRadius: 16,
+                                background: "var(--card)",
+                                padding: 12,
+                                display: "grid",
+                                gap: 12,
+                              }}
+                            >
+                              <label
+                                style={{
+                                  display: "flex",
+                                  gap: 10,
+                                  alignItems: "center",
+                                  padding: 10,
+                                  borderRadius: 14,
+                                  border: "1px solid rgba(2,6,23,0.10)",
+                                  background: "var(--card)",
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!!it.realThirdAttempt}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    updateItem(
+                                      it.id,
+                                      checked
+                                        ? {
+                                          realThirdAttempt: true,
+                                          realPreferExo: false,
+                                          realFinalOn: true,
+                                        }
+                                        : { realThirdAttempt: false }
+                                    );
+                                  }}
+                                />
+                                <div style={{ lineHeight: 1.1 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 13,
+                                      fontWeight: 950,
+                                      color: "var(--text)",
+                                    }}
+                                  >
+                                    Es mi 3ra oportunidad
+                                  </div>
+                                  <div
+                                    style={{ fontSize: 11, color: "var(--muted)" }}
+                                  >
+                                    (En 3ra oportunidad no se puede exonerar)
+                                  </div>
+                                </div>
+                              </label>
+
+                              <div style={{ fontWeight: 950, color: "var(--text)" }}>
+                                ELEGÍ QUÉ VAS A HACER
+                              </div>
+
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "1fr 1fr 1fr",
+                                  gap: 8,
+                                  background: "rgba(2,6,23,0.04)",
+                                  padding: 6,
+                                  borderRadius: 16,
+                                  border: "1px solid rgba(2,6,23,0.08)",
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  onClick={() => updateItem(it.id, { realAction: "recu" })}
+                                  style={{
+                                    borderRadius: 14,
+                                    padding: "10px 10px",
+                                    fontWeight: 950,
+                                    fontSize: 12,
+                                    background:
+                                      it.realAction === "recu" ? "white" : "transparent",
+                                    border: "1px solid rgba(2,6,23,0.08)",
+                                    boxShadow:
+                                      it.realAction === "recu"
+                                        ? "0 8px 18px rgba(2,6,23,0.06)"
+                                        : "none",
+                                  }}
+                                >
+                                  🧪 Recu
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  onClick={() =>
+                                    updateItem(it.id, {
+                                      realAction: "final",
+                                      realPreferExo: false,
+                                      realFinalOn: true,
+                                    })
+                                  }
+                                  style={{
+                                    borderRadius: 14,
+                                    padding: "10px 10px",
+                                    fontWeight: 950,
+                                    fontSize: 12,
+                                    background:
+                                      it.realAction === "final" ? "white" : "transparent",
+                                    border: "1px solid rgba(2,6,23,0.08)",
+                                    boxShadow:
+                                      it.realAction === "final"
+                                        ? "0 8px 18px rgba(2,6,23,0.06)"
+                                        : "none",
+                                  }}
+                                >
+                                  🎓 Final
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  onClick={() =>
+                                    updateItem(it.id, {
+                                      realAction: "exo",
+                                      realPreferExo: true,
+                                      realFinalOn: false,
+                                    })
+                                  }
+                                  style={{
+                                    borderRadius: 14,
+                                    padding: "10px 10px",
+                                    fontWeight: 950,
+                                    fontSize: 12,
+                                    background:
+                                      it.realAction === "exo" ? "white" : "transparent",
+                                    border: "1px solid rgba(2,6,23,0.08)",
+                                    boxShadow:
+                                      it.realAction === "exo"
+                                        ? "0 8px 18px rgba(2,6,23,0.06)"
+                                        : "none",
+                                  }}
+                                  disabled={!realCanExonerar}
+                                  title={
+                                    it.realThirdAttempt
+                                      ? "En 3ra oportunidad no se puede exonerar"
+                                      : !validoParaReglas
+                                        ? "Primero cumplí mínimos y peso total"
+                                        : realCanExonerar
+                                          ? "Exonerar"
+                                          : "No disponible"
+                                  }
+                                >
+                                  🏅 Exoneración
+                                </button>
+                              </div>
+
+                              {it.realAction === "recu" && (
+                                <div
+                                  style={{
+                                    border: "1px solid rgba(2,6,23,0.10)",
+                                    borderRadius: 16,
+                                    padding: 12,
+                                    background: "var(--card)",
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 950, marginBottom: 8 }}>
+                                    🧪 RECUPERATORIO
+                                  </div>
+
+                                  <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
+                                    <div>
+                                      <button
+                                        type="button"
+                                        className="btn"
+                                        onClick={() => {
+                                          const next = !realRecuOn;
+                                          updateItem(
+                                            it.id,
+                                            next
+                                              ? { realRecuOn: true }
+                                              : {
+                                                realRecuOn: false,
+                                                realPreferExo: false,
+                                                realUseRecuForFinal: true,
+                                              }
+                                          );
+                                        }}
+                                        disabled={!realCanRecu}
+                                        style={{
+                                          borderRadius: 999,
+                                          height: 30,
+                                          padding: "0 10px",
+                                          fontSize: 11,
+                                          fontWeight: 950,
+                                          opacity: realCanRecu ? 1 : 0.5,
+                                          cursor: realCanRecu ? "pointer" : "not-allowed",
+                                        }}
+                                        title={
+                                          realCanRecu
+                                            ? "Marcar si rendiste recu"
+                                            : "No habilitado"
+                                        }
+                                      >
+                                        {realRecuOn ? "Rendiste recu: SI" : "Rendiste recu: NO"}
+                                      </button>
                                     </div>
 
-                                    <input
-                                      className="input"
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      value={String(realExamPct)}
-                                      disabled={!realHasFirma}
-                                      onChange={(e) =>
-                                          updateItem(it.id, {
-                                            realExamPct: clampNum(e.target.value, 0, 100),
-                                            realFinalOn: true,
-                                            realPreferExo: false,
-                                          })
-                                        }
-                                      placeholder="0 - 100"
+                                    <div
                                       style={{
-                                        padding: "10px 12px",
-                                        borderRadius: 14,
-                                        fontSize: 16,
-                                        fontWeight: 950,
-                                        textAlign: "center",
-                                        border: "2px solid rgba(21,101,192,0.15)",
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr 120px",
+                                        gap: 10,
+                                        alignItems: "center",
                                       }}
-                                    />
-
-                                    {!realHasFirma && (
-                                      <div
-                                        style={{
-                                          fontSize: 11,
-                                          color: "var(--muted)",
-                                        }}
-                                      >
-                                        (Se muestra, pero no se puede editar sin firma)
+                                    >
+                                      <div>
+                                        Puntaje recu:
+                                        <div style={{ fontSize: 11, opacity: 0.7 }}>
+                                          (solo se edita si está habilitado y marcás "SI")
+                                        </div>
                                       </div>
-                                    )}
+
+                                      <input
+                                        className="input"
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        value={String(realRecuPct)}
+                                        disabled={!(realCanRecu && realRecuOn)}
+                                        onChange={(e) =>
+                                          updateItem(it.id, { realRecuPct: clampNum(e.target.value, 0, 100) })
+                                        }
+                                        style={{
+                                          textAlign: "center",
+                                          fontWeight: 950,
+                                          borderRadius: 12,
+                                        }}
+                                      />
+                                    </div>
+
+                                    <div>
+                                      Reemplaza: <b>{target.label}</b>
+                                    </div>
+                                    <div>
+                                      Total con recu:{" "}
+                                      <b>
+                                        {realCanRecu && realRecuOn
+                                          ? realTotalConRecu ?? "-"
+                                          : "-"}
+                                      </b>
+                                    </div>
+                                    <div>
+                                      ¿Exonerás con recu?:{" "}
+                                      <b>
+                                        {realCanRecu && realRecuOn
+                                          ? realExConRecu.ok
+                                            ? `SI (nota ${realExConRecu.nota})`
+                                            : "NO"
+                                          : "-"}
+                                      </b>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {it.realAction === "final" && (
+                                <div
+                                  style={{
+                                    border: "1px solid rgba(2,6,23,0.10)",
+                                    borderRadius: 16,
+                                    padding: 12,
+                                    background: "var(--card)",
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 950, marginBottom: 8 }}>
+                                    🎓 EXAMEN FINAL
+                                  </div>
+
+                                  <div style={{ display: "grid", gap: 10, fontSize: 13 }}>
+                                    <div>
+                                      Necesitás firma:{" "}
+                                      <b>
+                                        {realHasFirma
+                                          ? "SI"
+                                          : `NO (${realProcesoParaFinal} / 50)`}
+                                      </b>
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr 140px",
+                                        gap: 10,
+                                        alignItems: "stretch",
+                                      }}
+                                    >
+                                      <div style={{ display: "grid", gap: 6 }}>
+                                        <div
+                                          style={{
+                                            fontSize: 11,
+                                            fontWeight: 950,
+                                            color: "rgba(21,101,192,0.85)",
+                                            textTransform: "uppercase",
+                                          }}
+                                        >
+                                          Puntaje examen
+                                        </div>
+
+                                        <input
+                                          className="input"
+                                          type="number"
+                                          min={0}
+                                          max={100}
+                                          value={String(realExamPct)}
+                                          disabled={!realHasFirma}
+                                          onChange={(e) =>
+                                            updateItem(it.id, {
+                                              realExamPct: clampNum(e.target.value, 0, 100),
+                                              realFinalOn: true,
+                                              realPreferExo: false,
+                                            })
+                                          }
+                                          placeholder="0 - 100"
+                                          style={{
+                                            padding: "10px 12px",
+                                            borderRadius: 14,
+                                            fontSize: 16,
+                                            fontWeight: 950,
+                                            textAlign: "center",
+                                            border: "2px solid rgba(21,101,192,0.15)",
+                                          }}
+                                        />
+
+                                        {!realHasFirma && (
+                                          <div
+                                            style={{
+                                              fontSize: 11,
+                                              color: "var(--muted)",
+                                            }}
+                                          >
+                                            (Se muestra, pero no se puede editar sin firma)
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {(() => {
+                                        const hasExam =
+                                          String(realExamPct) !== "" &&
+                                          String(realExamPct) != null;
+                                        const previewNota =
+                                          realHasFirma && hasExam
+                                            ? calcNotaFinalFIUNA(
+                                              realProcesoParaFinal,
+                                              realExamPct
+                                            )
+                                            : "-";
+
+                                        const msg =
+                                          previewNota === "-"
+                                            ? "Pendiente"
+                                            : previewNota > 1
+                                              ? "Aprobado"
+                                              : "Insuf.";
+
+                                        return (
+                                          <div
+                                            style={{
+                                              borderRadius: 16,
+                                              border: "1px solid rgba(2,6,23,0.10)",
+                                              background: "rgba(2,6,23,0.03)",
+                                              padding: 10,
+                                              display: "grid",
+                                              alignContent: "center",
+                                              justifyItems: "center",
+                                              minHeight: 84,
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                fontSize: 10,
+                                                fontWeight: 950,
+                                                opacity: 0.65,
+                                                letterSpacing: 1,
+                                              }}
+                                            >
+                                              NOTA (1–5)
+                                            </div>
+                                            <div
+                                              style={{
+                                                fontSize: 32,
+                                                fontWeight: 950,
+                                                lineHeight: 1,
+                                              }}
+                                            >
+                                              {previewNota}
+                                            </div>
+                                            <div
+                                              style={{
+                                                marginTop: 6,
+                                                fontSize: 11,
+                                                fontWeight: 900,
+                                                padding: "4px 10px",
+                                                borderRadius: 999,
+                                                background: "var(--surface-soft)",
+                                                border: "1px solid var(--border)",
+                                              }}
+                                            >
+                                              {msg}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {it.realAction === "exo" && (
+                                <div
+                                  style={{
+                                    border: "1px solid rgba(2,6,23,0.10)",
+                                    borderRadius: 16,
+                                    padding: 12,
+                                    background: "var(--card)",
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 950, marginBottom: 8 }}>
+                                    🏅 EXONERACIÓN
                                   </div>
 
                                   {(() => {
-                                    const hasExam =
-                                      String(realExamPct) !== "" &&
-                                      String(realExamPct) != null;
-                                    const previewNota =
-                                      realHasFirma && hasExam
-                                        ? calcNotaFinalFIUNA(
-                                            realProcesoParaFinal,
-                                            realExamPct
-                                          )
-                                        : "-";
+                                    const umbral = (Number(it.semestre) || 0) <= 4 ? 71 : 81;
+                                    const mejorProceso =
+                                      realTotalConRecu != null
+                                        ? Math.max(total, realTotalConRecu)
+                                        : total;
+                                    const falta = Math.max(0, umbral - mejorProceso);
 
-                                    const msg =
-                                      previewNota === "-"
-                                        ? "Pendiente"
-                                        : previewNota > 1
-                                        ? "Aprobado"
-                                        : "Insuf.";
+                                    if (!validoParaReglas) {
+                                      return (
+                                        <div style={{ fontSize: 13 }}>
+                                          Estado: <b>NO disponible</b>. Primero cumplí
+                                          mínimos.
+                                        </div>
+                                      );
+                                    }
+
+                                    if (it.realThirdAttempt) {
+                                      return (
+                                        <div style={{ fontSize: 13 }}>
+                                          Estado: <b>NO disponible</b>. En 3ra oportunidad no
+                                          se puede exonerar.
+                                        </div>
+                                      );
+                                    }
+
+                                    if (realExPossible.ok) {
+                                      return (
+                                        <div style={{ fontSize: 13 }}>
+                                          ✅ Estado: <b>Disponible</b>. Nota de exoneración:{" "}
+                                          <b>{realExPossible.nota}</b>
+                                        </div>
+                                      );
+                                    }
 
                                     return (
-                                      <div
-                                        style={{
-                                          borderRadius: 16,
-                                          border: "1px solid rgba(2,6,23,0.10)",
-                                          background: "rgba(2,6,23,0.03)",
-                                          padding: 10,
-                                          display: "grid",
-                                          alignContent: "center",
-                                          justifyItems: "center",
-                                          minHeight: 84,
-                                        }}
-                                      >
-                                        <div
-                                          style={{
-                                            fontSize: 10,
-                                            fontWeight: 950,
-                                            opacity: 0.65,
-                                            letterSpacing: 1,
-                                          }}
-                                        >
-                                          NOTA (1–5)
-                                        </div>
-                                        <div
-                                          style={{
-                                            fontSize: 32,
-                                            fontWeight: 950,
-                                            lineHeight: 1,
-                                          }}
-                                        >
-                                          {previewNota}
-                                        </div>
-                                        <div
-                                          style={{
-                                            marginTop: 6,
-                                            fontSize: 11,
-                                            fontWeight: 900,
-                                            padding: "4px 10px",
-                                            borderRadius: 999,
-                                            background: "var(--surface-soft)",
-                                            border: "1px solid var(--border)",
-                                          }}
-                                        >
-                                          {msg}
+                                      <div style={{ fontSize: 13 }}>
+                                        Estado: <b>NO disponible</b>.
+                                        <div style={{ marginTop: 6, opacity: 0.85 }}>
+                                          Te falta llegar a <b>{falta}</b> puntos para
+                                          exonerar.
                                         </div>
                                       </div>
                                     );
                                   })()}
                                 </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {it.realAction === "exo" && (
-                            <div
-                              style={{
-                                border: "1px solid rgba(2,6,23,0.10)",
-                                borderRadius: 16,
-                                padding: 12,
-                                background: "var(--card)",
-                              }}
-                            >
-                              <div style={{ fontWeight: 950, marginBottom: 8 }}>
-                                🏅 EXONERACIÓN
-                              </div>
-
-                              {(() => {
-                                const umbral = (Number(it.semestre) || 0) <= 4 ? 71 : 81;
-                                const mejorProceso =
-                                  realTotalConRecu != null
-                                    ? Math.max(total, realTotalConRecu)
-                                    : total;
-                                const falta = Math.max(0, umbral - mejorProceso);
-
-                                if (!validoParaReglas) {
-                                  return (
-                                    <div style={{ fontSize: 13 }}>
-                                      Estado: <b>NO disponible</b>. Primero cumplí
-                                      mínimos.
-                                    </div>
-                                  );
-                                }
-
-                                if (it.realThirdAttempt) {
-                                  return (
-                                    <div style={{ fontSize: 13 }}>
-                                      Estado: <b>NO disponible</b>. En 3ra oportunidad no
-                                      se puede exonerar.
-                                    </div>
-                                  );
-                                }
-
-                                if (realExPossible.ok) {
-                                  return (
-                                    <div style={{ fontSize: 13 }}>
-                                      ✅ Estado: <b>Disponible</b>. Nota de exoneración:{" "}
-                                      <b>{realExPossible.nota}</b>
-                                    </div>
-                                  );
-                                }
-
-                                return (
-                                  <div style={{ fontSize: 13 }}>
-                                    Estado: <b>NO disponible</b>.
-                                    <div style={{ marginTop: 6, opacity: 0.85 }}>
-                                      Te falta llegar a <b>{falta}</b> puntos para
-                                      exonerar.
-                                    </div>
-                                  </div>
-                                );
-                              })()}
+                              )}
                             </div>
                           )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            </>
+              </>
             )}
           </Card>
         );
