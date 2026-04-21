@@ -2388,6 +2388,11 @@ button, input, select { font: inherit; }
   color: #333;
 }
 
+:root.dark-mode .calIconBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
 .calModalWrap {
   position: fixed;
   top: 0;
@@ -2435,6 +2440,10 @@ button, input, select { font: inherit; }
   color: #333;
 }
 
+:root.dark-mode .calModalTitle {
+  color: var(--text);
+}
+
 .calModalBody {
   padding: 1.5rem;
 }
@@ -2457,6 +2466,10 @@ button, input, select { font: inherit; }
   font-size: 0.9rem;
 }
 
+:root.dark-mode .formGroup label {
+  color: var(--text);
+}
+
 .formInput,
 .formInput[type="text"],
 .formInput[type="time"],
@@ -2469,6 +2482,15 @@ select {
   transition: border-color 0.2s ease;
 }
 
+:root.dark-mode .formInput,
+:root.dark-mode .formInput[type="text"],
+:root.dark-mode .formInput[type="time"],
+:root.dark-mode select {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+
 .formInput:focus,
 .formInput[type="text"]:focus,
 .formInput[type="time"]:focus,
@@ -2476,6 +2498,14 @@ select:focus {
   outline: none;
   border-color: #007bff;
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+:root.dark-mode .formInput:focus,
+:root.dark-mode .formInput[type="text"]:focus,
+:root.dark-mode .formInput[type="time"]:focus,
+:root.dark-mode select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary2);
 }
 
 .formRow {
@@ -2491,6 +2521,10 @@ select:focus {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid #eee;
+}
+
+:root.dark-mode .formActions {
+  border-top-color: var(--border);
 }
 
 .formButtonsRight {
