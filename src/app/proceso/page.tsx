@@ -262,28 +262,21 @@ function calcExoneracion(semestre: number, P: number): ExoneracionResult {
 async function loadCourses(userId: string): Promise<Course[]> {
   try {
     const supabase = getSupabase();
-    const { data: coursesData } = await supabase
+    const { data: coursesData, error } = await supabase
       .from("student_courses")
-      .select("semestre, materia, tipo")
+      .select("semestre, materia")
       .eq("user_id", userId)
       .order("semestre", { ascending: true });
 
-    return (coursesData || []).map((c) => {
-      const semBase = normalizeSemestre(c.semestre);
-      const tipo = normText((c as any).tipo);
+    if (error) {
+      console.error("Error loading student_courses:", error);
+      return [];
+    }
 
-      const sem =
-        tipo.includes("optativa") ||
-          tipo.includes("complementaria") ||
-          tipo.includes("ciclo profesional")
-          ? 5
-          : semBase;
-
-      return {
-        mat: c.materia,
-        sem,
-      };
-    });
+    return (coursesData || []).map((c) => ({
+      mat: c.materia,
+      sem: normalizeSemestre(c.semestre),
+    }));
   } catch {
     return [];
   }
@@ -535,19 +528,19 @@ export default function ProcesoPage() {
   };
 
   const addRow = (id: string) => {
-  setDraftRowsById((prev) => {
-    const rows = cloneRowsDeep(prev[id] || []);
-    const rid = `r:${Date.now()}`;
+    setDraftRowsById((prev) => {
+      const rows = cloneRowsDeep(prev[id] || []);
+      const rid = `r:${Date.now()}`;
 
-    return {
-      ...prev,
-      [id]: [
-        ...rows,
-        { rid, label: "", peso: 0, min: 0, pct: 0 },
-      ],
-    };
-  });
-};
+      return {
+        ...prev,
+        [id]: [
+          ...rows,
+          { rid, label: "", peso: 0, min: 0, pct: 0 },
+        ],
+      };
+    });
+  };
 
   const removeRow = (id: string, rid: string) => {
     setDraftRowsById((prev) => {
