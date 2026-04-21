@@ -535,18 +535,19 @@ export default function ProcesoPage() {
   };
 
   const addRow = (id: string) => {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const rows = Array.isArray(it.rows) ? it.rows : [];
-        const rid = `r:${Date.now()}`;
-        return {
-          ...it,
-          rows: [...rows, { rid, label: "", peso: 0, min: 0, pct: 0 }],
-        };
-      })
-    );
-  };
+  setDraftRowsById((prev) => {
+    const rows = cloneRowsDeep(prev[id] || []);
+    const rid = `r:${Date.now()}`;
+
+    return {
+      ...prev,
+      [id]: [
+        ...rows,
+        { rid, label: "", peso: 0, min: 0, pct: 0 },
+      ],
+    };
+  });
+};
 
   const removeRow = (id: string, rid: string) => {
     setDraftRowsById((prev) => {
