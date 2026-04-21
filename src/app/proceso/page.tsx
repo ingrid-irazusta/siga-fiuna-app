@@ -549,54 +549,50 @@ export default function ProcesoPage() {
   };
 
   const removeRow = (id: string, rid: string) => {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const rows = Array.isArray(it.rows) ? it.rows : [];
-        return { ...it, rows: rows.filter((r) => r.rid !== rid) };
-      })
-    );
+    setDraftRowsById((prev) => {
+      const rows = cloneRowsDeep(prev[id] || []);
+      return {
+        ...prev,
+        [id]: rows.filter((r) => r.rid !== rid),
+      };
+    });
   };
 
   const addGroup = (id: string) => {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const rows = Array.isArray(it.rows) ? it.rows : [];
+    setDraftRowsById((prev) => {
+      const rows = cloneRowsDeep(prev[id] || []);
+      const gid = `g:${Date.now()}`;
+      const c1 = `c:${Date.now()}-1`;
+      const c2 = `c:${Date.now()}-2`;
 
-        const gid = `g:${Date.now()}`;
-        const c1 = `c:${Date.now()}-1`;
-        const c2 = `c:${Date.now()}-2`;
-
-        return {
-          ...it,
-          rows: [
-            ...rows,
-            {
-              rid: gid,
-              isGroup: true,
-              label: "",
-              peso: 0,
-              min: 0,
-              pct: 0,
-              children: [
-                { rid: c1, label: "", peso: 0, pct: 0 },
-                { rid: c2, label: "", peso: 0, pct: 0 },
-              ],
-            },
-          ],
-        };
-      })
-    );
+      return {
+        ...prev,
+        [id]: [
+          ...rows,
+          {
+            rid: gid,
+            isGroup: true,
+            label: "",
+            peso: 0,
+            min: 0,
+            pct: 0,
+            children: [
+              { rid: c1, label: "", peso: 0, pct: 0 },
+              { rid: c2, label: "", peso: 0, pct: 0 },
+            ],
+          },
+        ],
+      };
+    });
   };
 
   const addSubRow = (id: string, groupRid: string) => {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const rows = Array.isArray(it.rows) ? it.rows : [];
+    setDraftRowsById((prev) => {
+      const rows = cloneRowsDeep(prev[id] || []);
 
-        const next = rows.map((r) => {
+      return {
+        ...prev,
+        [id]: rows.map((r) => {
           if (r.rid !== groupRid) return r;
           const kids = Array.isArray(r.children) ? r.children : [];
           const rid = `c:${Date.now()}`;
@@ -604,28 +600,27 @@ export default function ProcesoPage() {
             ...r,
             children: [...kids, { rid, label: "", peso: 0, pct: 0 }],
           };
-        });
-
-        return { ...it, rows: next };
-      })
-    );
+        }),
+      };
+    });
   };
 
   const removeSubRow = (id: string, groupRid: string, childRid: string) => {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const rows = Array.isArray(it.rows) ? it.rows : [];
+    setDraftRowsById((prev) => {
+      const rows = cloneRowsDeep(prev[id] || []);
 
-        const next = rows.map((r) => {
+      return {
+        ...prev,
+        [id]: rows.map((r) => {
           if (r.rid !== groupRid) return r;
           const kids = Array.isArray(r.children) ? r.children : [];
-          return { ...r, children: kids.filter((k) => k.rid !== childRid) };
-        });
-
-        return { ...it, rows: next };
-      })
-    );
+          return {
+            ...r,
+            children: kids.filter((k) => k.rid !== childRid),
+          };
+        }),
+      };
+    });
   };
 
   const removeItem = (id: string) => {
