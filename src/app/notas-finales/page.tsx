@@ -209,7 +209,7 @@ async function readMallaMaterias(carrera: string, plan: string): Promise<MallaIt
     const raw = localStorage.getItem(cacheKey);
     const parsed = (safeParse<{ items?: any[] }>(raw) || {}) as { items?: any[] };
     const cachedItems = Array.isArray(parsed.items) ? parsed.items : [];
-    
+
     if (cachedItems.length > 0) {
       const filtered = cachedItems
         .map((it: any) => ({
@@ -226,7 +226,7 @@ async function readMallaMaterias(carrera: string, plan: string): Promise<MallaIt
       `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}`
     );
     const data = await response.json();
-    
+
     if (!response.ok || !data?.ok) {
       console.error("Error fetching malla:", data?.error);
       return [];
@@ -240,12 +240,12 @@ async function readMallaMaterias(carrera: string, plan: string): Promise<MallaIt
       }))
       .filter((x: MallaItem) => x.semestre > 0 && x.materia);
     filtered.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
-    
+
     // Cache the result
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ items: filtered }));
-    } catch {}
-    
+    } catch { }
+
     return filtered;
   } catch (error) {
     console.error("Error in readMallaMaterias:", error);
@@ -309,6 +309,7 @@ export default function NotasFinalesPage() {
   const [rows, setRows] = useState<NotaRow[]>([]);
   const [totalMalla, setTotalMalla] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [notesReady, setNotesReady] = useState(false);
 
   // Load userId from auth
   useEffect(() => {
@@ -338,7 +339,7 @@ export default function NotasFinalesPage() {
     const loadProfile = async () => {
       const p = await loadProfileFromDB(userId);
       if (cancelled) return;
-      
+
       if (!p) {
         setProfile({ carrera: "", malla: "2023", ci: "" });
         return;
@@ -397,11 +398,12 @@ export default function NotasFinalesPage() {
 
     const load = async () => {
       setLoading(true);
+      setNotesReady(false);
 
       // Load malla
       const mallaItems = await readMallaMaterias(profile.carrera, profile.malla);
       if (cancelled) return;
-      
+
       setTotalMalla(mallaItems.length);
       const baseRows = buildBaseRows(mallaItems);
 
@@ -431,15 +433,15 @@ export default function NotasFinalesPage() {
               nota2: d.nota2 ?? "",
               nota3: d.nota3 ?? "",
             };
-            
+
             // Incluir notas extra si existen
             if (typeof d.nota4 !== "undefined" && d.nota4 !== null) row.nota4 = d.nota4;
             if (typeof d.nota5 !== "undefined" && d.nota5 !== null) row.nota5 = d.nota5;
             if (typeof d.nota6 !== "undefined" && d.nota6 !== null) row.nota6 = d.nota6;
-            
+
             // Incluir nombre de optativa si existe
             if (d.optativa_nombre) row.optativaNombre = d.optativa_nombre;
-            
+
             return row;
           });
         }
@@ -451,6 +453,7 @@ export default function NotasFinalesPage() {
       const merged = mergeKeepNotas(loaded, baseRows);
       setRows(merged);
       setLoading(false);
+      setNotesReady(true);
     };
 
     load();
@@ -462,7 +465,7 @@ export default function NotasFinalesPage() {
 
   // Sync notes to DB whenever they change
   useEffect(() => {
-    if (!profile.carrera || !userId) return;
+    if (!profile.carrera || !userId || !notesReady || loading) return;
 
     const sync = async () => {
       try {
@@ -540,7 +543,7 @@ export default function NotasFinalesPage() {
     };
 
     sync();
-  }, [rows, profile, userId]);
+  }, [rows, profile.carrera, profile.malla, userId, notesReady, loading]);
 
   const semestres = useMemo(() => {
     const s = new Set<number>();
