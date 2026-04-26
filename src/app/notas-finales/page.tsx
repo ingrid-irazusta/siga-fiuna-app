@@ -670,7 +670,7 @@ export default function NotasFinalesPage() {
         },
       ];
 
-      next.sort((a: NotaRow, b: NotaRow)=> {
+      next.sort((a: NotaRow, b: NotaRow) => {
         if ((a.semestre || 0) !== (b.semestre || 0)) return (a.semestre || 0) - (b.semestre || 0);
         if (a.base !== b.base) return a.base ? -1 : 1;
         return String(a.materia || "").localeCompare(String(b.materia || ""));
@@ -681,7 +681,7 @@ export default function NotasFinalesPage() {
   };
 
   return (
-    <div className="nfWrap">
+    <div className="nfWrap nfWrapWithSticky">
       <div className="nfStickyActions">
         <div>
           <div className="nfStickyTitle">Notas finales</div>
@@ -1019,8 +1019,13 @@ export default function NotasFinalesPage() {
 
       <style jsx>{`
         .nfStickyActions {
-          position: sticky;
-          top: 0;
+         position: fixed;
+         top: 70px;
+          left: 0;
+         right: 0;
+          width: calc(100% - 32px);
+          max-width: 1100px;
+          margin: 0 auto;
           z-index: 50;
           display: flex;
           justify-content: space-between;
@@ -1034,7 +1039,9 @@ export default function NotasFinalesPage() {
           backdrop-filter: blur(10px);
           box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
         }
-
+.nfWrapWithSticky {
+  padding-top: 100px;
+}
         .nfStickyTitle {
           font-weight: 950;
           color: var(--text);
@@ -1213,12 +1220,13 @@ export default function NotasFinalesPage() {
           background: rgba(255, 255, 255, 0.92);
         }
 
-        .nfInput:disabled {
-          opacity: 1;
-          color: var(--text);
-          background: rgba(248, 250, 252, 0.75);
-          cursor: default;
-        }
+.nfInput:disabled {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  pointer-events: none;
+  font-weight: 900;
+}
 
         .nfNota {
           text-align: center;
@@ -1258,9 +1266,14 @@ export default function NotasFinalesPage() {
 
         @media (max-width: 520px) {
           .nfStickyActions {
-            flex-direction: column;
-            align-items: stretch;
-          }
+  top: 58px;
+  width: calc(100% - 20px);
+  flex-direction: column;
+  align-items: stretch;
+}
+  .nfWrapWithSticky {
+  padding-top: 135px;
+}
 
           .nfStickyButtons {
             justify-content: space-between;
