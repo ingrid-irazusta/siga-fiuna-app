@@ -1774,6 +1774,10 @@ export default function Page() {
                   <div style={{ fontWeight: 900, fontSize: 18 }}>
                     Clases encontradas en la distribución de aulas
                   </div>
+                  <div className="nfWarning">
+                    ⚠️ Las clases dependen de la distribución oficial de aulas de FIUNA.
+                    Si falta una sección, puede ser por diferencias en la lista oficial.
+                  </div>
                   <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                     Selecciona las clases que corresponden a tu horario.
                   </div>
