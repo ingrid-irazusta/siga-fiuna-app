@@ -496,528 +496,537 @@ export default function NotasFinalesPage() {
         return true;
       });
 
-      for (const r of validRows) {
-        const payload: any = {
-          user_id: userId,
-          materia: r.materia,
-          nota1: r.nota1 === "" ? null : Number(r.nota1),
-          nota2: r.nota2 === "" ? null : Number(r.nota2),
-          nota3: r.nota3 === "" ? null : Number(r.nota3),
-          nota4: r.nota4 === "" || typeof r.nota4 === "undefined" ? null : Number(r.nota4),
-          nota5: r.nota5 === "" || typeof r.nota5 === "undefined" ? null : Number(r.nota5),
-          nota6: r.nota6 === "" || typeof r.nota6 === "undefined" ? null : Number(r.nota6),
-          optativa_nombre: r.optativaNombre || null,
-        };
+      const payloads = validRows.map((r) => ({
+        user_id: userId,
+        materia: r.materia,
+        nota1: r.nota1 === "" ? null : Number(r.nota1),
+        nota2: r.nota2 === "" ? null : Number(r.nota2),
+        nota3: r.nota3 === "" ? null : Number(r.nota3),
+        nota4: r.nota4 === "" || typeof r.nota4 === "undefined" ? null : Number(r.nota4),
+        nota5: r.nota5 === "" || typeof r.nota5 === "undefined" ? null : Number(r.nota5),
+        nota6: r.nota6 === "" || typeof r.nota6 === "undefined" ? null : Number(r.nota6),
+        optativa_nombre: r.optativaNombre || null,
+      }));
 
-        const { data: existing, error: selectErr } = await supabase
-          .from("student_notes")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("materia", r.materia)
-          .maybeSingle();
+      const { error } = await supabase
+        .from("student_notes")
+        .upsert(payloads, {
+          onConflict: "user_id,materia",
+        });
 
-        if (selectErr) throw selectErr;
-
-        if (existing?.id) {
-          const { error: updateErr } = await supabase
-            .from("student_notes")
-            .update(payload)
-            .eq("id", existing.id);
-
-          if (updateErr) throw updateErr;
-        } else {
-          const { error: insertErr } = await supabase.from("student_notes").insert(payload);
-
-          if (insertErr) throw insertErr;
-        }
+      if (error) {
+        throw error;
       }
+
+      const { data: existing, error: selectErr } = await supabase
+        .from("student_notes")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("materia", r.materia)
+        .maybeSingle();
+
+      if (selectErr) throw selectErr;
+
+      if (existing?.id) {
+        const { error: updateErr } = await supabase
+          .from("student_notes")
+          .update(payload)
+          .eq("id", existing.id);
+
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase.from("student_notes").insert(payload);
+
+        if (insertErr) throw insertErr;
+      }
+    }
 
       window.dispatchEvent(new CustomEvent("notasUpdated", { detail: { userId } }));
 
-      setGlobalSaveStatus("saved");
-      setIsEditing(false);
-
-      setTimeout(() => {
-        setGlobalSaveStatus("idle");
-      }, 2200);
-    } catch (err) {
-      console.error("Error saving all notes:", err);
-      setGlobalSaveStatus("error");
-      alert("No se pudieron guardar las notas. Revisá la consola o Supabase.");
-    } finally {
-      setSavingAll(false);
-    }
-  };
-
-  const handleCancelEdit = async () => {
+    setGlobalSaveStatus("saved");
     setIsEditing(false);
-    setGlobalSaveStatus("idle");
-    await loadNotasFinales();
-  };
 
-  const kpis = useMemo((): KPIs => {
-    const todasLasNotas: number[] = [];
-    const aprobadaByMateria = new Map<string, boolean>();
-    const baseSet = new Set<string>();
+    setTimeout(() => {
+      setGlobalSaveStatus("idle");
+    }, 2200);
+  } catch (err) {
+    console.error("Error saving all notes:", err);
+    setGlobalSaveStatus("error");
+    alert("No se pudieron guardar las notas. Revisá la consola o Supabase.");
+  } finally {
+    setSavingAll(false);
+  }
+};
 
-    for (const r of rows) {
-      const matKey = normText(r.materia);
-      if (!matKey) continue;
+const handleCancelEdit = async () => {
+  setIsEditing(false);
+  setGlobalSaveStatus("idle");
+  await loadNotasFinales();
+};
 
-      if (r.base) baseSet.add(matKey);
+const kpis = useMemo((): KPIs => {
+  const todasLasNotas: number[] = [];
+  const aprobadaByMateria = new Map<string, boolean>();
+  const baseSet = new Set<string>();
 
-      const vals = notasRowAll(r);
+  for (const r of rows) {
+    const matKey = normText(r.materia);
+    if (!matKey) continue;
 
-      for (const v of vals) todasLasNotas.push(v);
+    if (r.base) baseSet.add(matKey);
 
-      if (vals.some((v) => v >= 2)) {
-        aprobadaByMateria.set(matKey, true);
-      }
+    const vals = notasRowAll(r);
+
+    for (const v of vals) todasLasNotas.push(v);
+
+    if (vals.some((v) => v >= 2)) {
+      aprobadaByMateria.set(matKey, true);
     }
+  }
 
-    const promedio = todasLasNotas.length
-      ? todasLasNotas.reduce((a, b) => a + b, 0) / todasLasNotas.length
-      : 0;
+  const promedio = todasLasNotas.length
+    ? todasLasNotas.reduce((a, b) => a + b, 0) / todasLasNotas.length
+    : 0;
 
-    let aprobadas = 0;
+  let aprobadas = 0;
 
-    for (const k of baseSet) {
-      if (aprobadaByMateria.get(k)) aprobadas += 1;
-    }
+  for (const k of baseSet) {
+    if (aprobadaByMateria.get(k)) aprobadas += 1;
+  }
 
-    const total = totalMalla || baseSet.size || 0;
-    const progresoPct = total ? (aprobadas / total) * 100 : 0;
+  const total = totalMalla || baseSet.size || 0;
+  const progresoPct = total ? (aprobadas / total) * 100 : 0;
 
-    return {
-      promedio: promedio ? promedio.toFixed(2).replace(".", ",") : "0,00",
-      aprobadas,
-      total,
-      progresoPct,
-    };
-  }, [rows, totalMalla]);
-
-  const updateRow = (id: string, patch: Partial<NotaRow>) => {
-    if (!isEditing) return;
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  return {
+    promedio: promedio ? promedio.toFixed(2).replace(".", ",") : "0,00",
+    aprobadas,
+    total,
+    progresoPct,
   };
+}, [rows, totalMalla]);
 
-  const updateRowReconcile = (id: string, patch: Partial<NotaRow>) => {
-    if (!isEditing) return;
+const updateRow = (id: string, patch: Partial<NotaRow>) => {
+  if (!isEditing) return;
+  setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+};
 
-    const rawKey = Object.keys(patch || {})[0];
+const updateRowReconcile = (id: string, patch: Partial<NotaRow>) => {
+  if (!isEditing) return;
 
-    const changedKey = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"].includes(
-      rawKey as string
-    )
-      ? (rawKey as NotaKey)
-      : undefined;
+  const rawKey = Object.keys(patch || {})[0];
 
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const next = reconcileExtras({ ...r, ...patch });
-        return enforceSinglePass(next, changedKey);
-      })
-    );
-  };
+  const changedKey = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"].includes(
+    rawKey as string
+  )
+    ? (rawKey as NotaKey)
+    : undefined;
 
-  const focusByData = (rowIdx: number, colKey: string) => {
-    const el = document.querySelector(
-      `[data-nf-row="${rowIdx}"][data-nf-col="${colKey}"]`
-    ) as HTMLElement;
+  setRows((prev) =>
+    prev.map((r) => {
+      if (r.id !== id) return r;
+      const next = reconcileExtras({ ...r, ...patch });
+      return enforceSinglePass(next, changedKey);
+    })
+  );
+};
 
-    if (el && typeof el.focus === "function") el.focus();
-  };
+const focusByData = (rowIdx: number, colKey: string) => {
+  const el = document.querySelector(
+    `[data-nf-row="${rowIdx}"][data-nf-col="${colKey}"]`
+  ) as HTMLElement;
 
-  const handleEnterMove = (rowIdx: number, colKey: string) => {
-    const cols3 = ["nota1", "nota2", "nota3"];
-    const cols6 = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"];
+  if (el && typeof el.focus === "function") el.focus();
+};
 
-    const r = rows[rowIdx];
-    const useCols = hasExtraNotas(r) ? cols6 : cols3;
-    const i = useCols.indexOf(colKey);
+const handleEnterMove = (rowIdx: number, colKey: string) => {
+  const cols3 = ["nota1", "nota2", "nota3"];
+  const cols6 = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"];
 
-    if (i === -1) return;
+  const r = rows[rowIdx];
+  const useCols = hasExtraNotas(r) ? cols6 : cols3;
+  const i = useCols.indexOf(colKey);
 
-    if (i < useCols.length - 1) {
-      focusByData(rowIdx, useCols[i + 1]);
-      return;
-    }
+  if (i === -1) return;
 
-    const nextIdx = rowIdx + 1;
+  if (i < useCols.length - 1) {
+    focusByData(rowIdx, useCols[i + 1]);
+    return;
+  }
 
-    if (nextIdx < rows.length) {
-      focusByData(nextIdx, "nota1");
-    }
-  };
+  const nextIdx = rowIdx + 1;
 
-  const addRow = (sem: number) => {
-    if (!isEditing) return;
+  if (nextIdx < rows.length) {
+    focusByData(nextIdx, "nota1");
+  }
+};
 
-    const id = `extra:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+const addRow = (sem: number) => {
+  if (!isEditing) return;
 
-    setRows((prev) => {
-      const next: NotaRow[] = [
-        ...prev,
-        {
-          id,
-          base: false,
-          semestre: sem,
-          materia: "",
-          nota1: "",
-          nota2: "",
-          nota3: "",
-        },
-      ];
+  const id = `extra:${Date.now()}:${Math.random().toString(16).slice(2)}`;
 
-      next.sort((a: NotaRow, b: NotaRow) => {
-        if ((a.semestre || 0) !== (b.semestre || 0)) return (a.semestre || 0) - (b.semestre || 0);
-        if (a.base !== b.base) return a.base ? -1 : 1;
-        return String(a.materia || "").localeCompare(String(b.materia || ""));
-      });
+  setRows((prev) => {
+    const next: NotaRow[] = [
+      ...prev,
+      {
+        id,
+        base: false,
+        semestre: sem,
+        materia: "",
+        nota1: "",
+        nota2: "",
+        nota3: "",
+      },
+    ];
 
-      return next;
+    next.sort((a: NotaRow, b: NotaRow) => {
+      if ((a.semestre || 0) !== (b.semestre || 0)) return (a.semestre || 0) - (b.semestre || 0);
+      if (a.base !== b.base) return a.base ? -1 : 1;
+      return String(a.materia || "").localeCompare(String(b.materia || ""));
     });
-  };
 
-  return (
-    <div className="nfWrap nfWrapWithSticky">
-      <div className="nfStickyActions">
-        <div>
-          <div className="nfStickyTitle">Notas finales</div>
-          <span className="nfStickySub">
-            {isEditing ? "Modo edición activado" : "Modo lectura"}
-            {globalSaveStatus === "saved" && " · Guardado correctamente"}
-            {globalSaveStatus === "error" && " · Error al guardar"}
-            {globalSaveStatus === "saving" && " · Guardando..."}
-          </span>
-        </div>
+    return next;
+  });
+};
 
-        <div className="nfStickyButtons">
-          {!isEditing ? (
+return (
+  <div className="nfWrap nfWrapWithSticky">
+    <div className="nfStickyActions">
+      <div>
+        <div className="nfStickyTitle">Notas finales</div>
+        <span className="nfStickySub">
+          {isEditing ? "Modo edición activado" : "Modo lectura"}
+          {globalSaveStatus === "saved" && " · Guardado correctamente"}
+          {globalSaveStatus === "error" && " · Error al guardar"}
+          {globalSaveStatus === "saving" && " · Guardando..."}
+        </span>
+      </div>
+
+      <div className="nfStickyButtons">
+        {!isEditing ? (
+          <button
+            type="button"
+            className="btnSoft primary"
+            onClick={() => setIsEditing(true)}
+            disabled={loading || !notesReady}
+          >
+            ✏️ Editar notas
+          </button>
+        ) : (
+          <>
+            <button type="button" className="btnSoft" onClick={handleCancelEdit} disabled={savingAll}>
+              Cancelar
+            </button>
+
             <button
               type="button"
               className="btnSoft primary"
-              onClick={() => setIsEditing(true)}
-              disabled={loading || !notesReady}
+              onClick={saveAllNotesToDB}
+              disabled={savingAll}
             >
-              ✏️ Editar notas
+              {savingAll ? "Guardando..." : "Guardar cambios"}
             </button>
-          ) : (
-            <>
-              <button type="button" className="btnSoft" onClick={handleCancelEdit} disabled={savingAll}>
-                Cancelar
-              </button>
+          </>
+        )}
+      </div>
+    </div>
 
-              <button
-                type="button"
-                className="btnSoft primary"
-                onClick={saveAllNotesToDB}
-                disabled={savingAll}
-              >
-                {savingAll ? "Guardando..." : "Guardar cambios"}
-              </button>
-            </>
-          )}
+    <Card className="nfKpiCard">
+      <div className="nfKpis">
+        <div className="nfKpi">
+          <div className="nfKpiValue">{kpis.promedio}</div>
+          <div className="nfKpiLabel">Promedio General</div>
+        </div>
+
+        <div className="nfKpi">
+          <div className="nfKpiValue">
+            {kpis.aprobadas}/{kpis.total}
+          </div>
+          <div className="nfKpiLabel">Materias Aprobadas</div>
+        </div>
+
+        <div className="nfKpi">
+          <div className="nfKpiValue">{kpis.progresoPct.toFixed(2).replace(".", ",")}%</div>
+          <div className="nfKpiLabel">Progreso</div>
         </div>
       </div>
 
-      <Card className="nfKpiCard">
-        <div className="nfKpis">
-          <div className="nfKpi">
-            <div className="nfKpiValue">{kpis.promedio}</div>
-            <div className="nfKpiLabel">Promedio General</div>
+      <div className="nfProgress">
+        <div
+          className="nfProgressBar"
+          style={{ width: `${Math.min(100, Math.max(0, kpis.progresoPct))}%` }}
+        />
+      </div>
+    </Card>
+
+    {semestres.map((sem) => {
+      const list = rows.filter((r) => Number(r.semestre) === sem);
+
+      return (
+        <div key={sem} className="nfSemBlock">
+          <div className="nfSemHeaderRow">
+            <div className="nfSemHeader">{sem}° SEMESTRE</div>
           </div>
 
-          <div className="nfKpi">
-            <div className="nfKpiValue">
-              {kpis.aprobadas}/{kpis.total}
-            </div>
-            <div className="nfKpiLabel">Materias Aprobadas</div>
-          </div>
+          <Card>
+            <div className="nfTable nfTable3">
+              <div className="nfTh">ASIGNATURA</div>
+              <div className="nfTh nfThNotas">NOTAS</div>
+              <div className="nfTh">ESTADO</div>
 
-          <div className="nfKpi">
-            <div className="nfKpiValue">{kpis.progresoPct.toFixed(2).replace(".", ",")}%</div>
-            <div className="nfKpiLabel">Progreso</div>
-          </div>
-        </div>
+              {list.map((r) => {
+                const idx = rows.findIndex((x) => x.id === r.id);
 
-        <div className="nfProgress">
-          <div
-            className="nfProgressBar"
-            style={{ width: `${Math.min(100, Math.max(0, kpis.progresoPct))}%` }}
-          />
-        </div>
-      </Card>
+                const estado = estadoFromNotas(
+                  r.nota1,
+                  r.nota2,
+                  r.nota3,
+                  r.nota4,
+                  r.nota5,
+                  r.nota6
+                );
 
-      {semestres.map((sem) => {
-        const list = rows.filter((r) => Number(r.semestre) === sem);
+                const isOptativa = normText(r.materia).startsWith("optativa");
 
-        return (
-          <div key={sem} className="nfSemBlock">
-            <div className="nfSemHeaderRow">
-              <div className="nfSemHeader">{sem}° SEMESTRE</div>
-            </div>
+                return (
+                  <Fragment key={r.id}>
+                    <div className="nfTd">
+                      {r.base ? (
+                        <div className="nfMateriaWrap">
+                          <span className="nfMateriaBase">{r.materia}</span>
 
-            <Card>
-              <div className="nfTable nfTable3">
-                <div className="nfTh">ASIGNATURA</div>
-                <div className="nfTh nfThNotas">NOTAS</div>
-                <div className="nfTh">ESTADO</div>
-
-                {list.map((r) => {
-                  const idx = rows.findIndex((x) => x.id === r.id);
-
-                  const estado = estadoFromNotas(
-                    r.nota1,
-                    r.nota2,
-                    r.nota3,
-                    r.nota4,
-                    r.nota5,
-                    r.nota6
-                  );
-
-                  const isOptativa = normText(r.materia).startsWith("optativa");
-
-                  return (
-                    <Fragment key={r.id}>
-                      <div className="nfTd">
-                        {r.base ? (
-                          <div className="nfMateriaWrap">
-                            <span className="nfMateriaBase">{r.materia}</span>
-
-                            {isOptativa && (
-                              <input
-                                className="nfInput nfOpt"
-                                value={r.optativaNombre || ""}
-                                disabled={!isEditing}
-                                onChange={(e) => updateRow(r.id, { optativaNombre: e.target.value })}
-                                placeholder="Nombre de tu optativa"
-                              />
-                            )}
-                          </div>
-                        ) : (
-                          <div className="nfExtraRowWrap">
+                          {isOptativa && (
                             <input
-                              className="nfInput"
-                              value={r.materia}
+                              className="nfInput nfOpt"
+                              value={r.optativaNombre || ""}
                               disabled={!isEditing}
-                              onChange={(e) => updateRow(r.id, { materia: e.target.value })}
-                              placeholder="Materia (opcional)"
+                              onChange={(e) => updateRow(r.id, { optativaNombre: e.target.value })}
+                              placeholder="Nombre de tu optativa"
                             />
-
-                            {isEditing && (
-                              <button
-                                type="button"
-                                className="nfDel"
-                                onClick={() => setRows((prev) => prev.filter((x) => x.id !== r.id))}
-                                title="Eliminar fila"
-                                aria-label="Eliminar fila"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="nfTd nfNotasCell">
-                        <div className="nfNotasGrid">
-                          <input
-                            className="nfInput nfNota"
-                            value={r.nota1}
-                            disabled={!isEditing}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) =>
-                              updateRowReconcile(r.id, { nota1: clampNotaInput(e.target.value) })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleEnterMove(idx, "nota1");
-                              }
-                            }}
-                            data-nf-row={idx}
-                            data-nf-col="nota1"
-                            placeholder="-"
-                          />
-
-                          <input
-                            className="nfInput nfNota"
-                            value={r.nota2}
-                            disabled={!isEditing}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) =>
-                              updateRowReconcile(r.id, { nota2: clampNotaInput(e.target.value) })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleEnterMove(idx, "nota2");
-                              }
-                            }}
-                            data-nf-row={idx}
-                            data-nf-col="nota2"
-                            placeholder="-"
-                          />
-
-                          <input
-                            className="nfInput nfNota"
-                            value={r.nota3}
-                            disabled={!isEditing}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) =>
-                              updateRowReconcile(r.id, { nota3: clampNotaInput(e.target.value) })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-
-                                const v3 = clampNotaInput(e.currentTarget.value);
-
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const base = { ...x, nota3: v3 };
-                                    return reconcileExtras(base);
-                                  })
-                                );
-
-                                const willExtra =
-                                  Number(r?.nota1) === 1 &&
-                                  Number(r?.nota2) === 1 &&
-                                  Number(v3) === 1;
-
-                                if (willExtra) setTimeout(() => focusByData(idx, "nota4"), 0);
-                                else handleEnterMove(idx, "nota3");
-                              }
-                            }}
-                            data-nf-row={idx}
-                            data-nf-col="nota3"
-                            placeholder="-"
-                          />
+                          )}
                         </div>
+                      ) : (
+                        <div className="nfExtraRowWrap">
+                          <input
+                            className="nfInput"
+                            value={r.materia}
+                            disabled={!isEditing}
+                            onChange={(e) => updateRow(r.id, { materia: e.target.value })}
+                            placeholder="Materia (opcional)"
+                          />
 
-                        {hasExtraNotas(r) && (
-                          <div className="nfNotasGrid nfNotasGridExtra">
-                            <input
-                              className="nfInput nfNota"
-                              value={r.nota4 ?? ""}
-                              disabled={!isEditing}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              onChange={(e) => {
-                                const v = clampNotaInput(e.target.value);
+                          {isEditing && (
+                            <button
+                              type="button"
+                              className="nfDel"
+                              onClick={() => setRows((prev) => prev.filter((x) => x.id !== r.id))}
+                              title="Eliminar fila"
+                              aria-label="Eliminar fila"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const next = { ...ensureExtraNotas(x), nota4: v };
-                                    return enforceSinglePass(next, "nota4");
-                                  })
-                                );
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleEnterMove(idx, "nota4");
-                                }
-                              }}
-                              data-nf-row={idx}
-                              data-nf-col="nota4"
-                              placeholder="-"
-                            />
-
-                            <input
-                              className="nfInput nfNota"
-                              value={r.nota5 ?? ""}
-                              disabled={!isEditing}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              onChange={(e) => {
-                                const v = clampNotaInput(e.target.value);
-
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const next = { ...ensureExtraNotas(x), nota5: v };
-                                    return enforceSinglePass(next, "nota5");
-                                  })
-                                );
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleEnterMove(idx, "nota5");
-                                }
-                              }}
-                              data-nf-row={idx}
-                              data-nf-col="nota5"
-                              placeholder="-"
-                            />
-
-                            <input
-                              className="nfInput nfNota"
-                              value={r.nota6 ?? ""}
-                              disabled={!isEditing}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              onChange={(e) => {
-                                const v = clampNotaInput(e.target.value);
-
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const next = { ...ensureExtraNotas(x), nota6: v };
-                                    return enforceSinglePass(next, "nota6");
-                                  })
-                                );
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleEnterMove(idx, "nota6");
-                                }
-                              }}
-                              data-nf-row={idx}
-                              data-nf-col="nota6"
-                              placeholder="-"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="nfTd">
-                        <div
-                          className={
-                            "nfEstado " +
-                            (estado === "APROBADO" ? "ok" : estado === "AUN NO" ? "bad" : "pend")
+                    <div className="nfTd nfNotasCell">
+                      <div className="nfNotasGrid">
+                        <input
+                          className="nfInput nfNota"
+                          value={r.nota1}
+                          disabled={!isEditing}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          onChange={(e) =>
+                            updateRowReconcile(r.id, { nota1: clampNotaInput(e.target.value) })
                           }
-                        >
-                          {estado}
-                        </div>
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleEnterMove(idx, "nota1");
+                            }
+                          }}
+                          data-nf-row={idx}
+                          data-nf-col="nota1"
+                          placeholder="-"
+                        />
+
+                        <input
+                          className="nfInput nfNota"
+                          value={r.nota2}
+                          disabled={!isEditing}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          onChange={(e) =>
+                            updateRowReconcile(r.id, { nota2: clampNotaInput(e.target.value) })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleEnterMove(idx, "nota2");
+                            }
+                          }}
+                          data-nf-row={idx}
+                          data-nf-col="nota2"
+                          placeholder="-"
+                        />
+
+                        <input
+                          className="nfInput nfNota"
+                          value={r.nota3}
+                          disabled={!isEditing}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          onChange={(e) =>
+                            updateRowReconcile(r.id, { nota3: clampNotaInput(e.target.value) })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+
+                              const v3 = clampNotaInput(e.currentTarget.value);
+
+                              setRows((prev) =>
+                                prev.map((x) => {
+                                  if (x.id !== r.id) return x;
+                                  const base = { ...x, nota3: v3 };
+                                  return reconcileExtras(base);
+                                })
+                              );
+
+                              const willExtra =
+                                Number(r?.nota1) === 1 &&
+                                Number(r?.nota2) === 1 &&
+                                Number(v3) === 1;
+
+                              if (willExtra) setTimeout(() => focusByData(idx, "nota4"), 0);
+                              else handleEnterMove(idx, "nota3");
+                            }
+                          }}
+                          data-nf-row={idx}
+                          data-nf-col="nota3"
+                          placeholder="-"
+                        />
                       </div>
-                    </Fragment>
-                  );
-                })}
+
+                      {hasExtraNotas(r) && (
+                        <div className="nfNotasGrid nfNotasGridExtra">
+                          <input
+                            className="nfInput nfNota"
+                            value={r.nota4 ?? ""}
+                            disabled={!isEditing}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            onChange={(e) => {
+                              const v = clampNotaInput(e.target.value);
+
+                              setRows((prev) =>
+                                prev.map((x) => {
+                                  if (x.id !== r.id) return x;
+                                  const next = { ...ensureExtraNotas(x), nota4: v };
+                                  return enforceSinglePass(next, "nota4");
+                                })
+                              );
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleEnterMove(idx, "nota4");
+                              }
+                            }}
+                            data-nf-row={idx}
+                            data-nf-col="nota4"
+                            placeholder="-"
+                          />
+
+                          <input
+                            className="nfInput nfNota"
+                            value={r.nota5 ?? ""}
+                            disabled={!isEditing}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            onChange={(e) => {
+                              const v = clampNotaInput(e.target.value);
+
+                              setRows((prev) =>
+                                prev.map((x) => {
+                                  if (x.id !== r.id) return x;
+                                  const next = { ...ensureExtraNotas(x), nota5: v };
+                                  return enforceSinglePass(next, "nota5");
+                                })
+                              );
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleEnterMove(idx, "nota5");
+                              }
+                            }}
+                            data-nf-row={idx}
+                            data-nf-col="nota5"
+                            placeholder="-"
+                          />
+
+                          <input
+                            className="nfInput nfNota"
+                            value={r.nota6 ?? ""}
+                            disabled={!isEditing}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            onChange={(e) => {
+                              const v = clampNotaInput(e.target.value);
+
+                              setRows((prev) =>
+                                prev.map((x) => {
+                                  if (x.id !== r.id) return x;
+                                  const next = { ...ensureExtraNotas(x), nota6: v };
+                                  return enforceSinglePass(next, "nota6");
+                                })
+                              );
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleEnterMove(idx, "nota6");
+                              }
+                            }}
+                            data-nf-row={idx}
+                            data-nf-col="nota6"
+                            placeholder="-"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="nfTd">
+                      <div
+                        className={
+                          "nfEstado " +
+                          (estado === "APROBADO" ? "ok" : estado === "AUN NO" ? "bad" : "pend")
+                        }
+                      >
+                        {estado}
+                      </div>
+                    </div>
+                  </Fragment>
+                );
+              })}
+            </div>
+
+            {isEditing && (
+              <div className="nfAddRow">
+                <button type="button" className="btnSoft" onClick={() => addRow(sem)}>
+                  ➕ Agregar fila
+                </button>
               </div>
+            )}
+          </Card>
+        </div>
+      );
+    })}
 
-              {isEditing && (
-                <div className="nfAddRow">
-                  <button type="button" className="btnSoft" onClick={() => addRow(sem)}>
-                    ➕ Agregar fila
-                  </button>
-                </div>
-              )}
-            </Card>
-          </div>
-        );
-      })}
-
-      <style jsx>{`
+    <style jsx>{`
         .nfStickyActions {
          position: fixed;
          top: 70px;
@@ -1333,6 +1342,6 @@ export default function NotasFinalesPage() {
           }
         }
       `}</style>
-    </div>
-  );
+  </div>
+);
 }
