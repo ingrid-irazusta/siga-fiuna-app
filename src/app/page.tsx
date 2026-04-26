@@ -1772,7 +1772,7 @@ export default function Page() {
               >
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 18 }}>
-                    Clases encontradas en la distribución de aulas, si no aparece alguna seccion revisar diferencias de escritura
+                    Clases encontradas en la distribución de aulas
                   </div>
                   <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                     Selecciona las clases que corresponden a tu horario.
