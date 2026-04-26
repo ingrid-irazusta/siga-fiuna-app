@@ -135,11 +135,15 @@ function calcRowTotal(peso: number, pct: number): number {
   const p = clampNum(pct, 0, 100);
   return (w * p) / 100;
 }
-
+function rowTotalRaw(r: Row | ChildRow): number {
+  const peso = clampNum(r?.peso, 0, 999);
+  const pct = clampNum(r?.pct, 0, 100);
+  return calcRowTotal(peso, pct);
+}
 function rowTotalOf(r: Row | ChildRow): number {
   const peso = clampNum(r?.peso, 0, 999);
   const pct = clampNum(r?.pct, 0, 100);
-  return Math.round(calcRowTotal(peso, pct));
+  return calcRowTotal(peso, pct);
 }
 
 function calcCumpleMinimos(rows: Row[]): boolean {
@@ -178,11 +182,18 @@ function groupTotals(groupRow: Row): GroupTotals {
 
 function calcProcessTotal(rows: Row[]): number {
   const arr = Array.isArray(rows) ? rows : [];
+
   const sum = arr.reduce((acc, r) => {
     const hasKids = Array.isArray(r?.children) && r.children.length > 0;
-    if (hasKids) return acc + groupTotals(r).totalGrupo;
-    return acc + rowTotalOf(r);
+
+    if (hasKids) {
+      const kids = Array.isArray(r.children) ? r.children : [];
+      return acc + kids.reduce((a, k) => a + rowTotalRaw(k), 0);
+    }
+
+    return acc + rowTotalRaw(r);
   }, 0);
+
   return Math.round(sum);
 }
 
