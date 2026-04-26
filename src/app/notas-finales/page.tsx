@@ -475,73 +475,42 @@ export default function NotasFinalesPage() {
   }, [rows]);
 
   const saveAllNotesToDB = async () => {
-    if (!userId || !profile.carrera) {
-      setGlobalSaveStatus("error");
-      alert("No se pudo guardar: falta usuario o carrera.");
-      return;
-    }
+  if (!userId || !profile.carrera) {
+    setGlobalSaveStatus("error");
+    alert("No se pudo guardar: falta usuario o carrera.");
+    return;
+  }
 
-    setSavingAll(true);
-    setGlobalSaveStatus("saving");
+  setSavingAll(true);
+  setGlobalSaveStatus("saving");
 
-    try {
-      const supabase = getSupabase();
+  try {
+    const supabase = getSupabase();
 
-      const validRows = rows.filter((r) => {
-        const materia = String(r.materia || "").trim();
-        if (!materia) return false;
+    const validRows = rows.filter((r) => {
+      const materia = String(r.materia || "").trim();
+      return Boolean(materia);
+    });
 
-        if (!r.base && !materia) return false;
+    const payloads = validRows.map((r) => ({
+      user_id: userId,
+      materia: r.materia,
+      nota1: r.nota1 === "" ? null : Number(r.nota1),
+      nota2: r.nota2 === "" ? null : Number(r.nota2),
+      nota3: r.nota3 === "" ? null : Number(r.nota3),
+      nota4: r.nota4 === "" || typeof r.nota4 === "undefined" ? null : Number(r.nota4),
+      nota5: r.nota5 === "" || typeof r.nota5 === "undefined" ? null : Number(r.nota5),
+      nota6: r.nota6 === "" || typeof r.nota6 === "undefined" ? null : Number(r.nota6),
+      optativa_nombre: r.optativaNombre || null,
+    }));
 
-        return true;
-      });
+    const { error } = await supabase.from("student_notes").upsert(payloads, {
+      onConflict: "user_id,materia",
+    });
 
-      const payloads = validRows.map((r) => ({
-        user_id: userId,
-        materia: r.materia,
-        nota1: r.nota1 === "" ? null : Number(r.nota1),
-        nota2: r.nota2 === "" ? null : Number(r.nota2),
-        nota3: r.nota3 === "" ? null : Number(r.nota3),
-        nota4: r.nota4 === "" || typeof r.nota4 === "undefined" ? null : Number(r.nota4),
-        nota5: r.nota5 === "" || typeof r.nota5 === "undefined" ? null : Number(r.nota5),
-        nota6: r.nota6 === "" || typeof r.nota6 === "undefined" ? null : Number(r.nota6),
-        optativa_nombre: r.optativaNombre || null,
-      }));
+    if (error) throw error;
 
-      const { error } = await supabase
-        .from("student_notes")
-        .upsert(payloads, {
-          onConflict: "user_id,materia",
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      const { data: existing, error: selectErr } = await supabase
-        .from("student_notes")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("materia", r.materia)
-        .maybeSingle();
-
-      if (selectErr) throw selectErr;
-
-      if (existing?.id) {
-        const { error: updateErr } = await supabase
-          .from("student_notes")
-          .update(payload)
-          .eq("id", existing.id);
-
-        if (updateErr) throw updateErr;
-      } else {
-        const { error: insertErr } = await supabase.from("student_notes").insert(payload);
-
-        if (insertErr) throw insertErr;
-      }
-    }
-
-      window.dispatchEvent(new CustomEvent("notasUpdated", { detail: { userId } }));
+    window.dispatchEvent(new CustomEvent("notasUpdated", { detail: { userId } }));
 
     setGlobalSaveStatus("saved");
     setIsEditing(false);
