@@ -1772,7 +1772,7 @@ export default function Page() {
               >
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 18 }}>
-                    Clases encontradas en la distribución
+                    Clases encontradas en la distribución de aulas, si no aparece alguna seccion revisar diferencias de escritura
                   </div>
                   <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                     Selecciona las clases que corresponden a tu horario.
@@ -1790,7 +1790,7 @@ export default function Page() {
 
               <div style={{ padding: 20, display: "grid", gap: 18 }}>
                 {suggestionsLoading ? (
-                  <div className="muted">Buscando coincidencias en la distribución...</div>
+                  <div className="muted">Buscando coincidencias en la distribución de aulas...</div>
                 ) : (
                   <>
                     {suggestionsData.groups.length === 0 && suggestionsData.missing.length === 0 ? (
@@ -1875,7 +1875,7 @@ export default function Page() {
                           Aún no encontradas en la distribución
                         </div>
                         <div className="muted" style={{ fontSize: 13 }}>
-                          Algunas materias todavía no aparecen en la distribución actual. Puedes intentarlo de nuevo después.
+                          Algunas materias todavía no aparecen en la distribución de aulas actual. Puedes intentarlo de nuevo después.
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                           {suggestionsData.missing.map((materia) => (
