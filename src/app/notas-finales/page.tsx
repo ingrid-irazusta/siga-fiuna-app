@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Fragment } from "react";
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { getSupabase } from "../../lib/supabaseClient";
 import Card from "../../components/Card";
 
@@ -31,12 +31,6 @@ interface NotaRow {
   optativaNombre?: string;
 }
 
-interface StorageKeyParams {
-  carrera: string;
-  plan: string;
-  ci?: string;
-}
-
 interface MallaCacheKeyParams {
   carrera: string;
   plan: string;
@@ -51,8 +45,8 @@ interface KPIs {
 
 type NotaValue = string | number | null | undefined;
 type EstadoType = "PENDIENTE" | "APROBADO" | "AUN NO";
-
 type NotaKey = "nota1" | "nota2" | "nota3" | "nota4" | "nota5" | "nota6";
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function normText(s: string | null | undefined): string {
   return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -68,8 +62,10 @@ function safeParse<T = any>(raw: string | null): T | null {
 
 async function loadProfileFromDB(userId: string): Promise<Profile | null> {
   if (!userId) return null;
+
   try {
     const supabase = getSupabase();
+
     const { data, error } = await supabase
       .from("user_profiles")
       .select("carrera, malla, ci")
@@ -81,16 +77,12 @@ async function loadProfileFromDB(userId: string): Promise<Profile | null> {
       return null;
     }
 
-    return data && typeof data === "object"
-      ? (data as Profile)
-      : null;
+    return data && typeof data === "object" ? (data as Profile) : null;
   } catch (error) {
     console.error("Error in loadProfileFromDB:", error);
     return null;
   }
 }
-
-
 
 function mallaCacheKey({ carrera, plan }: MallaCacheKeyParams): string {
   return `${MALLA_CACHE_PREFIX}:${normText(carrera)}:${String(plan || "2023")}`;
@@ -119,6 +111,7 @@ function clampNotaInput(v: string | number): string | number {
 
 function notasRowAll(r: NotaRow | undefined): number[] {
   if (!r) return [];
+
   return [r.nota1, r.nota2, r.nota3, r.nota4, r.nota5, r.nota6]
     .map((x) => (x === "" || x === null || typeof x === "undefined" ? null : Number(x)))
     .filter((x): x is number => x !== null && Number.isFinite(x) && x >= 1 && x <= 5);
@@ -126,6 +119,7 @@ function notasRowAll(r: NotaRow | undefined): number[] {
 
 function hasExtraNotas(r: NotaRow | undefined): boolean {
   if (!r) return false;
+
   return (
     typeof r.nota4 !== "undefined" ||
     typeof r.nota5 !== "undefined" ||
@@ -144,12 +138,13 @@ function stripExtraNotas(r: NotaRow | undefined): Partial<NotaRow> {
   return rest;
 }
 
-
 function shouldHaveExtras(r: NotaRow | undefined): boolean {
   if (!r) return false;
+
   const n1 = Number(r?.nota1);
   const n2 = Number(r?.nota2);
   const n3 = Number(r?.nota3);
+
   return n1 === 1 && n2 === 1 && n3 === 1;
 }
 
@@ -160,7 +155,6 @@ function reconcileExtras(r: NotaRow): NotaRow {
 
 function enforceSinglePass(row: NotaRow, changedKey: NotaKey | undefined): NotaRow {
   const orderAll: NotaKey[] = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"];
-
   const order = orderAll.filter((k) => typeof row?.[k] !== "undefined") as NotaKey[];
 
   const toNum = (v: NotaValue): number | null => {
@@ -169,7 +163,7 @@ function enforceSinglePass(row: NotaRow, changedKey: NotaKey | undefined): NotaR
     return Number.isFinite(n) ? n : null;
   };
 
-  const changedVal = toNum(row?.[changedKey as NotaKey]);
+  const changedVal = changedKey ? toNum(row?.[changedKey]) : null;
   let passKey: NotaKey | null = null;
 
   if (changedKey && changedVal !== null && changedVal >= 2) {
@@ -186,17 +180,20 @@ function enforceSinglePass(row: NotaRow, changedKey: NotaKey | undefined): NotaR
 
   if (!passKey) return row;
 
-
-  const passIdx = order.indexOf(passKey as NotaKey);
+  const passIdx = order.indexOf(passKey);
   const out = { ...row } as NotaRow & Partial<Record<NotaKey, string | number | undefined>>;
 
   for (let i = 0; i < order.length; i++) {
     const k = order[i];
     const n = toNum(out?.[k]);
 
-    if (k !== passKey && n !== null && n >= 2) (out as any)[k] = "";
+    if (k !== passKey && n !== null && n >= 2) {
+      out[k] = "";
+    }
 
-    if (i > passIdx) (out as any)[k] = "";
+    if (i > passIdx) {
+      out[k] = "";
+    }
   }
 
   return out;
@@ -204,7 +201,6 @@ function enforceSinglePass(row: NotaRow, changedKey: NotaKey | undefined): NotaR
 
 async function readMallaMaterias(carrera: string, plan: string): Promise<MallaItem[]> {
   try {
-    // Primero intenta leer desde localStorage (cache)
     const cacheKey = mallaCacheKey({ carrera, plan });
     const raw = localStorage.getItem(cacheKey);
     const parsed = (safeParse<{ items?: any[] }>(raw) || {}) as { items?: any[] };
@@ -217,14 +213,15 @@ async function readMallaMaterias(carrera: string, plan: string): Promise<MallaIt
           materia: String(it?.materia || "").trim(),
         }))
         .filter((x: MallaItem) => x.semestre > 0 && x.materia);
+
       filtered.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
       return filtered;
     }
 
-    // Si no hay cache, fetch desde la API
     const response = await fetch(
       `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}`
     );
+
     const data = await response.json();
 
     if (!response.ok || !data?.ok) {
@@ -233,15 +230,16 @@ async function readMallaMaterias(carrera: string, plan: string): Promise<MallaIt
     }
 
     const items = Array.isArray(data.materias) ? data.materias : [];
+
     const filtered = items
       .map((it: any) => ({
         semestre: Number(it?.semestre) || 0,
         materia: String(it?.materia || "").trim(),
       }))
       .filter((x: MallaItem) => x.semestre > 0 && x.materia);
+
     filtered.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
 
-    // Cache the result
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ items: filtered }));
     } catch { }
@@ -267,15 +265,18 @@ function buildBaseRows(mallaItems: MallaItem[]): NotaRow[] {
 
 function mergeKeepNotas(existingRows: NotaRow[], baseRows: NotaRow[]): NotaRow[] {
   const byKey = new Map<string, NotaRow>();
+
   for (const r of existingRows || []) {
-    const key = `${r.base ? "base" : "extra"}:${Number(r.semestre) || 0}:${normText(r.materia)}`;
+    const key = `base:${Number(r.semestre) || 0}:${normText(r.materia)}`;
     if (!byKey.has(key)) byKey.set(key, r);
   }
 
   const merged: NotaRow[] = [];
+
   for (const b of baseRows) {
     const key = `base:${Number(b.semestre) || 0}:${normText(b.materia)}`;
     const prev = byKey.get(key);
+
     if (prev) {
       merged.push({
         ...b,
@@ -283,23 +284,24 @@ function mergeKeepNotas(existingRows: NotaRow[], baseRows: NotaRow[]): NotaRow[]
         nota2: prev.nota2 ?? "",
         nota3: prev.nota3 ?? "",
         ...(hasExtraNotas(prev)
-          ? { nota4: prev.nota4 ?? "", nota5: prev.nota5 ?? "", nota6: prev.nota6 ?? "" }
+          ? {
+            nota4: prev.nota4 ?? "",
+            nota5: prev.nota5 ?? "",
+            nota6: prev.nota6 ?? "",
+          }
           : {}),
         optativaNombre: prev.optativaNombre ?? "",
       });
-      byKey.delete(key);
     } else {
       merged.push(b);
     }
   }
-  for (const r of existingRows || []) {
-    if (!r.base) merged.push(r);
-  }
+
   merged.sort((a, b) => {
     if ((a.semestre || 0) !== (b.semestre || 0)) return (a.semestre || 0) - (b.semestre || 0);
-    if (a.base !== b.base) return a.base ? -1 : 1;
     return String(a.materia || "").localeCompare(String(b.materia || ""));
   });
+
   return merged;
 }
 
@@ -310,16 +312,18 @@ export default function NotasFinalesPage() {
   const [totalMalla, setTotalMalla] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [notesReady, setNotesReady] = useState(false);
-  const [savingSemestre, setSavingSemestre] = useState<number | null>(null);
-  const [saveStatusBySemestre, setSaveStatusBySemestre] = useState<Record<number, "idle" | "saving" | "saved" | "error">>(
-    {}
-  );
 
-  // Load userId from auth
+  const [isEditing, setIsEditing] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
+  const [globalSaveStatus, setGlobalSaveStatus] = useState<SaveStatus>("idle");
+
   useEffect(() => {
     try {
       const supabase = getSupabase();
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user?.id) setUserId(session.user.id);
         else setUserId("");
       });
@@ -328,13 +332,14 @@ export default function NotasFinalesPage() {
         if (data?.user?.id) setUserId(data.user.id);
       });
 
-      return () => subscription?.unsubscribe();
+      return () => {
+        subscription?.unsubscribe();
+      };
     } catch (err) {
       console.error("Auth init error:", err);
     }
   }, []);
 
-  // Load profile from Supabase and subscribe to changes
   useEffect(() => {
     if (!userId) return;
 
@@ -352,14 +357,15 @@ export default function NotasFinalesPage() {
       const carrera = String(p.carrera || "").trim();
       const plan = p.malla === "2013" || p.malla === "2023" ? p.malla : "2023";
       const ci = String(p.ci || "").trim();
+
       setProfile({ carrera, malla: plan, ci });
     };
 
     loadProfile();
 
-    // Subscribe to profile changes
     try {
       const supabase = getSupabase();
+
       const subscription = supabase
         .channel(`user_profiles_${userId}`)
         .on(
@@ -374,8 +380,12 @@ export default function NotasFinalesPage() {
             if (!cancelled && payload.new) {
               const newProfile = payload.new as any;
               const carrera = String(newProfile.carrera || "").trim();
-              const plan = newProfile.malla === "2013" || newProfile.malla === "2023" ? newProfile.malla : "2023";
+              const plan =
+                newProfile.malla === "2013" || newProfile.malla === "2023"
+                  ? newProfile.malla
+                  : "2023";
               const ci = String(newProfile.ci || "").trim();
+
               setProfile({ carrera, malla: plan, ci });
             }
           }
@@ -394,96 +404,99 @@ export default function NotasFinalesPage() {
     }
   }, [userId]);
 
-  // Load malla and notes when profile changes
-  useEffect(() => {
+  const loadNotasFinales = useCallback(async () => {
     if (!profile.carrera || !userId) return;
 
-    let cancelled = false;
+    setLoading(true);
+    setNotesReady(false);
 
-    const load = async () => {
-      setLoading(true);
-      setNotesReady(false);
+    const mallaItems = await readMallaMaterias(profile.carrera, profile.malla);
+    setTotalMalla(mallaItems.length);
 
-      // Load malla
-      const mallaItems = await readMallaMaterias(profile.carrera, profile.malla);
-      if (cancelled) return;
+    const baseRows = buildBaseRows(mallaItems);
 
-      setTotalMalla(mallaItems.length);
-      const baseRows = buildBaseRows(mallaItems);
-
-      // Load notes from DB
-      let loaded: NotaRow[] = [];
-      try {
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-          .from("student_notes")
-          .select("id,materia,nota1,nota2,nota3,nota4,nota5,nota6,optativa_nombre")
-          .eq("user_id", userId);
-
-        if (!error && Array.isArray(data)) {
-          loaded = data.map((d: any) => {
-            const materia = String(d.materia || "").trim();
-            const key = normText(materia);
-            const isBase = baseRows.some((b) => normText(b.materia) === key);
-            const semestre = isBase
-              ? baseRows.find((b) => normText(b.materia) === key)!.semestre
-              : 0;
-            const row: NotaRow = {
-              id: String(d.id),
-              base: !!isBase,
-              semestre,
-              materia: materia,
-              nota1: d.nota1 ?? "",
-              nota2: d.nota2 ?? "",
-              nota3: d.nota3 ?? "",
-            };
-
-            // Incluir notas extra si existen
-            if (typeof d.nota4 !== "undefined" && d.nota4 !== null) row.nota4 = d.nota4;
-            if (typeof d.nota5 !== "undefined" && d.nota5 !== null) row.nota5 = d.nota5;
-            if (typeof d.nota6 !== "undefined" && d.nota6 !== null) row.nota6 = d.nota6;
-
-            // Incluir nombre de optativa si existe
-            if (d.optativa_nombre) row.optativaNombre = d.optativa_nombre;
-
-            return row;
-          });
-        }
-      } catch (err) {
-        console.error("Error reading notes from DB:", err);
-      }
-
-      if (cancelled) return;
-      const merged = mergeKeepNotas(loaded, baseRows);
-      setRows(merged);
-      setLoading(false);
-      setNotesReady(true);
-    };
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profile.carrera, profile.malla, userId]);
-
-  // Manual save function for a specific semestre
-  const saveSemestreToDB = async (semestre: number) => {
-    if (!userId || !profile.carrera) {
-      console.error("User ID or carrera not available");
-      return;
-    }
-
-    setSavingSemestre(semestre);
-    setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "saving" }));
+    let loaded: NotaRow[] = [];
 
     try {
       const supabase = getSupabase();
-      const semesterRows = rows.filter((r) => Number(r.semestre) === semestre && r.materia.trim());
 
-      for (const r of semesterRows) {
-        const materiaKey = normText(r.materia);
+      const { data, error } = await supabase
+        .from("student_notes")
+        .select("id,materia,nota1,nota2,nota3,nota4,nota5,nota6,optativa_nombre")
+        .eq("user_id", userId);
 
+      if (error) throw error;
+
+      if (Array.isArray(data)) {
+        loaded = data.map((d: any) => {
+          const materia = String(d.materia || "").trim();
+          const key = normText(materia);
+          const baseMatch = baseRows.find((b) => normText(b.materia) === key);
+
+          return {
+            id: String(d.id),
+            base: !!baseMatch,
+            semestre: baseMatch ? baseMatch.semestre : 0,
+            materia,
+            nota1: d.nota1 ?? "",
+            nota2: d.nota2 ?? "",
+            nota3: d.nota3 ?? "",
+            ...(d.nota4 !== null && typeof d.nota4 !== "undefined" ? { nota4: d.nota4 } : {}),
+            ...(d.nota5 !== null && typeof d.nota5 !== "undefined" ? { nota5: d.nota5 } : {}),
+            ...(d.nota6 !== null && typeof d.nota6 !== "undefined" ? { nota6: d.nota6 } : {}),
+            ...(d.optativa_nombre ? { optativaNombre: d.optativa_nombre } : {}),
+          };
+        });
+      }
+    } catch (err) {
+      console.error("Error reading notes from DB:", err);
+    }
+
+    const merged = mergeKeepNotas(loaded, baseRows);
+
+    setRows(merged);
+    setLoading(false);
+    setNotesReady(true);
+  }, [profile.carrera, profile.malla, userId]);
+
+  useEffect(() => {
+    loadNotasFinales();
+  }, [loadNotasFinales]);
+
+  const semestres = useMemo(() => {
+    const s = new Set<number>();
+
+    for (const r of rows) {
+      if (Number(r.semestre) > 0) s.add(Number(r.semestre));
+    }
+
+    const arr = Array.from(s).sort((a: number, b: number) => a - b);
+    return arr.length ? arr : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  }, [rows]);
+
+  const saveAllNotesToDB = async () => {
+    if (!userId || !profile.carrera) {
+      setGlobalSaveStatus("error");
+      alert("No se pudo guardar: falta usuario o carrera.");
+      return;
+    }
+
+    setSavingAll(true);
+    setGlobalSaveStatus("saving");
+
+    try {
+      const supabase = getSupabase();
+
+      const validRows = rows.filter((r) => {
+        const materia = String(r.materia || "").trim();
+        if (!materia) return false;
+
+        if (!r.base && !materia) return false;
+
+        return true;
+      });
+
+      for (const r of validRows) {
         const payload: any = {
           user_id: userId,
           materia: r.materia,
@@ -496,9 +509,6 @@ export default function NotasFinalesPage() {
           optativa_nombre: r.optativaNombre || null,
         };
 
-
-
-        // Check if record already exists
         const { data: existing, error: selectErr } = await supabase
           .from("student_notes")
           .select("id")
@@ -506,62 +516,44 @@ export default function NotasFinalesPage() {
           .eq("materia", r.materia)
           .maybeSingle();
 
-        if (selectErr) {
-          throw selectErr;
-        }
+        if (selectErr) throw selectErr;
 
-        if (existing && existing.id) {
-          // Update existing record
+        if (existing?.id) {
           const { error: updateErr } = await supabase
             .from("student_notes")
             .update(payload)
             .eq("id", existing.id);
 
-          if (updateErr) {
-            throw updateErr;
-          }
+          if (updateErr) throw updateErr;
         } else {
-          // Insert new record
-          const { error: insertErr } = await supabase
-            .from("student_notes")
-            .insert(payload);
+          const { error: insertErr } = await supabase.from("student_notes").insert(payload);
 
-          if (insertErr) {
-            throw insertErr;
-          }
+          if (insertErr) throw insertErr;
         }
       }
 
-      // Set status to saved
-      setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "saved" }));
+      window.dispatchEvent(new CustomEvent("notasUpdated", { detail: { userId } }));
 
-      // Reset to idle after 2 seconds
-      const timeout = setTimeout(() => {
-        setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "idle" }));
-      }, 2000);
+      setGlobalSaveStatus("saved");
+      setIsEditing(false);
 
-      return () => clearTimeout(timeout);
+      setTimeout(() => {
+        setGlobalSaveStatus("idle");
+      }, 2200);
     } catch (err) {
-      console.error("Error saving semestre to DB:", err);
-      setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "error" }));
-      alert("No se pudo guardar el semestre. Revisá la consola o Supabase.");
-      // Reset to idle after 2 seconds
-      const timeout = setTimeout(() => {
-        setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "idle" }));
-      }, 2000);
-
-      return () => clearTimeout(timeout);
+      console.error("Error saving all notes:", err);
+      setGlobalSaveStatus("error");
+      alert("No se pudieron guardar las notas. Revisá la consola o Supabase.");
     } finally {
-      setSavingSemestre(null);
+      setSavingAll(false);
     }
   };
 
-  const semestres = useMemo(() => {
-    const s = new Set<number>();
-    for (const r of rows) if (Number(r.semestre) > 0) s.add(Number(r.semestre));
-    const arr = Array.from(s).sort((a, b) => a - b);
-    return arr.length ? arr : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  }, [rows]);
+  const handleCancelEdit = async () => {
+    setIsEditing(false);
+    setGlobalSaveStatus("idle");
+    await loadNotasFinales();
+  };
 
   const kpis = useMemo((): KPIs => {
     const todasLasNotas: number[] = [];
@@ -571,10 +563,16 @@ export default function NotasFinalesPage() {
     for (const r of rows) {
       const matKey = normText(r.materia);
       if (!matKey) continue;
+
       if (r.base) baseSet.add(matKey);
+
       const vals = notasRowAll(r);
+
       for (const v of vals) todasLasNotas.push(v);
-      if (vals.some((v) => v >= 2)) aprobadaByMateria.set(matKey, true);
+
+      if (vals.some((v) => v >= 2)) {
+        aprobadaByMateria.set(matKey, true);
+      }
     }
 
     const promedio = todasLasNotas.length
@@ -582,9 +580,11 @@ export default function NotasFinalesPage() {
       : 0;
 
     let aprobadas = 0;
+
     for (const k of baseSet) {
       if (aprobadaByMateria.get(k)) aprobadas += 1;
     }
+
     const total = totalMalla || baseSet.size || 0;
     const progresoPct = total ? (aprobadas / total) * 100 : 0;
 
@@ -597,16 +597,21 @@ export default function NotasFinalesPage() {
   }, [rows, totalMalla]);
 
   const updateRow = (id: string, patch: Partial<NotaRow>) => {
+    if (!isEditing) return;
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
 
   const updateRowReconcile = (id: string, patch: Partial<NotaRow>) => {
+    if (!isEditing) return;
+
     const rawKey = Object.keys(patch || {})[0];
+
     const changedKey = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"].includes(
       rawKey as string
     )
       ? (rawKey as NotaKey)
       : undefined;
+
     setRows((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
@@ -620,59 +625,123 @@ export default function NotasFinalesPage() {
     const el = document.querySelector(
       `[data-nf-row="${rowIdx}"][data-nf-col="${colKey}"]`
     ) as HTMLElement;
+
     if (el && typeof el.focus === "function") el.focus();
   };
 
   const handleEnterMove = (rowIdx: number, colKey: string) => {
     const cols3 = ["nota1", "nota2", "nota3"];
     const cols6 = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"];
+
     const r = rows[rowIdx];
     const useCols = hasExtraNotas(r) ? cols6 : cols3;
     const i = useCols.indexOf(colKey);
+
     if (i === -1) return;
+
     if (i < useCols.length - 1) {
       focusByData(rowIdx, useCols[i + 1]);
       return;
     }
+
     const nextIdx = rowIdx + 1;
-    if (nextIdx < rows.length) focusByData(nextIdx, "nota1");
+
+    if (nextIdx < rows.length) {
+      focusByData(nextIdx, "nota1");
+    }
   };
 
   const addRow = (sem: number) => {
+    if (!isEditing) return;
+
     const id = `extra:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+
     setRows((prev) => {
       const next: NotaRow[] = [
         ...prev,
-        { id, base: false, semestre: sem, materia: "", nota1: "", nota2: "", nota3: "" },
+        {
+          id,
+          base: false,
+          semestre: sem,
+          materia: "",
+          nota1: "",
+          nota2: "",
+          nota3: "",
+        },
       ];
-      next.sort((a, b) => {
+
+      next.sort((a: NotaRow, b: NotaRow)=> {
         if ((a.semestre || 0) !== (b.semestre || 0)) return (a.semestre || 0) - (b.semestre || 0);
         if (a.base !== b.base) return a.base ? -1 : 1;
         return String(a.materia || "").localeCompare(String(b.materia || ""));
       });
+
       return next;
     });
   };
 
   return (
     <div className="nfWrap">
+      <div className="nfStickyActions">
+        <div>
+          <div className="nfStickyTitle">Notas finales</div>
+          <span className="nfStickySub">
+            {isEditing ? "Modo edición activado" : "Modo lectura"}
+            {globalSaveStatus === "saved" && " · Guardado correctamente"}
+            {globalSaveStatus === "error" && " · Error al guardar"}
+            {globalSaveStatus === "saving" && " · Guardando..."}
+          </span>
+        </div>
+
+        <div className="nfStickyButtons">
+          {!isEditing ? (
+            <button
+              type="button"
+              className="btnSoft primary"
+              onClick={() => setIsEditing(true)}
+              disabled={loading || !notesReady}
+            >
+              ✏️ Editar notas
+            </button>
+          ) : (
+            <>
+              <button type="button" className="btnSoft" onClick={handleCancelEdit} disabled={savingAll}>
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btnSoft primary"
+                onClick={saveAllNotesToDB}
+                disabled={savingAll}
+              >
+                {savingAll ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       <Card className="nfKpiCard">
         <div className="nfKpis">
           <div className="nfKpi">
             <div className="nfKpiValue">{kpis.promedio}</div>
             <div className="nfKpiLabel">Promedio General</div>
           </div>
+
           <div className="nfKpi">
             <div className="nfKpiValue">
               {kpis.aprobadas}/{kpis.total}
             </div>
             <div className="nfKpiLabel">Materias Aprobadas</div>
           </div>
+
           <div className="nfKpi">
             <div className="nfKpiValue">{kpis.progresoPct.toFixed(2).replace(".", ",")}%</div>
             <div className="nfKpiLabel">Progreso</div>
           </div>
         </div>
+
         <div className="nfProgress">
           <div
             className="nfProgressBar"
@@ -683,28 +752,12 @@ export default function NotasFinalesPage() {
 
       {semestres.map((sem) => {
         const list = rows.filter((r) => Number(r.semestre) === sem);
-        const saveStatus = saveStatusBySemestre[sem] || "idle";
+
         return (
           <div key={sem} className="nfSemBlock">
             <div className="nfSemHeaderRow">
               <div className="nfSemHeader">{sem}° SEMESTRE</div>
-              <button
-                type="button"
-                className="btnSoft"
-                onClick={() => saveSemestreToDB(sem)}
-                disabled={savingSemestre === sem}
-                title="Guardar todas las notas del semestre"
-              >
-                {savingSemestre === sem ? "Guardando..." : "Guardar semestre"}
-              </button>
             </div>
-            {saveStatus !== "idle" && (
-              <div className={`nfSaveStatus nfSaveStatus-${saveStatus}`}>
-                {saveStatus === "saving" && "Guardando…"}
-                {saveStatus === "saved" && "✓ Guardado correctamente"}
-                {saveStatus === "error" && "✗ Error al guardar"}
-              </div>
-            )}
 
             <Card>
               <div className="nfTable nfTable3">
@@ -714,6 +767,7 @@ export default function NotasFinalesPage() {
 
                 {list.map((r) => {
                   const idx = rows.findIndex((x) => x.id === r.id);
+
                   const estado = estadoFromNotas(
                     r.nota1,
                     r.nota2,
@@ -722,17 +776,21 @@ export default function NotasFinalesPage() {
                     r.nota5,
                     r.nota6
                   );
+
                   const isOptativa = normText(r.materia).startsWith("optativa");
+
                   return (
                     <Fragment key={r.id}>
                       <div className="nfTd">
                         {r.base ? (
                           <div className="nfMateriaWrap">
                             <span className="nfMateriaBase">{r.materia}</span>
+
                             {isOptativa && (
                               <input
                                 className="nfInput nfOpt"
                                 value={r.optativaNombre || ""}
+                                disabled={!isEditing}
                                 onChange={(e) => updateRow(r.id, { optativaNombre: e.target.value })}
                                 placeholder="Nombre de tu optativa"
                               />
@@ -743,18 +801,22 @@ export default function NotasFinalesPage() {
                             <input
                               className="nfInput"
                               value={r.materia}
+                              disabled={!isEditing}
                               onChange={(e) => updateRow(r.id, { materia: e.target.value })}
                               placeholder="Materia (opcional)"
                             />
-                            <button
-                              type="button"
-                              className="nfDel"
-                              onClick={() => setRows((prev) => prev.filter((x) => x.id !== r.id))}
-                              title="Eliminar fila"
-                              aria-label="Eliminar fila"
-                            >
-                              ✕
-                            </button>
+
+                            {isEditing && (
+                              <button
+                                type="button"
+                                className="nfDel"
+                                onClick={() => setRows((prev) => prev.filter((x) => x.id !== r.id))}
+                                title="Eliminar fila"
+                                aria-label="Eliminar fila"
+                              >
+                                ✕
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -764,6 +826,7 @@ export default function NotasFinalesPage() {
                           <input
                             className="nfInput nfNota"
                             value={r.nota1}
+                            disabled={!isEditing}
                             inputMode="numeric"
                             pattern="[0-9]*"
                             onChange={(e) =>
@@ -779,9 +842,11 @@ export default function NotasFinalesPage() {
                             data-nf-col="nota1"
                             placeholder="-"
                           />
+
                           <input
                             className="nfInput nfNota"
                             value={r.nota2}
+                            disabled={!isEditing}
                             inputMode="numeric"
                             pattern="[0-9]*"
                             onChange={(e) =>
@@ -797,9 +862,11 @@ export default function NotasFinalesPage() {
                             data-nf-col="nota2"
                             placeholder="-"
                           />
+
                           <input
                             className="nfInput nfNota"
                             value={r.nota3}
+                            disabled={!isEditing}
                             inputMode="numeric"
                             pattern="[0-9]*"
                             onChange={(e) =>
@@ -808,7 +875,9 @@ export default function NotasFinalesPage() {
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
+
                                 const v3 = clampNotaInput(e.currentTarget.value);
+
                                 setRows((prev) =>
                                   prev.map((x) => {
                                     if (x.id !== r.id) return x;
@@ -816,10 +885,12 @@ export default function NotasFinalesPage() {
                                     return reconcileExtras(base);
                                   })
                                 );
+
                                 const willExtra =
                                   Number(r?.nota1) === 1 &&
                                   Number(r?.nota2) === 1 &&
                                   Number(v3) === 1;
+
                                 if (willExtra) setTimeout(() => focusByData(idx, "nota4"), 0);
                                 else handleEnterMove(idx, "nota3");
                               }
@@ -835,10 +906,12 @@ export default function NotasFinalesPage() {
                             <input
                               className="nfInput nfNota"
                               value={r.nota4 ?? ""}
+                              disabled={!isEditing}
                               inputMode="numeric"
                               pattern="[0-9]*"
                               onChange={(e) => {
                                 const v = clampNotaInput(e.target.value);
+
                                 setRows((prev) =>
                                   prev.map((x) => {
                                     if (x.id !== r.id) return x;
@@ -857,13 +930,16 @@ export default function NotasFinalesPage() {
                               data-nf-col="nota4"
                               placeholder="-"
                             />
+
                             <input
                               className="nfInput nfNota"
                               value={r.nota5 ?? ""}
+                              disabled={!isEditing}
                               inputMode="numeric"
                               pattern="[0-9]*"
                               onChange={(e) => {
                                 const v = clampNotaInput(e.target.value);
+
                                 setRows((prev) =>
                                   prev.map((x) => {
                                     if (x.id !== r.id) return x;
@@ -882,13 +958,16 @@ export default function NotasFinalesPage() {
                               data-nf-col="nota5"
                               placeholder="-"
                             />
+
                             <input
                               className="nfInput nfNota"
                               value={r.nota6 ?? ""}
+                              disabled={!isEditing}
                               inputMode="numeric"
                               pattern="[0-9]*"
                               onChange={(e) => {
                                 const v = clampNotaInput(e.target.value);
+
                                 setRows((prev) =>
                                   prev.map((x) => {
                                     if (x.id !== r.id) return x;
@@ -926,24 +1005,71 @@ export default function NotasFinalesPage() {
                 })}
               </div>
 
-              <div className="nfAddRow">
-                <button type="button" className="btnSoft" onClick={() => addRow(sem)}>
-                  ➕ Agregar fila
-                </button>
-              </div>
+              {isEditing && (
+                <div className="nfAddRow">
+                  <button type="button" className="btnSoft" onClick={() => addRow(sem)}>
+                    ➕ Agregar fila
+                  </button>
+                </div>
+              )}
             </Card>
           </div>
         );
       })}
+
       <style jsx>{`
+        .nfStickyActions {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 14px;
+          margin-bottom: 14px;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.92);
+          backdrop-filter: blur(10px);
+          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        .nfStickyTitle {
+          font-weight: 950;
+          color: var(--text);
+        }
+
+        .nfStickySub {
+          display: block;
+          margin-top: 2px;
+          font-size: 12px;
+          font-weight: 800;
+          color: var(--muted);
+        }
+
+        .nfStickyButtons {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .btnSoft.primary {
+          background: var(--primary);
+          color: white;
+          border-color: var(--primary);
+        }
+
         .nfKpiCard {
           padding: 14px;
         }
+
         .nfKpis {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 12px;
         }
+
         .nfKpi {
           text-align: center;
           padding: 10px;
@@ -951,17 +1077,20 @@ export default function NotasFinalesPage() {
           border-radius: 14px;
           background: var(--card);
         }
+
         .nfKpiValue {
           font-size: 26px;
           font-weight: 900;
           color: var(--primary);
         }
+
         .nfKpiLabel {
           font-size: 12px;
           font-weight: 800;
           color: var(--muted);
           margin-top: 4px;
         }
+
         .nfProgress {
           margin-top: 10px;
           height: 10px;
@@ -969,6 +1098,7 @@ export default function NotasFinalesPage() {
           background: var(--border2);
           overflow: hidden;
         }
+
         .nfProgressBar {
           height: 100%;
           border-radius: 999px;
@@ -978,6 +1108,7 @@ export default function NotasFinalesPage() {
         .nfSemBlock {
           margin-top: 14px;
         }
+
         .nfSemHeaderRow {
           display: flex;
           align-items: center;
@@ -985,41 +1116,12 @@ export default function NotasFinalesPage() {
           gap: 12px;
           margin: 8px 0 8px;
         }
+
         .nfSemHeader {
           font-weight: 950;
           color: var(--primary);
           letter-spacing: 0.02em;
           flex: 1;
-        }
-        .nfSaveStatus {
-          padding: 8px 12px;
-          border-radius: 12px;
-          font-size: 13px;
-          font-weight: 700;
-          margin-bottom: 8px;
-          animation: slideIn 0.2s ease-out;
-        }
-        .nfSaveStatus-saving {
-          background: rgba(59, 130, 246, 0.1);
-          color: rgba(37, 99, 235, 1);
-        }
-        .nfSaveStatus-saved {
-          background: rgba(34, 197, 94, 0.15);
-          color: rgba(21, 128, 61, 1);
-        }
-        .nfSaveStatus-error {
-          background: rgba(239, 68, 68, 0.15);
-          color: rgba(185, 28, 28, 1);
-        }
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
         }
 
         .nfTable {
@@ -1029,6 +1131,7 @@ export default function NotasFinalesPage() {
           border-radius: 16px;
           overflow: hidden;
         }
+
         .nfTh {
           background: rgba(0, 176, 255, 0.95);
           color: white;
@@ -1037,41 +1140,50 @@ export default function NotasFinalesPage() {
           padding: 10px 10px;
           border-right: 1px solid rgba(255, 255, 255, 0.15);
         }
+
         .nfThNotas {
           text-align: center;
         }
+
         .nfTd {
           padding: 10px;
           border-top: 1px solid var(--border);
           border-right: 1px solid var(--border);
           background: var(--card);
         }
+
         .nfNotasCell {
           padding: 10px;
         }
+
         .nfNotasGrid {
           display: grid;
           grid-template-columns: repeat(3, minmax(44px, 1fr));
           gap: 8px;
         }
+
         .nfNotasGridExtra {
           margin-top: 8px;
         }
+
         .nfMateriaBase {
           font-weight: 800;
           color: var(--text);
         }
+
         .nfMateriaWrap {
           display: flex;
           gap: 10px;
           align-items: center;
           flex-wrap: wrap;
         }
+
         .nfExtraRowWrap {
           display: flex;
           gap: 10px;
           align-items: center;
         }
+
         .nfDel {
           border: 1px solid var(--border);
           background: var(--card);
@@ -1082,13 +1194,16 @@ export default function NotasFinalesPage() {
           line-height: 1;
           color: var(--text);
         }
+
         .nfDel:active {
           transform: translateY(1px);
         }
+
         .nfOpt {
           max-width: 320px;
           font-weight: 800;
         }
+
         .nfInput {
           width: 100%;
           border: 1px solid var(--border);
@@ -1097,9 +1212,18 @@ export default function NotasFinalesPage() {
           font-weight: 800;
           background: rgba(255, 255, 255, 0.92);
         }
+
+        .nfInput:disabled {
+          opacity: 1;
+          color: var(--text);
+          background: rgba(248, 250, 252, 0.75);
+          cursor: default;
+        }
+
         .nfNota {
           text-align: center;
         }
+
         .nfEstado {
           display: inline-flex;
           align-items: center;
@@ -1110,18 +1234,22 @@ export default function NotasFinalesPage() {
           font-weight: 950;
           font-size: 12px;
         }
+
         .nfEstado.ok {
           background: rgba(34, 197, 94, 0.18);
           color: rgba(21, 128, 61, 1);
         }
+
         .nfEstado.bad {
           background: rgba(239, 68, 68, 0.16);
           color: rgba(185, 28, 28, 1);
         }
+
         .nfEstado.pend {
           background: rgba(148, 163, 184, 0.2);
           color: rgba(51, 65, 85, 1);
         }
+
         .nfAddRow {
           padding: 12px;
           display: flex;
@@ -1129,50 +1257,66 @@ export default function NotasFinalesPage() {
         }
 
         @media (max-width: 520px) {
+          .nfStickyActions {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .nfStickyButtons {
+            justify-content: space-between;
+          }
+
           .nfKpiValue {
             font-size: 22px;
           }
+
           .nfTable {
             grid-template-columns: 1fr 1fr 110px;
           }
+
           .nfNotasGrid {
             grid-template-columns: repeat(3, minmax(36px, 1fr));
             gap: 6px;
           }
+
           .nfTh {
             font-size: 11px;
             padding: 9px 8px;
           }
+
           .nfTd {
             padding: 8px;
           }
+
           .nfInput {
             padding: 7px 8px;
           }
+
           .nfMateriaWrap {
             flex-direction: column;
             align-items: flex-start;
           }
+
           .nfExtraRowWrap {
             gap: 8px;
           }
+
           .nfDel {
             padding: 7px 9px;
           }
+
           .nfOpt {
             max-width: 100%;
           }
+
           .nfSemHeaderRow {
             flex-direction: column;
             align-items: stretch;
             gap: 8px;
           }
+
           .nfSemHeader {
             margin: 8px 0 0;
-          }
-          .nfSaveStatus {
-            margin-bottom: 8px;
-            text-align: center;
           }
         }
       `}</style>
