@@ -310,6 +310,10 @@ export default function NotasFinalesPage() {
   const [totalMalla, setTotalMalla] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [notesReady, setNotesReady] = useState(false);
+  const [savingSemestre, setSavingSemestre] = useState<number | null>(null);
+  const [saveStatusBySemestre, setSaveStatusBySemestre] = useState<Record<number, "idle" | "saving" | "saved" | "error">>(
+    {}
+  );
 
   // Load userId from auth
   useEffect(() => {
@@ -463,87 +467,94 @@ export default function NotasFinalesPage() {
     };
   }, [profile.carrera, profile.malla, userId]);
 
-  // Sync notes to DB whenever they change
-  useEffect(() => {
-    if (!profile.carrera || !userId || !notesReady || loading) return;
+  // Manual save function for a specific semestre
+  const saveSemestreToDB = async (semestre: number) => {
+    if (!userId || !profile.carrera) {
+      console.error("User ID or carrera not available");
+      return;
+    }
 
-    const sync = async () => {
-      try {
-        const supabase = getSupabase();
+    setSavingSemestre(semestre);
+    setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "saving" }));
 
-        // Fetch existing DB notes for the user
-        const { data: dbAll, error: fetchErr } = await supabase
+    try {
+      const supabase = getSupabase();
+      const semesterRows = rows.filter((r) => Number(r.semestre) === semestre && r.materia.trim());
+
+      for (const r of semesterRows) {
+        const materiaKey = normText(r.materia);
+
+        const payload: any = {
+          user_id: userId,
+          materia: r.materia,
+          nota1: r.nota1 === "" ? null : Number(r.nota1),
+          nota2: r.nota2 === "" ? null : Number(r.nota2),
+          nota3: r.nota3 === "" ? null : Number(r.nota3),
+          nota4: r.nota4 === "" || typeof r.nota4 === "undefined" ? null : Number(r.nota4),
+          nota5: r.nota5 === "" || typeof r.nota5 === "undefined" ? null : Number(r.nota5),
+          nota6: r.nota6 === "" || typeof r.nota6 === "undefined" ? null : Number(r.nota6),
+          optativa_nombre: r.optativaNombre || null,
+        };
+
+
+
+        // Check if record already exists
+        const { data: existing, error: selectErr } = await supabase
           .from("student_notes")
-          .select("id,materia")
-          .eq("user_id", userId);
+          .select("id")
+          .eq("user_id", userId)
+          .eq("materia", r.materia)
+          .maybeSingle();
 
-        if (fetchErr) console.error("Error fetching existing notes:", fetchErr);
-
-        const dbMap = new Map<string, string>();
-        if (Array.isArray(dbAll)) {
-          for (const d of dbAll) dbMap.set(normText(String(d.materia || "")), String(d.id));
+        if (selectErr) {
+          throw selectErr;
         }
 
-        const currentMaterias = new Set(rows.map((r) => normText(r.materia)));
+        if (existing && existing.id) {
+          // Update existing record
+          const { error: updateErr } = await supabase
+            .from("student_notes")
+            .update(payload)
+            .eq("id", existing.id);
 
-        // Delete removed notes
-        for (const [mat, id] of dbMap.entries()) {
-          if (!currentMaterias.has(mat)) {
-            await supabase.from("student_notes").delete().eq("id", id);
+          if (updateErr) {
+            throw updateErr;
+          }
+        } else {
+          // Insert new record
+          const { error: insertErr } = await supabase
+            .from("student_notes")
+            .insert(payload);
+
+          if (insertErr) {
+            throw insertErr;
           }
         }
-
-        // Upsert current rows
-        for (const r of rows) {
-          const materiaKey = normText(r.materia);
-          const payload: any = {
-            user_id: userId,
-            materia: r.materia, // Guardar el nombre real, no normalizado
-            nota1: r.nota1 === "" ? null : Number(r.nota1),
-            nota2: r.nota2 === "" ? null : Number(r.nota2),
-            nota3: r.nota3 === "" ? null : Number(r.nota3),
-          };
-
-          // Incluir notas extra si existen
-          if (typeof r.nota4 !== "undefined" && r.nota4 !== "") {
-            payload.nota4 = Number(r.nota4);
-          }
-          if (typeof r.nota5 !== "undefined" && r.nota5 !== "") {
-            payload.nota5 = Number(r.nota5);
-          }
-          if (typeof r.nota6 !== "undefined" && r.nota6 !== "") {
-            payload.nota6 = Number(r.nota6);
-          }
-
-          // Incluir nombre de optativa si existe
-          if (r.optativaNombre) {
-            payload.optativa_nombre = r.optativaNombre;
-          }
-
-          const existingId = dbMap.get(materiaKey);
-          if (existingId) {
-            const { error: updateErr } = await supabase
-              .from("student_notes")
-              .update(payload)
-              .eq("id", existingId);
-            if (updateErr) console.error(`Error updating nota for ${r.materia}:`, updateErr);
-          } else {
-            const { error: insertErr } = await supabase
-              .from("student_notes")
-              .insert(payload);
-            if (insertErr) console.error(`Error inserting nota for ${r.materia}:`, insertErr);
-          }
-        }
-
-        // Broadcast KPI update event to main page
-        window.dispatchEvent(new CustomEvent("notasUpdated", { detail: { userId } }));
-      } catch (err) {
-        console.error("Error syncing notes to DB:", err);
       }
-    };
 
-    sync();
-  }, [rows, profile.carrera, profile.malla, userId, notesReady, loading]);
+      // Set status to saved
+      setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "saved" }));
+
+      // Reset to idle after 2 seconds
+      const timeout = setTimeout(() => {
+        setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "idle" }));
+      }, 2000);
+
+      return () => clearTimeout(timeout);
+    } catch (err) {
+      console.error("Error saving semestre to DB:", err);
+      setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "error" }));
+      alert("No se pudo guardar el semestre. Revisá la consola o Supabase.");
+      // Reset to idle after 2 seconds
+      const timeout = setTimeout(() => {
+        setSaveStatusBySemestre((prev) => ({ ...prev, [semestre]: "idle" }));
+      }, 2000);
+
+      return () => clearTimeout(timeout);
+    } finally {
+      setSavingSemestre(null);
+    }
+  };
 
   const semestres = useMemo(() => {
     const s = new Set<number>();
@@ -672,9 +683,28 @@ export default function NotasFinalesPage() {
 
       {semestres.map((sem) => {
         const list = rows.filter((r) => Number(r.semestre) === sem);
+        const saveStatus = saveStatusBySemestre[sem] || "idle";
         return (
           <div key={sem} className="nfSemBlock">
-            <div className="nfSemHeader">{sem}° SEMESTRE</div>
+            <div className="nfSemHeaderRow">
+              <div className="nfSemHeader">{sem}° SEMESTRE</div>
+              <button
+                type="button"
+                className="btnSoft"
+                onClick={() => saveSemestreToDB(sem)}
+                disabled={savingSemestre === sem}
+                title="Guardar todas las notas del semestre"
+              >
+                {savingSemestre === sem ? "Guardando..." : "Guardar semestre"}
+              </button>
+            </div>
+            {saveStatus !== "idle" && (
+              <div className={`nfSaveStatus nfSaveStatus-${saveStatus}`}>
+                {saveStatus === "saving" && "Guardando…"}
+                {saveStatus === "saved" && "✓ Guardado correctamente"}
+                {saveStatus === "error" && "✗ Error al guardar"}
+              </div>
+            )}
 
             <Card>
               <div className="nfTable nfTable3">
@@ -948,11 +978,48 @@ export default function NotasFinalesPage() {
         .nfSemBlock {
           margin-top: 14px;
         }
+        .nfSemHeaderRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin: 8px 0 8px;
+        }
         .nfSemHeader {
           font-weight: 950;
           color: var(--primary);
           letter-spacing: 0.02em;
-          margin: 8px 0 8px;
+          flex: 1;
+        }
+        .nfSaveStatus {
+          padding: 8px 12px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 700;
+          margin-bottom: 8px;
+          animation: slideIn 0.2s ease-out;
+        }
+        .nfSaveStatus-saving {
+          background: rgba(59, 130, 246, 0.1);
+          color: rgba(37, 99, 235, 1);
+        }
+        .nfSaveStatus-saved {
+          background: rgba(34, 197, 94, 0.15);
+          color: rgba(21, 128, 61, 1);
+        }
+        .nfSaveStatus-error {
+          background: rgba(239, 68, 68, 0.15);
+          color: rgba(185, 28, 28, 1);
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .nfTable {
@@ -1094,6 +1161,18 @@ export default function NotasFinalesPage() {
           }
           .nfOpt {
             max-width: 100%;
+          }
+          .nfSemHeaderRow {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+          }
+          .nfSemHeader {
+            margin: 8px 0 0;
+          }
+          .nfSaveStatus {
+            margin-bottom: 8px;
+            text-align: center;
           }
         }
       `}</style>
