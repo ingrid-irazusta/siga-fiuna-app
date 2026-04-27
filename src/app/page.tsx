@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/components/Card";
 import { getSupabase } from "@/lib/supabaseClient";
@@ -531,6 +531,12 @@ export default function Page() {
   // Elimina el estado del botón
   const [aulasCountdown, setAulasCountdown] = useState(30);
 
+  /* =======================================================
+     DEBOUNCE REFS
+  ======================================================== */
+  const refreshAulasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const computeNotasKpisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
 
   /* =======================================================
      EFECTO: AUTENTICACIÃ“N + CARGA PERFIL + EXÃMENES + NOTAS
@@ -697,7 +703,19 @@ export default function Page() {
       if (!cancelled) setNotasKpis(kpis);
     };
 
-    refreshKpis();
+    // Función debounceada para el listener de cambios en tiempo real
+    const debouncedRefreshKpis = () => {
+      if (computeNotasKpisTimeoutRef.current) {
+        clearTimeout(computeNotasKpisTimeoutRef.current);
+      }
+      computeNotasKpisTimeoutRef.current = setTimeout(() => {
+        if (!cancelled) {
+          refreshKpis();
+        }
+      }, 1000); // 1000ms debounce
+    };
+
+    refreshKpis(); // Carga inicial (sin debounce)
 
     // Subscribe to real-time changes in student_notes
     try {
@@ -713,18 +731,16 @@ export default function Page() {
             filter: `user_id=eq.${userId}`,
           },
           () => {
-            if (!cancelled) {
-              refreshKpis();
-            }
+            debouncedRefreshKpis(); // Con debounce para evitar múltiples llamadas
           }
         )
         .subscribe();
 
-      // Also listen for event from notas-finales page for immediate feedback
+      // Also listen for event from notas-finales page for immediate feedback (sin debounce para respuesta inmediata)
       const handleNotasUpdated = (event: Event) => {
         const customEvent = event as CustomEvent;
         if (customEvent.detail?.userId === userId && !cancelled) {
-          refreshKpis();
+          refreshKpis(); // Llamada directa (sin debounce) para feedback inmediato
         }
       };
 
@@ -734,11 +750,21 @@ export default function Page() {
         cancelled = true;
         subscription.unsubscribe();
         window.removeEventListener("notasUpdated", handleNotasUpdated);
+        // Limpiar timeout pendiente al desmontar
+        if (computeNotasKpisTimeoutRef.current) {
+          clearTimeout(computeNotasKpisTimeoutRef.current);
+          computeNotasKpisTimeoutRef.current = null;
+        }
       };
     } catch (error) {
       console.error("Error setting up notes subscription:", error);
       return () => {
         cancelled = true;
+        // Limpiar timeout pendiente
+        if (computeNotasKpisTimeoutRef.current) {
+          clearTimeout(computeNotasKpisTimeoutRef.current);
+          computeNotasKpisTimeoutRef.current = null;
+        }
       };
     }
   }, [userId, profile.carrera, profile.malla, profile.intensificacion]);
@@ -920,12 +946,25 @@ export default function Page() {
       setAulasLoading(false);
     }
   };
+
+  /* =======================================================
+     FUNCIÓN: REFRESCAR AULAS CON DEBOUNCE (para cambios en tiempo real)
+  ======================================================== */
+  const debouncedRefreshAulas = () => {
+    if (refreshAulasTimeoutRef.current) {
+      clearTimeout(refreshAulasTimeoutRef.current);
+    }
+    refreshAulasTimeoutRef.current = setTimeout(() => {
+      refreshAulas();
+    }, 1000); // 1000ms debounce
+  };
+
   /* =======================================================
      EFECTO: SUSCRIPCIÓN EN TIEMPO REAL DE AULAS
   ======================================================== */
   useEffect(() => {
     if (userId && classesForDay.length > 0 && testDateISO) {
-      refreshAulas(); // Carga inicial
+      refreshAulas(); // Carga inicial (sin debounce)
 
       // Suscripción a cambios en tiempo real
       const supabase = getSupabase();
@@ -939,13 +978,18 @@ export default function Page() {
             table: 'aulas_cache',
           },
           () => {
-            refreshAulas();
+            debouncedRefreshAulas(); // Con debounce para evitar múltiples llamadas
           }
         )
         .subscribe();
 
       return () => {
         subscription.unsubscribe();
+        // Limpiar timeout pendiente al desmontar
+        if (refreshAulasTimeoutRef.current) {
+          clearTimeout(refreshAulasTimeoutRef.current);
+          refreshAulasTimeoutRef.current = null;
+        }
       };
     }
   }, [userId, classesForDay.length, testDateISO]);
