@@ -73,33 +73,40 @@ async function loadAprobadasFromDB(userId: string): Promise<Set<string>> {
   }
 }
 
-async function saveAprobadasToDB(userId: string, materia: string, approved: boolean): Promise<void> {
+async function saveBatchAprobadasToDB(userId: string, aprobadas: Set<string>): Promise<void> {
   if (!userId) return;
   try {
     const supabase = getSupabase();
-    const materiaKey = normText(materia);
 
-    if (approved) {
-      // Insert
-      const { error } = await supabase
+    // Primero, eliminar todas las aprobadas del usuario
+    const { error: deleteError } = await supabase
+      .from("malla_approved_courses")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deleteError) {
+      console.error("Error deleting approved courses:", deleteError);
+      return;
+    }
+
+    // Si hay materias aprobadas, insertarlas todas en lote
+    if (aprobadas.size > 0) {
+      const toInsert = Array.from(aprobadas).map((materia) => ({
+        user_id: userId,
+        materia,
+      }));
+
+      const { error: insertError } = await supabase
         .from("malla_approved_courses")
-        .insert({ user_id: userId, materia: materiaKey });
-      if (error && !error.message.includes("duplicate")) {
-        console.error("Error saving materia:", error);
-      }
-    } else {
-      // Delete
-      const { error } = await supabase
-        .from("malla_approved_courses")
-        .delete()
-        .eq("user_id", userId)
-        .eq("materia", materiaKey);
-      if (error) {
-        console.error("Error deleting materia:", error);
+        .insert(toInsert);
+
+      if (insertError) {
+        console.error("Error inserting approved courses:", insertError);
+        return;
       }
     }
   } catch (error) {
-    console.error("Error in saveAprobadasToDB:", error);
+    console.error("Error in saveBatchAprobadasToDB:", error);
   }
 }
 
@@ -218,10 +225,16 @@ export default function MallaView() {
   const [detailsItem, setDetailsItem] = useState<MateriaItem | null>(null);
 
   const [aprobadas, setAprobadas] = useState<Set<string>>(new Set());
+  const initialLoadDoneRef = useRef(false);
+  const debounceSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!userId) return;
-    loadAprobadasFromDB(userId).then((set) => setAprobadas(set));
+    initialLoadDoneRef.current = false;
+    loadAprobadasFromDB(userId).then((set) => {
+      setAprobadas(set);
+      initialLoadDoneRef.current = true;
+    });
   }, [userId]);
 
   const showToast = (msg: string) => {
@@ -356,12 +369,33 @@ export default function MallaView() {
     return { total, ok };
   }, [items, aprobadas]);
 
+  // Debounce autosave: guarda cambios 1 segundo después del último cambio
+  useEffect(() => {
+    if (!userId || !initialLoadDoneRef.current) return;
+
+    // Limpiar timeout anterior
+    if (debounceSaveTimeoutRef.current) {
+      clearTimeout(debounceSaveTimeoutRef.current);
+    }
+
+    // Programar nuevo guardado
+    debounceSaveTimeoutRef.current = setTimeout(() => {
+      saveBatchAprobadasToDB(userId, aprobadas);
+    }, 1000);
+
+    // Cleanup al desmontar o cambiar dependencias
+    return () => {
+      if (debounceSaveTimeoutRef.current) {
+        clearTimeout(debounceSaveTimeoutRef.current);
+      }
+    };
+  }, [aprobadas, userId]);
+
   const tryToggle = (it: MateriaItem) => {
     if (aprobadas.has(it.key)) {
       const next = new Set(aprobadas);
       next.delete(it.key);
       setAprobadas(next);
-      saveAprobadasToDB(userId, it.materia, false);
       return;
     }
 
@@ -369,7 +403,6 @@ export default function MallaView() {
       const next = new Set(aprobadas);
       next.add(it.key);
       setAprobadas(next);
-      saveAprobadasToDB(userId, it.materia, true);
       return;
     }
 
@@ -383,7 +416,6 @@ export default function MallaView() {
       const next = new Set(aprobadas);
       next.add(it.key);
       setAprobadas(next);
-      saveAprobadasToDB(userId, it.materia, true);
       return;
     }
 
