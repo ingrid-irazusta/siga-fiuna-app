@@ -225,15 +225,13 @@ export default function MallaView() {
   const [detailsItem, setDetailsItem] = useState<MateriaItem | null>(null);
 
   const [aprobadas, setAprobadas] = useState<Set<string>>(new Set());
-  const initialLoadDoneRef = useRef(false);
-  const debounceSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingAprobadas, setEditingAprobadas] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!userId) return;
-    initialLoadDoneRef.current = false;
     loadAprobadasFromDB(userId).then((set) => {
       setAprobadas(set);
-      initialLoadDoneRef.current = true;
     });
   }, [userId]);
 
@@ -341,14 +339,16 @@ export default function MallaView() {
     [items]
   );
 
+  const activeAprobadas = isEditing ? editingAprobadas : aprobadas;
+
   const estados = useMemo(() => {
     return calcEstados({
       items,
-      aprobadasSet: aprobadas,
+      aprobadasSet: activeAprobadas,
       strictMode: mode === "estricto",
       blockPlaceholders,
     });
-  }, [items, aprobadas, mode, blockPlaceholders]);
+  }, [items, activeAprobadas, mode, blockPlaceholders]);
 
   const radarKeys = useMemo(() => {
     const s = new Set<string>();
@@ -365,57 +365,39 @@ export default function MallaView() {
     const shown = items.filter((x) => (Number(x.semestre) || 0) > 0);
     const total = shown.length;
     let ok = 0;
-    for (const it of shown) if (aprobadas.has(it.key)) ok++;
+    for (const it of shown) if (activeAprobadas.has(it.key)) ok++;
     return { total, ok };
-  }, [items, aprobadas]);
+  }, [items, activeAprobadas]);
 
-  // Debounce autosave: guarda cambios 1 segundo después del último cambio
-  useEffect(() => {
-    if (!userId || !initialLoadDoneRef.current) return;
 
-    // Limpiar timeout anterior
-    if (debounceSaveTimeoutRef.current) {
-      clearTimeout(debounceSaveTimeoutRef.current);
-    }
-
-    // Programar nuevo guardado
-    debounceSaveTimeoutRef.current = setTimeout(() => {
-      saveBatchAprobadasToDB(userId, aprobadas);
-    }, 1000);
-
-    // Cleanup al desmontar o cambiar dependencias
-    return () => {
-      if (debounceSaveTimeoutRef.current) {
-        clearTimeout(debounceSaveTimeoutRef.current);
-      }
-    };
-  }, [aprobadas, userId]);
 
   const tryToggle = (it: MateriaItem) => {
-    if (aprobadas.has(it.key)) {
-      const next = new Set(aprobadas);
+    if (!isEditing) return;
+
+    if (editingAprobadas.has(it.key)) {
+      const next = new Set(editingAprobadas);
       next.delete(it.key);
-      setAprobadas(next);
+      setEditingAprobadas(next);
       return;
     }
 
     if (mode === "flexible") {
-      const next = new Set(aprobadas);
+      const next = new Set(editingAprobadas);
       next.add(it.key);
-      setAprobadas(next);
+      setEditingAprobadas(next);
       return;
     }
 
     const missing: string[] = [];
     for (const rk of it.requisitosKeys) {
       if (!blockPlaceholders && isPlaceholderReq(rk)) continue;
-      if (!aprobadas.has(rk)) missing.push(rk);
+      if (!editingAprobadas.has(rk)) missing.push(rk);
     }
 
     if (missing.length === 0) {
-      const next = new Set(aprobadas);
+      const next = new Set(editingAprobadas);
       next.add(it.key);
-      setAprobadas(next);
+      setEditingAprobadas(next);
       return;
     }
 
@@ -423,6 +405,28 @@ export default function MallaView() {
     const flash = new Set(missing);
     setFlashKeys(flash);
     setTimeout(() => setFlashKeys(new Set()), 2600);
+  };
+
+  const handleStartEditing = () => {
+    setEditingAprobadas(new Set(aprobadas));
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingAprobadas(new Set());
+    setIsEditing(false);
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      await saveBatchAprobadasToDB(userId, editingAprobadas);
+      setAprobadas(new Set(editingAprobadas));
+      setIsEditing(false);
+      setEditingAprobadas(new Set());
+      showToast("✓ Cambios guardados");
+    } catch (error) {
+      console.error("Error al guardar:", error);
+    }
   };
 
   const openDetails = (it: MateriaItem) => {
@@ -447,7 +451,29 @@ export default function MallaView() {
           >
             Modo: {mode === "estricto" ? "Estricto" : "Flexible"}
           </button>
-
+          {!isEditing ? (
+            <button
+              className="btn btnPrimary"
+              onClick={handleStartEditing}
+            >
+              ✏️ Editar malla
+            </button>
+          ) : (
+            <>
+              <button
+                className="btn btnSuccess"
+                onClick={handleSaveChanges}
+              >
+                💾 Guardar cambios
+              </button>
+              <button
+                className="btn btnSecondary"
+                onClick={handleCancelEdit}
+              >
+                Cancelar
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -480,7 +506,7 @@ export default function MallaView() {
               semestre={s}
               items={semMap.get(s) || []}
               estados={estados}
-              aprobadasSet={aprobadas}
+              aprobadasSet={activeAprobadas}
               onToggle={tryToggle}
               onOpen={openDetails}
               radarKeys={radarKeys}
