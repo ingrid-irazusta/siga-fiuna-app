@@ -1139,7 +1139,7 @@ button, input, select { font: inherit; }
   flex-wrap: wrap;
   gap: 8px;
   align-items:center;
-  color: rgba(15,23,42,0.75);
+  color: var(--muted);
   font-weight: 800;
   font-size: 12px;
 }
@@ -1179,7 +1179,7 @@ button, input, select { font: inherit; }
   .tableMini .semestre{ width: 70px !important; }
   .tableMini .firma{ width: 100px !important; }
 }
-.tableMini th{ text-align:left; color: rgba(15,23,42,0.65); font-weight: 950; }
+.tableMini th{ text-align:left; color: var(--muted); font-weight: 950; }
 .tableMini td{ font-weight: 850; }
 .tableMini .semestre{ width: 90px; }
 .tableMini .firma{ width: 120px; }
@@ -1210,7 +1210,7 @@ button, input, select { font: inherit; }
   align-items:center;
   justify-content:center;
   font-weight: 900;
-  color: rgba(15,23,42,0.55);
+  color: var(--muted);
 }
 
 .linksBox{
