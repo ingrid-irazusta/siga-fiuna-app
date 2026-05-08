@@ -383,6 +383,23 @@ async function loadScheduleForDay(userId: string, dayId: number): Promise<ClassR
 
 
 /* =========================================================
+   FUNCIONES HELPER PARA TRACKING
+========================================================= */
+async function trackUserActivity(userId: string): Promise<void> {
+  try {
+    const supabase = getSupabase();
+    await supabase
+      .from("user_activity")
+      .upsert({
+        user_id: userId,
+        last_seen: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+  } catch (error) {
+    console.error("Error tracking user activity:", error);
+  }
+}
+
+/* =========================================================
    PAGE PRINCIPAL
 ========================================================= */
 export default function Page() {
@@ -556,6 +573,9 @@ export default function Page() {
         setSession(data.session);
 
         const uid = data.session.user.id;
+
+        // Track user activity (silencioso, no bloquea UI)
+        trackUserActivity(uid).catch(console.error);
 
         /* --- cargar perfil desde Supabase --- */
         const { data: profileData } = await supabase
