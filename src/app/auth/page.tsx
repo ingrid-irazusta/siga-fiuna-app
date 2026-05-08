@@ -17,6 +17,7 @@ export default function AuthPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const handleSignUp = async () => {
     setMessage('');
@@ -92,6 +93,30 @@ export default function AuthPage() {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async () => {
+    setMessage('');
+
+    if (!email) {
+      setMessage('Por favor ingresa tu correo electrónico');
+      return;
+    }
+
+    setIsLoading(true);
+
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/reset-password"
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      setMessage('Error al enviar el enlace: ' + error.message);
+    } else {
+      setMessage('Revisa tu correo para cambiar tu contraseña.');
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.background}>
@@ -109,7 +134,7 @@ export default function AuthPage() {
                 <path d="M12 20L18 26L28 14" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h1 className={styles.title}>{isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}</h1>
+            <h1 className={styles.title}>{isForgotPassword ? 'Recuperar Contraseña' : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}</h1>
           </div>
 
           {message && (
@@ -131,39 +156,41 @@ export default function AuthPage() {
               />
             </div>
 
-            <div className={styles.inputGroup}>
-              <label htmlFor="password">Contraseña</label>
-              <div className={styles.passwordInputWrapper}>
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  className={styles.togglePassword}
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                >
-                  {showPassword ? (
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 5C7 5 2.73 8.11 1 12.5 2.73 16.89 7 20 12 20s9.27-3.11 11-7.5C21.27 8.11 17 5 12 5z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 1l22 22M9.88 9.88a3 3 0 1 0 4.24 4.24M2 12s3.18-7 10-7 10 7 10 7M22 12s-3.18 7-10 7-10-7-10-7" />
-                    </svg>
-                  )}
-                </button>
+            {!isForgotPassword && (
+              <div className={styles.inputGroup}>
+                <label htmlFor="password">Contraseña</label>
+                <div className={styles.passwordInputWrapper}>
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    className={styles.togglePassword}
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? (
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 5C7 5 2.73 8.11 1 12.5 2.73 16.89 7 20 12 20s9.27-3.11 11-7.5C21.27 8.11 17 5 12 5z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 1l22 22M9.88 9.88a3 3 0 1 0 4.24 4.24M2 12s3.18-7 10-7 10 7 10 7M22 12s-3.18 7-10 7-10-7-10-7" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {isRegister && (
+            {isRegister && !isForgotPassword && (
               <div className={styles.inputGroup}>
                 <label htmlFor="confirmPassword">Confirmar Contraseña</label>
                 <div className={styles.passwordInputWrapper}>
@@ -201,19 +228,24 @@ export default function AuthPage() {
               <button
                 type="button"
                 className={styles.submitButton}
-                onClick={isRegister ? handleSignUp : handleSignIn}
-                disabled={isLoading}
+                onClick={isForgotPassword ? handleForgotPassword : (isRegister ? handleSignUp : handleSignIn)}
+                disabled={isLoading || (isForgotPassword && !email)}
               >
-                {isLoading ? 'Cargando...' : (isRegister ? 'Registrarse' : 'Iniciar Sesión')}
+                {isLoading ? 'Cargando...' : (isForgotPassword ? 'Enviar enlace' : (isRegister ? 'Registrarse' : 'Iniciar Sesión'))}
               </button>
             </div>
           </form>
 
           <div className={styles.switchMode}>
-            {isRegister ? (
+            {isForgotPassword ? (
+              <p><a href="#" onClick={(e) => { e.preventDefault(); setIsForgotPassword(false); setMessage(''); }}>Volver a iniciar sesión</a></p>
+            ) : isRegister ? (
               <p>¿Ya tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(false); setMessage(''); setConfirmPassword(''); }}>Inicia sesión</a></p>
             ) : (
-              <p>¿No tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(true); setMessage(''); setConfirmPassword(''); }}>Crea una cuenta</a></p>
+              <>
+                <p>¿No tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(true); setMessage(''); setConfirmPassword(''); }}>Crea una cuenta</a></p>
+                <p>¿Olvidaste tu contraseña? <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotPassword(true); setMessage(''); }}>Recupérala aquí</a></p>
+              </>
             )}
           </div>
         </div>
