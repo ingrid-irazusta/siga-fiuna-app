@@ -79,6 +79,54 @@ export function calcEstados({
   blockPlaceholders = false,
 }: CalcEstadosParams): Map<string, EstadoMateria> {
   const estados = new Map<string, EstadoMateria>();
+  const itemByKey = new Map<string, MallaItem>();
+  const fulfillmentCache = new Map<string, boolean>();
+
+  for (const it of items) {
+    itemByKey.set(it.key, it);
+  }
+
+  const isRequisitoCumplido = (
+    requisitoKey: string,
+    path: Set<string>
+  ): boolean => {
+    if (aprobadasSet.has(requisitoKey)) {
+      return true;
+    }
+
+    if (!blockPlaceholders && isPlaceholderReq(requisitoKey)) {
+      return true;
+    }
+
+    if (fulfillmentCache.has(requisitoKey)) {
+      return fulfillmentCache.get(requisitoKey)!;
+    }
+
+    if (path.has(requisitoKey)) {
+      fulfillmentCache.set(requisitoKey, false);
+      return false;
+    }
+
+    const requisitoItem = itemByKey.get(requisitoKey);
+    if (!requisitoItem) {
+      fulfillmentCache.set(requisitoKey, false);
+      return false;
+    }
+
+    path.add(requisitoKey);
+    for (const nestedKey of requisitoItem.requisitosKeys) {
+      if (!blockPlaceholders && isPlaceholderReq(nestedKey)) continue;
+      if (!isRequisitoCumplido(nestedKey, path)) {
+        path.delete(requisitoKey);
+        fulfillmentCache.set(requisitoKey, false);
+        return false;
+      }
+    }
+    path.delete(requisitoKey);
+
+    fulfillmentCache.set(requisitoKey, true);
+    return true;
+  };
 
   for (const it of items) {
     const isAprobada = aprobadasSet.has(it.key);
@@ -92,7 +140,7 @@ export function calcEstados({
 
     for (const requisitoKey of it.requisitosKeys) {
       if (!blockPlaceholders && isPlaceholderReq(requisitoKey)) continue;
-      if (!aprobadasSet.has(requisitoKey)) {
+      if (!isRequisitoCumplido(requisitoKey, new Set())) {
         missing.push(requisitoKey);
       }
     }
