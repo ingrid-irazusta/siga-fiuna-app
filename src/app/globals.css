@@ -1462,6 +1462,40 @@ button, input, select { font: inherit; }
 .mallaToolbarLeft{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .mallaToolbarRight{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
+.mallaEditBanner{
+  position: sticky;
+  top: 76px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  box-shadow: var(--shadow2);
+  backdrop-filter: blur(10px);
+}
+
+.mallaMateria.readOnly .mallaMateriaTop{
+  grid-template-columns: 1fr;
+}
+
+.mallaMateria.readOnly input{
+  display: none;
+}
+
+.mallaMateria.readOnly .mallaMateriaName{
+  text-align: center;
+}
+
 .mallaToast{border:1px solid var(--warn);background:rgba(255,215,0,0.16);border-radius:16px;padding:10px 12px;font-weight:900;color:var(--warn)}
 .mallaError{border:1px solid rgba(248,113,113,0.35);background:rgba(248,113,113,0.08);border-radius:16px;padding:12px 14px;color:var(--danger)}
 

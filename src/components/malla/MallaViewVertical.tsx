@@ -478,6 +478,12 @@ export default function MallaViewVertical() {
         </div>
       </div>
 
+      {isEditing ? (
+        <div className="mallaEditBanner">
+          Modo edición activo · recuerda guardar cambios
+        </div>
+      ) : null}
+
       {toast ? (
         <div className="mallaToast" role="status" aria-live="polite">
           {toast}
@@ -519,6 +525,7 @@ export default function MallaViewVertical() {
                     item={it}
                     estado={estados.get(it.key)}
                     checked={activeAprobadas.has(it.key)}
+                    isEditing={isEditing}
                     onToggle={tryToggle}
                     onOpen={openDetails}
                     radarActive={radarKeys.has(it.key)}

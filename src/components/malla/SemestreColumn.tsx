@@ -14,6 +14,7 @@ interface SemestreColumnProps {
   items: MateriaItem[];
   estados: Map<string, any>;
   aprobadasSet: Set<string>;
+  isEditing: boolean;
   onToggle: (item: MateriaItem) => void;
   onOpen: (item: MateriaItem) => void;
   radarKeys: Set<string>;
@@ -25,6 +26,7 @@ export default function SemestreColumn({
   items,
   estados,
   aprobadasSet,
+  isEditing,
   onToggle,
   onOpen,
   radarKeys,
@@ -43,6 +45,7 @@ export default function SemestreColumn({
             item={it}
             estado={estados.get(it.key)}
             checked={aprobadasSet.has(it.key)}
+            isEditing={isEditing}
             onToggle={onToggle}
             onOpen={onOpen}
             radarActive={radarKeys.has(it.key)}

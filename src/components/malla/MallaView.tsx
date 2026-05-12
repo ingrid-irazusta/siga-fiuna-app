@@ -477,6 +477,12 @@ export default function MallaView() {
         </div>
       </div>
 
+      {isEditing ? (
+        <div className="mallaEditBanner">
+          Modo edición activo · recuerda guardar cambios
+        </div>
+      ) : null}
+
       {toast ? (
         <div className="mallaToast" role="status" aria-live="polite">
           {toast}
@@ -507,6 +513,7 @@ export default function MallaView() {
               items={semMap.get(s) || []}
               estados={estados}
               aprobadasSet={activeAprobadas}
+              isEditing={isEditing}
               onToggle={tryToggle}
               onOpen={openDetails}
               radarKeys={radarKeys}

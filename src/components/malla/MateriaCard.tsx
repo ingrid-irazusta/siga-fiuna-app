@@ -23,6 +23,7 @@ interface MateriaCardProps {
   item: Materia;
   estado?: Estado;
   checked: boolean;
+  isEditing: boolean;
   onToggle: (item: Materia) => void;
   onOpen: (item: Materia) => void;
   radarActive?: boolean;
@@ -34,6 +35,7 @@ export default function MateriaCard({
   item,
   estado,
   checked,
+  isEditing,
   onToggle,
   onOpen,
   radarActive,
@@ -50,7 +52,7 @@ export default function MateriaCard({
   return (
     <button
       type="button"
-      className="mallaMateria"
+      className={`mallaMateria ${isEditing ? "" : "readOnly"}`}
       style={style}
       onClick={(e: MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
@@ -59,16 +61,18 @@ export default function MateriaCard({
       aria-label={`${ariaPrefix}${item.materia}`}
     >
       <div className="mallaMateriaTop">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            e.stopPropagation();
-            onToggle(item);
-          }}
-          aria-label={`${ariaPrefix}Marcar ${item.materia}`}
-          onClick={(e: MouseEvent<HTMLInputElement>) => e.stopPropagation()}
-        />
+        {isEditing ? (
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              e.stopPropagation();
+              onToggle(item);
+            }}
+            aria-label={`${ariaPrefix}Marcar ${item.materia}`}
+            onClick={(e: MouseEvent<HTMLInputElement>) => e.stopPropagation()}
+          />
+        ) : null}
         <div className="mallaMateriaName">{item.materia}</div>
       </div>
     </button>
