@@ -218,7 +218,9 @@
   background: var(--bg-sidebar);
   backdrop-filter: blur(8px);
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   -webkit-overflow-scrolling: touch;
   transform: translateX(-110%);
   transition: transform .18s ease;
@@ -231,6 +233,31 @@
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.appNav{
+  display:grid;
+  gap: 8px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 20px;
+}
+
+.sidebarFooter{
+  margin-top: auto;
+  padding-top: 14px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-soft);
+  opacity: 0.72;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.sidebarFooter span{
+  display: block;
 }
 
 .appCloseBtn{

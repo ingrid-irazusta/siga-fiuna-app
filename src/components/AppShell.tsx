@@ -146,6 +146,11 @@ export default function AppShell({ children }: AppShellProps) {
             );
           })}
         </nav>
+
+        <div className="sidebarFooter">
+          <span>Built by Ingrid Irazusta</span>
+          <span>v1.0 · © 2026</span>
+        </div>
       </aside>
     </>
   );
