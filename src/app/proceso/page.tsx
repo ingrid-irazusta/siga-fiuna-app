@@ -962,6 +962,7 @@ export default function ProcesoPage() {
                       setSimUseRecuForFinalByItem((prev) => ({ ...prev, [it.id]: value }))
                     }
                     semestre={it.semestre}
+                    mode="process"
                   />
                 </BigModal>
 

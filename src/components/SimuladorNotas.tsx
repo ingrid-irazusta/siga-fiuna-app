@@ -48,6 +48,7 @@ interface SimuladorNotasProps {
   useRecuForFinal?: boolean;
   onUseRecuForFinalChange?: (value: boolean) => void;
   semestre?: number;
+  mode?: "process" | "standalone";
 }
 
 function normText(s: string | null | undefined): string {
@@ -221,11 +222,13 @@ export default function SimuladorNotas({
   useRecuForFinal: controlledUseRecuForFinal,
   onUseRecuForFinalChange,
   semestre = 1,
+  mode = "standalone",
 }: SimuladorNotasProps) {
   const [internalRows, setInternalRows] = useState<Row[]>(() => cloneRowsDeep(initialRows ?? createEmptyRows()));
   const [internalRecuPct, setInternalRecuPct] = useState(60);
   const [internalFinalPct, setInternalFinalPct] = useState(60);
   const [internalUseRecuForFinal, setInternalUseRecuForFinal] = useState(false);
+  const [internalSemestre, setInternalSemestre] = useState<number>(semestre ?? 1);
 
   const rows = controlledRows ?? internalRows;
   const setRows = onRowsChange ?? setInternalRows;
@@ -250,11 +253,12 @@ export default function SimuladorNotas({
   const simRecuperatorio = simValido && (simTotal >= 30 || sp1pct >= 40 || sp2pct >= 40);
   const simHab = simValido && simTotal >= 50;
 
-  const simEx = simValido ? calcExoneracion(semestre, simTotal) : { ok: false, nota: null };
+  const activeSemestre = mode === "standalone" ? internalSemestre : semestre;
+  const simEx = simValido ? calcExoneracion(activeSemestre, simTotal) : { ok: false, nota: null };
   const simRecuPctValue = clampNum(recuPct ?? 60, 0, 100);
   const simTarget = recuTarget(rows);
   const simTotalConRecu = calcTotalConRecu(rows, simRecuPctValue);
-  const simExConRecu = simValido ? calcExoneracion(semestre, simTotalConRecu) : { ok: false, nota: null };
+  const simExConRecu = simValido ? calcExoneracion(activeSemestre, simTotalConRecu) : { ok: false, nota: null };
 
   const baseFinalProceso = useRecuForFinal && simRecuperatorio ? simTotalConRecu : simTotal;
   const simHabFinal = simValido && baseFinalProceso >= 50;
@@ -285,6 +289,23 @@ export default function SimuladorNotas({
         gap: 12,
       }}
     >
+      {mode === "standalone" && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-start" }}>
+          <div className="pill">
+            Semestre: <select
+              className="kbd"
+              value={String(internalSemestre)}
+              onChange={(e) => setInternalSemestre(Number(e.target.value))}
+              style={{ marginLeft: 8, padding: "4px 8px", borderRadius: 8 }}
+            >
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           background: "var(--card)",
