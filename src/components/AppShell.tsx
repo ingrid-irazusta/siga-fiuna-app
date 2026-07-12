@@ -31,6 +31,7 @@ const navItems: { href: string; label: string }[] = [
   { href: "/calendario-academico", label: "Calendario Académico" },
   { href: "/horario", label: "Horario de Clases" },
   { href: "/proceso", label: "Proceso de Evaluación" },
+  { href: "/simulador", label: "Simulador de Notas" },
   { href: "/evaluaciones", label: "Horario de Exámenes" },
   { href: "/malla", label: "Malla Curricular" },
   { href: "/notas-finales", label: "Notas Finales" },
