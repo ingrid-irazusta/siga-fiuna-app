@@ -1,23 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
-interface ChildRow {
-  rid: string;
-  label: string;
-  peso: number;
-  pct: number;
-}
-
-interface Row {
-  rid: string;
-  label: string;
-  peso: number;
-  min: number;
-  pct: number;
-  isGroup?: boolean;
-  children?: ChildRow[];
-}
+import ProcesoTable from "./ProcesoTable";
+import {
+  Row,
+  ChildRow,
+  normText,
+  clampNum,
+  cloneRowsDeep,
+  calcProcessTotal,
+  calcPesoTotal,
+  calcCumpleMinimos,
+  groupTotals,
+  calcTotalConRecu,
+  recuTarget,
+  calcExoneracion,
+  calcParcialPts,
+  calcNotaFinalFIUNA,
+  createEmptyRows,
+} from "@/lib/procesoUtils";
 
 interface ExoneracionResult {
   ok: boolean;
@@ -51,163 +52,16 @@ interface SimuladorNotasProps {
   mode?: "process" | "standalone";
 }
 
-function normText(s: string | null | undefined): string {
-  return String(s || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-function clampNum(v: string | number, min: number, max: number): number {
-  const n = Number(v);
-  if (Number.isNaN(n)) return 0;
-  return Math.max(min, Math.min(max, n));
-}
-
-function cloneRowsDeep(rows: Row[] | null | undefined): Row[] {
-  return Array.isArray(rows) ? rows.map((r) => ({ ...r, children: Array.isArray(r.children) ? r.children.map((c) => ({ ...c })) : undefined })) : [];
-}
-
-function calcRowTotal(peso: number, pct: number): number {
-  const w = clampNum(peso, 0, 999);
-  const p = clampNum(pct, 0, 100);
-  return (w * p) / 100;
-}
-
 function rowTotalRaw(r: Row | ChildRow): number {
-  const peso = clampNum(r?.peso, 0, 999);
-  const pct = clampNum(r?.pct, 0, 100);
-  return calcRowTotal(peso, pct);
+  const peso = clampNum((r as any)?.peso, 0, 999);
+  const pct = clampNum((r as any)?.pct, 0, 100);
+  return (peso * pct) / 100;
 }
 
 function rowTotalOf(r: Row | ChildRow): number {
-  const peso = clampNum(r?.peso, 0, 999);
-  const pct = clampNum(r?.pct, 0, 100);
-  return calcRowTotal(peso, pct);
-}
-
-function groupTotals(groupRow: Row): GroupTotals {
-  const kids = Array.isArray(groupRow?.children) ? groupRow.children : [];
-  const hasKids = kids.length > 0;
-
-  const pesoGrupo = hasKids
-    ? kids.reduce((acc, k) => acc + clampNum(k?.peso, 0, 999), 0)
-    : clampNum(groupRow?.peso, 0, 999);
-
-  const sumKids = kids.reduce((acc, k) => acc + rowTotalOf(k), 0);
-  const totalGrupo = Math.min(sumKids, pesoGrupo);
-
-  const pctGrupo = pesoGrupo > 0 ? Math.round((totalGrupo / pesoGrupo) * 100) : 0;
-
-  return { pesoGrupo, totalGrupo, pctGrupo };
-}
-
-function calcCumpleMinimos(rows: Row[]): boolean {
-  const arr = Array.isArray(rows) ? rows : [];
-
-  for (const r of arr) {
-    const minPct = clampNum(r?.min, 0, 100);
-    if (!minPct) continue;
-
-    const hasKids = Array.isArray(r?.children) && r.children.length > 0;
-    const peso = hasKids ? groupTotals(r).pesoGrupo : clampNum(r?.peso, 0, 999);
-    const minPts = Math.round((peso * minPct) / 100);
-    const totalPts = hasKids ? groupTotals(r).totalGrupo : rowTotalOf(r);
-
-    if (totalPts < minPts) return false;
-  }
-
-  return true;
-}
-
-function calcProcessTotal(rows: Row[]): number {
-  const arr = Array.isArray(rows) ? rows : [];
-
-  const sum = arr.reduce((acc, r) => {
-    const hasKids = Array.isArray(r?.children) && r.children.length > 0;
-
-    if (hasKids) {
-      const kids = Array.isArray(r.children) ? r.children : [];
-      return acc + kids.reduce((a, k) => a + rowTotalRaw(k), 0);
-    }
-
-    return acc + rowTotalRaw(r);
-  }, 0);
-
-  return Math.round(sum);
-}
-
-function calcPesoTotal(rows: Row[]): number {
-  const arr = Array.isArray(rows) ? rows : [];
-  return arr.reduce((acc, r) => {
-    const hasKids = Array.isArray(r?.children) && r.children.length > 0;
-    if (hasKids) return acc + groupTotals(r).pesoGrupo;
-    return acc + clampNum(r?.peso, 0, 999);
-  }, 0);
-}
-
-function calcExoneracion(semestre: number, P: number): ExoneracionResult {
-  const S = Number(semestre) || 0;
-  const p = Number(P) || 0;
-
-  if (S > 0 && S <= 4) {
-    if (p >= 91) return { ok: true, nota: 5 };
-    if (p >= 81) return { ok: true, nota: 4 };
-    if (p >= 71) return { ok: true, nota: 3 };
-    if (p >= 61) return { ok: true, nota: 2 };
-    if (p >= 51) return { ok: true, nota: 1 };
-    return { ok: false, nota: null };
-  }
-
-  if (S >= 5) {
-    if (p >= 91) return { ok: true, nota: 5 };
-    if (p >= 81) return { ok: true, nota: 4 };
-    if (p >= 71) return { ok: true, nota: 3 };
-    if (p >= 61) return { ok: true, nota: 2 };
-    if (p >= 51) return { ok: true, nota: 1 };
-    return { ok: false, nota: null };
-  }
-
-  return { ok: false, nota: null };
-}
-
-function calcTotalConRecu(rows: Row[], recuPct: number): number {
-  const baseTotal = calcProcessTotal(rows);
-  const t = recuTarget(rows);
-  const parcial = rows.find((x) => x.rid === t.rid);
-  const pesoParcial = clampNum(parcial?.peso ?? 0, 0, 999);
-  const recuPts = Math.round((pesoParcial * clampNum(recuPct, 0, 100)) / 100);
-  return Math.round(baseTotal - t.pts + recuPts);
-}
-
-function recuTarget(rows: Row[]): RecuTarget {
-  const p1Pts = calcParcialPts(rows, "p1");
-  const p2Pts = calcParcialPts(rows, "p2");
-  if (p1Pts <= p2Pts) return { rid: "p1", label: "Parcial 1", pts: p1Pts };
-  return { rid: "p2", label: "Parcial 2", pts: p2Pts };
-}
-
-function calcParcialPts(rows: Row[], rid: string): number {
-  const r = rows.find((x) => x.rid === rid);
-  if (!r) return 0;
-  return rowTotalOf(r);
-}
-
-function calcNotaFinalFIUNA(baseFinalProceso: number, finalPct: number): number {
-  const base = clampNum(baseFinalProceso, 0, 100);
-  const pct = clampNum(finalPct, 0, 100);
-  if (pct < 40) return 1;
-  return Number(((base * 0.6) + (pct * 0.4)).toFixed(1));
-}
-
-function createEmptyRows(): Row[] {
-  return [
-    { rid: "p1", label: "Parcial 1", peso: 0, min: 0, pct: 0 },
-    { rid: "p2", label: "Parcial 2", peso: 0, min: 0, pct: 0 },
-    { rid: "final", label: "Final", peso: 0, min: 0, pct: 0 },
-  ];
+  const peso = clampNum((r as any)?.peso, 0, 999);
+  const pct = clampNum((r as any)?.pct, 0, 100);
+  return (peso * pct) / 100;
 }
 
 export default function SimuladorNotas({
@@ -279,6 +133,77 @@ export default function SimuladorNotas({
     </div>
   );
 
+  // Local editing state for standalone mode (drafts, handlers)
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftRows, setDraftRows] = useState<Row[] | null>(null);
+
+  function startEditing() {
+    setDraftRows(cloneRowsDeep(rows));
+    setIsEditing(true);
+  }
+
+  function cancelEditing() {
+    setDraftRows(null);
+    setIsEditing(false);
+  }
+
+  function saveEditing() {
+    if (draftRows) {
+      setRows(draftRows);
+    }
+    setDraftRows(null);
+    setIsEditing(false);
+  }
+
+  function updateDraftRow(itemId: string, rid: string, patch: Partial<Row>) {
+    setDraftRows((prev) => {
+      if (!prev) return prev;
+      return prev.map((r) => (r.rid === rid ? { ...r, ...patch } : r));
+    });
+  }
+
+  function updateDraftChild(itemId: string, groupRid: string, childRid: string, patch: Partial<ChildRow>) {
+    setDraftRows((prev) => {
+      if (!prev) return prev;
+      return prev.map((r) => {
+        if (r.rid !== groupRid) return r;
+        const kids = Array.isArray(r.children) ? r.children : [];
+        return {
+          ...r,
+          children: kids.map((c) => (c.rid === childRid ? { ...c, ...patch } : c)),
+        };
+      });
+    });
+  }
+
+  function addGroup() {
+    const nid = "g" + Date.now();
+    const newRow: Row = { rid: nid, label: "Nueva instancia", peso: 0, min: 0, pct: 0 };
+    setDraftRows((prev) => (prev ? [...prev, newRow] : [newRow]));
+  }
+
+  function addSubRow(groupRid: string) {
+    const nid = "s" + Date.now();
+    const newChild: ChildRow = { rid: nid, label: "Nueva subfila", peso: 0, pct: 0 };
+    setDraftRows((prev) => {
+      if (!prev) return prev;
+      return prev.map((r) => (r.rid === groupRid ? { ...r, children: [...(r.children || []), newChild] } : r));
+    });
+  }
+
+  function removeRow(_itemId: string, rid: string) {
+    setDraftRows((prev) => (prev ? prev.filter((r) => r.rid !== rid) : prev));
+  }
+
+  function removeSubRow(_itemId: string, groupRid: string, childRid: string) {
+    setDraftRows((prev) => {
+      if (!prev) return prev;
+      return prev.map((r) => (r.rid !== groupRid ? r : { ...r, children: (r.children || []).filter((c) => c.rid !== childRid) }));
+    });
+  }
+
+  const tableRows = isEditing && draftRows ? draftRows : rows;
+
   return (
     <div
       style={{
@@ -320,7 +245,29 @@ export default function SimuladorNotas({
           flexWrap: "wrap",
         }}
       >
-        <div style={{ fontWeight: 950, fontSize: 16 }}>{title}</div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ fontWeight: 950, fontSize: 16 }}>{title}</div>
+
+          {mode === "standalone" && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {!isEditing ? (
+                <button className="btn" type="button" onClick={() => startEditing()} style={{ borderRadius: 999, fontWeight: 950, fontSize: 12, padding: "6px 12px", height: 32 }}>
+                  ✏️ Editar
+                </button>
+              ) : (
+                <>
+                  <button className="btn" type="button" onClick={() => saveEditing()} style={{ borderRadius: 999, fontWeight: 950, fontSize: 12, padding: "6px 12px", height: 32 }}>
+                    💾 Guardar
+                  </button>
+                  <button className="btn" type="button" onClick={() => cancelEditing()} style={{ borderRadius: 999, fontWeight: 950, fontSize: 12, padding: "6px 12px", height: 32 }}>
+                    Cancelar
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         <div style={{ fontSize: 12, color: "var(--muted)" }}>
           {rows.length ? "Calculadora temporal" : "Inicio vacío"}
         </div>
@@ -366,119 +313,135 @@ export default function SimuladorNotas({
           )}
 
           <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                tableLayout: "fixed",
-              }}
-            >
-              <colgroup>
-                <col style={{ width: "70%" }} />
-                <col style={{ width: "30%" }} />
-              </colgroup>
+            {mode === "standalone" ? (
+              <ProcesoTable
+                itemId="standalone"
+                rows={tableRows}
+                isEditing={isEditing}
+                updateDraftRow={updateDraftRow}
+                updateDraftChild={updateDraftChild}
+                addGroup={() => addGroup()}
+                addSubRow={(itemId, groupRid) => addSubRow(groupRid)}
+                removeRow={(itemId, rid) => removeRow(itemId, rid)}
+                removeSubRow={(itemId, groupRid, childRid) => removeSubRow(itemId, groupRid, childRid)}
+                pesoTotal={simPesoTotal}
+                simTotal={simTotal}
+              />
+            ) : (
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  tableLayout: "fixed",
+                }}
+              >
+                <colgroup>
+                  <col style={{ width: "70%" }} />
+                  <col style={{ width: "30%" }} />
+                </colgroup>
 
-              <thead>
-                <tr style={{ fontSize: 12, color: "var(--muted)" }}>
-                  <th style={{ textAlign: "left", padding: "6px 8px" }}>INSTANCIA</th>
-                  <th style={{ textAlign: "center", padding: "6px 8px" }}>% HECHO</th>
-                </tr>
-              </thead>
+                <thead>
+                  <tr style={{ fontSize: 12, color: "var(--muted)" }}>
+                    <th style={{ textAlign: "left", padding: "6px 8px" }}>INSTANCIA</th>
+                    <th style={{ textAlign: "center", padding: "6px 8px" }}>% HECHO</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {rows.flatMap((r) => {
-                  const isGroup = !!r.isGroup;
-                  const hasKids = Array.isArray(r.children) && r.children.length > 0;
-                  const g = hasKids ? groupTotals(r) : null;
+                <tbody>
+                  {rows.flatMap((r) => {
+                    const isGroup = !!r.isGroup;
+                    const hasKids = Array.isArray(r.children) && r.children.length > 0;
+                    const g = hasKids ? groupTotals(r) : null;
 
-                  const mainRow = (
-                    <tr key={r.rid} style={{ borderTop: "1px solid rgba(2,6,23,0.08)" }}>
-                      <td style={{ padding: "6px 8px", fontWeight: 900 }}>{String(r?.label ?? "")}</td>
+                    const mainRow = (
+                      <tr key={r.rid} style={{ borderTop: "1px solid rgba(2,6,23,0.08)" }}>
+                        <td style={{ padding: "6px 8px", fontWeight: 900 }}>{String(r?.label ?? "")}</td>
 
-                      <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                        <input
-                          className="input numMini"
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={String(isGroup && hasKids ? g!.pctGrupo : r?.pct ?? 0)}
-                          disabled={isGroup && hasKids}
-                          onChange={(e) => {
-                            const v = clampNum(e.target.value, 0, 100);
-                            setRows(
-                              rows.map((x) => (x.rid === r.rid ? { ...x, pct: v } : x))
-                            );
-                          }}
-                          style={{
-                            width: 90,
-                            textAlign: "center",
-                            fontWeight: 900,
-                            opacity: isGroup && hasKids ? 0.65 : 1,
-                            cursor: isGroup && hasKids ? "not-allowed" : "text",
-                          }}
-                        />
-                      </td>
-                    </tr>
-                  );
+                        <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                          <input
+                            className="input numMini"
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={String(isGroup && hasKids ? g!.pctGrupo : r?.pct ?? 0)}
+                            disabled={isGroup && hasKids}
+                            onChange={(e) => {
+                              const v = clampNum(e.target.value, 0, 100);
+                              setRows(
+                                rows.map((x) => (x.rid === r.rid ? { ...x, pct: v } : x))
+                              );
+                            }}
+                            style={{
+                              width: 90,
+                              textAlign: "center",
+                              fontWeight: 900,
+                              opacity: isGroup && hasKids ? 0.65 : 1,
+                              cursor: isGroup && hasKids ? "not-allowed" : "text",
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    );
 
-                  if (!isGroup) return [mainRow];
+                    if (!isGroup) return [mainRow];
 
-                  const kids = Array.isArray(r.children) ? r.children : [];
-                  const kidsRows = kids.map((k) => (
-                    <tr
-                      key={`${r.rid}__${k.rid}`}
-                      style={{
-                        borderTop: "1px solid rgba(2,6,23,0.06)",
-                        background: "rgba(2,6,23,0.03)",
-                      }}
-                    >
-                      <td style={{ padding: "6px 8px", fontSize: 12 }}>
-                        <span style={{ opacity: 0.65, marginRight: 6 }}>↳</span>
-                        <span style={{ fontWeight: 800 }}>{String(k?.label ?? "")}</span>
-                      </td>
-                      <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                        <input
-                          className="input numMini"
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={String(k?.pct ?? 0)}
-                          onChange={(e) => {
-                            const v = clampNum(e.target.value, 0, 100);
-                            setRows(
-                              rows.map((x) =>
-                                x.rid !== r.rid
-                                  ? x
-                                  : {
-                                      ...x,
-                                      children: kids.map((z) =>
-                                        z.rid === k.rid ? { ...z, pct: v } : z
-                                      ),
-                                    }
-                              )
-                            );
-                          }}
-                          style={{
-                            width: 90,
-                            textAlign: "center",
-                            fontWeight: 900,
-                          }}
-                        />
-                      </td>
-                    </tr>
-                  ));
+                    const kids = Array.isArray(r.children) ? r.children : [];
+                    const kidsRows = kids.map((k) => (
+                      <tr
+                        key={`${r.rid}__${k.rid}`}
+                        style={{
+                          borderTop: "1px solid rgba(2,6,23,0.06)",
+                          background: "rgba(2,6,23,0.03)",
+                        }}
+                      >
+                        <td style={{ padding: "6px 8px", fontSize: 12 }}>
+                          <span style={{ opacity: 0.65, marginRight: 6 }}>↳</span>
+                          <span style={{ fontWeight: 800 }}>{String(k?.label ?? "")}</span>
+                        </td>
+                        <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                          <input
+                            className="input numMini"
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={String(k?.pct ?? 0)}
+                            onChange={(e) => {
+                              const v = clampNum(e.target.value, 0, 100);
+                              setRows(
+                                rows.map((x) =>
+                                  x.rid !== r.rid
+                                    ? x
+                                    : {
+                                        ...x,
+                                        children: kids.map((z) =>
+                                          z.rid === k.rid ? { ...z, pct: v } : z
+                                        ),
+                                      }
+                                )
+                              );
+                            }}
+                            style={{
+                              width: 90,
+                              textAlign: "center",
+                              fontWeight: 900,
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ));
 
-                  return [mainRow, ...kidsRows];
-                })}
+                    return [mainRow, ...kidsRows];
+                  })}
 
-                <tr style={{ borderTop: "1px solid rgba(2,6,23,0.12)" }}>
-                  <td style={{ padding: "8px", fontWeight: 950 }}>TOTAL PROCESO (simulado)</td>
-                  <td style={{ padding: "8px", textAlign: "center", fontWeight: 950 }}>
-                    {simTotal}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  <tr style={{ borderTop: "1px solid rgba(2,6,23,0.12)" }}>
+                    <td style={{ padding: "8px", fontWeight: 950 }}>TOTAL PROCESO (simulado)</td>
+                    <td style={{ padding: "8px", textAlign: "center", fontWeight: 950 }}>
+                      {simTotal}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 

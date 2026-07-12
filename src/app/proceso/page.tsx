@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Card from "../../components/Card";
 import SimuladorNotas from "../../components/SimuladorNotas";
+import ProcesoTable from "../../components/ProcesoTable";
 import { getSupabase } from "@/lib/supabaseClient";
 import BigModal from "../proceso/components/BigModal";
 import InfoTip from "../proceso/components/InfoTip";
@@ -110,165 +111,33 @@ function normalizeSemestre(value: unknown): number {
   return 1;
 }
 
-// ============= UTILITY FUNCTIONS =============
+import {
+  normText,
+  clampNum,
+  cloneRowsDeep,
+  calcProcessTotal,
+  calcPesoTotal,
+  calcCumpleMinimos,
+  groupTotals,
+  calcTotalConRecu,
+  recuTarget,
+  calcExoneracion,
+  calcParcialPts,
+  calcNotaFinalFIUNA,
+  createEmptyRows,
+  rowTotalOf as utilRowTotalOf,
+} from "@/lib/procesoUtils";
 
-function normText(s: string | null | undefined): string {
-  return String(s || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-function makeId(nombre: string, semestre: number): string {
-  return `${normText(nombre)}|${String(semestre || "").trim()}`;
-}
-
-function clampNum(v: string | number, min: number, max: number): number {
-  const n = Number(v);
-  if (Number.isNaN(n)) return 0;
-  return Math.max(min, Math.min(max, n));
-}
-
-function calcRowTotal(peso: number, pct: number): number {
-  const w = clampNum(peso, 0, 999);
-  const p = clampNum(pct, 0, 100);
-  return (w * p) / 100;
-}
 function rowTotalRaw(r: Row | ChildRow): number {
-  const peso = clampNum(r?.peso, 0, 999);
-  const pct = clampNum(r?.pct, 0, 100);
-  return calcRowTotal(peso, pct);
+  const peso = clampNum((r as any)?.peso, 0, 999);
+  const pct = clampNum((r as any)?.pct, 0, 100);
+  return (peso * pct) / 100;
 }
+
 function rowTotalOf(r: Row | ChildRow): number {
-  const peso = clampNum(r?.peso, 0, 999);
-  const pct = clampNum(r?.pct, 0, 100);
-  return calcRowTotal(peso, pct);
-}
-
-function calcCumpleMinimos(rows: Row[]): boolean {
-  const arr = Array.isArray(rows) ? rows : [];
-
-  for (const r of arr) {
-    const minPct = clampNum(r?.min, 0, 100);
-    if (!minPct) continue;
-
-    const hasKids = Array.isArray(r?.children) && r.children.length > 0;
-    const peso = hasKids ? groupTotals(r).pesoGrupo : clampNum(r?.peso, 0, 999);
-    const minPts = Math.round((peso * minPct) / 100);
-    const totalPts = hasKids ? groupTotals(r).totalGrupo : rowTotalOf(r);
-
-    if (totalPts < minPts) return false;
-  }
-
-  return true;
-}
-
-function groupTotals(groupRow: Row): GroupTotals {
-  const kids = Array.isArray(groupRow?.children) ? groupRow.children : [];
-  const hasKids = kids.length > 0;
-
-  const pesoGrupo = hasKids
-    ? kids.reduce((acc, k) => acc + clampNum(k?.peso, 0, 999), 0)
-    : clampNum(groupRow?.peso, 0, 999);
-
-  const sumKids = kids.reduce((acc, k) => acc + rowTotalOf(k), 0);
-  const totalGrupo = Math.min(sumKids, pesoGrupo);
-
-  const pctGrupo = pesoGrupo > 0 ? Math.round((totalGrupo / pesoGrupo) * 100) : 0;
-
-  return { pesoGrupo, totalGrupo, pctGrupo };
-}
-
-function calcProcessTotal(rows: Row[]): number {
-  const arr = Array.isArray(rows) ? rows : [];
-
-  const sum = arr.reduce((acc, r) => {
-    const hasKids = Array.isArray(r?.children) && r.children.length > 0;
-
-    if (hasKids) {
-      const kids = Array.isArray(r.children) ? r.children : [];
-      return acc + kids.reduce((a, k) => a + rowTotalRaw(k), 0);
-    }
-
-    return acc + rowTotalRaw(r);
-  }, 0);
-
-  return Math.round(sum);
-}
-
-function isGroupRow(r: Row): boolean {
-  return Array.isArray(r?.children) && r.children.length > 0;
-}
-
-function rowTotalSimple(r: Row | ChildRow): number {
-  const peso = clampNum(r?.peso, 0, 999);
-  const pct = clampNum(r?.pct, 0, 100);
-  return Math.round(calcRowTotal(peso, pct));
-}
-
-function groupTotalFromChildren(group: Row): number {
-  const children = Array.isArray(group?.children) ? group.children : [];
-  return children.reduce((acc, ch) => acc + rowTotalSimple(ch), 0);
-}
-
-function calcPesoTotal(rows: Row[]): number {
-  const arr = Array.isArray(rows) ? rows : [];
-  return arr.reduce((acc, r) => {
-    const hasKids = Array.isArray(r?.children) && r.children.length > 0;
-    if (hasKids) return acc + groupTotals(r).pesoGrupo;
-    return acc + clampNum(r?.peso, 0, 999);
-  }, 0);
-}
-
-function groupPctAuto(group: Row): number {
-  const peso = clampNum(group?.peso, 0, 999);
-  if (!peso) return 0;
-  const total = groupTotalFromChildren(group);
-  return clampNum(Math.round((total / peso) * 100), 0, 100);
-}
-
-function calcParcialPts(rows: Row[], rid: string): number {
-  const r = rows.find((x) => x.rid === rid);
-  if (!r) return 0;
-  return rowTotalOf(r);
-}
-
-function recuTarget(rows: Row[]): RecuTarget {
-  const p1Pts = calcParcialPts(rows, "p1");
-  const p2Pts = calcParcialPts(rows, "p2");
-  if (p1Pts <= p2Pts) return { rid: "p1", label: "Parcial 1", pts: p1Pts };
-  return { rid: "p2", label: "Parcial 2", pts: p2Pts };
-}
-
-function calcTotalConRecu(rows: Row[], recuPct: number): number {
-  const baseTotal = calcProcessTotal(rows);
-  const t = recuTarget(rows);
-  const parcial = rows.find((x) => x.rid === t.rid);
-  const pesoParcial = clampNum(parcial?.peso ?? 0, 0, 999);
-  const recuPts = Math.round((pesoParcial * clampNum(recuPct, 0, 100)) / 100);
-  return Math.round(baseTotal - t.pts + recuPts);
-}
-
-function calcExoneracion(semestre: number, P: number): ExoneracionResult {
-  const S = Number(semestre) || 0;
-  const p = Number(P) || 0;
-
-  if (S > 0 && S <= 4) {
-    if (p >= 91) return { ok: true, nota: 5 };
-    if (p >= 81) return { ok: true, nota: 4 };
-    if (p >= 71) return { ok: true, nota: 3 };
-    return { ok: false, nota: null };
-  }
-
-  if (S >= 5) {
-    if (p >= 91) return { ok: true, nota: 5 };
-    if (p >= 81) return { ok: true, nota: 4 };
-    return { ok: false, nota: null };
-  }
-
-  return { ok: false, nota: null };
+  const peso = clampNum((r as any)?.peso, 0, 999);
+  const pct = clampNum((r as any)?.pct, 0, 100);
+  return (peso * pct) / 100;
 }
 
 async function loadCourses(userId: string): Promise<Course[]> {
@@ -328,6 +197,10 @@ async function saveProceso(userId: string, data: ProcesoData): Promise<void> {
   } catch (e) {
     console.error("Error saving proceso:", e);
   }
+}
+
+function makeId(nombre: string, semestre: number): string {
+  return `${normText(nombre)}-${semestre}`;
 }
 
 function mergeCoursesIntoItems(courses: Course[], existingItems: CourseItem[]): CourseItem[] {
@@ -453,22 +326,6 @@ function migrateItemIfNeeded(it: any): CourseItem {
     realFinalPct: it?.realFinalPct ?? 0,
     realUseRecuForFinal: it?.realUseRecuForFinal ?? true,
   };
-}
-
-function calcNotaFinalFIUNA(proceso: number, finalPts: number): number {
-  const P = clampNum(proceso, 0, 100);
-  const F = clampNum(finalPts, 0, 100);
-
-  if (F < 40) return 1;
-
-  const firmaRed = Math.round(P);
-  const rp = Math.round(Math.max(0.3 * F + 0.7 * firmaRed, F));
-
-  if (rp >= 91) return 5;
-  if (rp >= 81) return 4;
-  if (rp >= 71) return 3;
-  if (rp >= 60) return 2;
-  return 1;
 }
 
 // ============= MAIN COMPONENT =============
