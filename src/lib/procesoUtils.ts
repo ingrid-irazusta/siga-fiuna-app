@@ -18,6 +18,9 @@ export interface Row {
 export interface ExoneracionResult {
   ok: boolean;
   nota: number | null;
+  umbral: 71 | 81;
+  puntosNecesarios: number;
+  tipoCurso: "básico" | "profesional";
 }
 
 export function normText(s: string | null | undefined): string {
@@ -126,28 +129,20 @@ export function calcPesoTotal(rows: Row[]): number {
 }
 
 export function calcExoneracion(semestre: number, P: number): ExoneracionResult {
-  const S = Number(semestre) || 0;
-  const p = Number(P) || 0;
+  const semestreNormalizado = Math.max(1, Math.trunc(Number(semestre) || 1));
+  const p = clampNum(P, 0, 100);
+  const esBasico = semestreNormalizado <= 4;
+  const umbral: 71 | 81 = esBasico ? 71 : 81;
+  const ok = p >= umbral;
+  const nota = !ok ? null : p >= 91 ? 5 : p >= 81 ? 4 : 3;
 
-  if (S > 0 && S <= 4) {
-    if (p >= 91) return { ok: true, nota: 5 };
-    if (p >= 81) return { ok: true, nota: 4 };
-    if (p >= 71) return { ok: true, nota: 3 };
-    if (p >= 61) return { ok: true, nota: 2 };
-    if (p >= 51) return { ok: true, nota: 1 };
-    return { ok: false, nota: null };
-  }
-
-  if (S >= 5) {
-    if (p >= 91) return { ok: true, nota: 5 };
-    if (p >= 81) return { ok: true, nota: 4 };
-    if (p >= 71) return { ok: true, nota: 3 };
-    if (p >= 61) return { ok: true, nota: 2 };
-    if (p >= 51) return { ok: true, nota: 1 };
-    return { ok: false, nota: null };
-  }
-
-  return { ok: false, nota: null };
+  return {
+    ok,
+    nota,
+    umbral,
+    puntosNecesarios: Math.max(0, Math.ceil(umbral - p)),
+    tipoCurso: esBasico ? "básico" : "profesional",
+  };
 }
 
 export function calcTotalConRecu(rows: Row[], recuPct: number): number {
@@ -178,11 +173,26 @@ export function calcParcialPts(rows: Row[], rid: string): number {
   return rowTotalOf(r);
 }
 
-export function calcNotaFinalFIUNA(baseFinalProceso: number, finalPct: number): number {
-  const base = clampNum(baseFinalProceso, 0, 100);
-  const pct = clampNum(finalPct, 0, 100);
-  if (pct < 40) return 1;
-  return Number(((base * 0.6) + (pct * 0.4)).toFixed(1));
+export interface ResultadoFinalFIUNA {
+  rendimientoPonderado: number;
+  notaFinal: 1 | 2 | 3 | 4 | 5;
+}
+
+export function calcResultadoFinalFIUNA(procesoPct: number, examenFinalPct: number): ResultadoFinalFIUNA {
+  const proceso = clampNum(procesoPct, 0, 100);
+  const examenFinal = clampNum(examenFinalPct, 0, 100);
+  const rendimientoPonderado = clampNum(Math.round(Math.max(proceso, (0.3 * proceso) + (0.7 * examenFinal))), 0, 100);
+  const notaFinal: ResultadoFinalFIUNA["notaFinal"] =
+    rendimientoPonderado >= 91 ? 5 :
+    rendimientoPonderado >= 81 ? 4 :
+    rendimientoPonderado >= 71 ? 3 :
+    rendimientoPonderado >= 60 ? 2 : 1;
+
+  return { rendimientoPonderado, notaFinal };
+}
+
+export function calcNotaFinalFIUNA(baseFinalProceso: number, finalPct: number): ResultadoFinalFIUNA["notaFinal"] {
+  return calcResultadoFinalFIUNA(baseFinalProceso, finalPct).notaFinal;
 }
 
 export function createEmptyRows(): Row[] {

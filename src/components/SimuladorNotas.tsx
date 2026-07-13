@@ -16,7 +16,7 @@ import {
   recuTarget,
   calcExoneracion,
   calcParcialPts,
-  calcNotaFinalFIUNA,
+  calcResultadoFinalFIUNA,
   createEmptyRows,
 } from "@/lib/procesoUtils";
 
@@ -112,15 +112,16 @@ export default function SimuladorNotas({
   const simHab = simValido && simTotal >= 50;
 
   const activeSemestre = mode === "standalone" ? internalSemestre : semestre;
-  const simEx = simValido ? calcExoneracion(activeSemestre, simTotal) : { ok: false, nota: null };
+  const simEx = calcExoneracion(activeSemestre, simTotal);
   const simRecuPctValue = clampNum(recuPct ?? 60, 0, 100);
   const simTarget = recuTarget(calculationRows);
   const simTotalConRecu = calcTotalConRecu(calculationRows, simRecuPctValue);
-  const simExConRecu = simValido ? calcExoneracion(activeSemestre, simTotalConRecu) : { ok: false, nota: null };
+  const simExConRecu = calcExoneracion(activeSemestre, simTotalConRecu);
 
   const baseFinalProceso = useRecuForFinal && simRecuperatorio ? simTotalConRecu : simTotal;
   const simHabFinal = simValido && baseFinalProceso >= 50;
-  const simNotaFinal = simHabFinal ? calcNotaFinalFIUNA(baseFinalProceso, clampNum(finalPct ?? 60, 0, 100)) : 1;
+  const simResultadoFinal = calcResultadoFinalFIUNA(baseFinalProceso, clampNum(finalPct ?? 60, 0, 100));
+  const simNotaFinal = simResultadoFinal.notaFinal;
 
   const sectionTitle = (txt: string) => (
     <div
@@ -515,7 +516,10 @@ export default function SimuladorNotas({
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--muted)" }}>Exoneración</span>
-              <b>{simValido ? (simEx.ok ? `SI (nota ${simEx.nota})` : "NO") : "-"}</b>
+              <b>{simValido ? (simEx.ok ? `SI (nota ${simEx.nota})` : `NO (faltan ${simEx.puntosNecesarios} pts)`) : "-"}</b>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              Semestre {activeSemestre}: curso {simEx.tipoCurso}, exoneración desde {simEx.umbral} puntos.
             </div>
           </div>
         </div>
@@ -670,8 +674,8 @@ export default function SimuladorNotas({
               background: "rgba(2,6,23,0.02)",
             }}
           >
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>Proceso usado para el cálculo</div>
-            <div style={{ fontWeight: 950, fontSize: 22 }}>{simHabFinal ? baseFinalProceso : "-"}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>Rendimiento ponderado estimado</div>
+            <div style={{ fontWeight: 950, fontSize: 22 }}>{simHabFinal ? `${simResultadoFinal.rendimientoPonderado}%` : "-"}</div>
           </div>
 
           <div
@@ -682,7 +686,7 @@ export default function SimuladorNotas({
               background: "rgba(0,176,255,0.08)",
             }}
           >
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>Nota final estimada</div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>Nota final FIUNA estimada</div>
             <div style={{ fontWeight: 950, fontSize: 28 }}>{simHabFinal ? simNotaFinal : "-"}</div>
           </div>
         </div>
