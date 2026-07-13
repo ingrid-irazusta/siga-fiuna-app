@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import ProcesoTable from "./ProcesoTable";
 import {
   Row,
@@ -93,9 +93,7 @@ export default function SimuladorNotas({
   const useRecuForFinal = controlledUseRecuForFinal ?? internalUseRecuForFinal;
   const setUseRecuForFinal = onUseRecuForFinalChange ?? setInternalUseRecuForFinal;
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [draftRows, setDraftRows] = useState<Row[] | null>(null);
-  const calculationRows = isEditing && draftRows ? draftRows : rows;
+  const calculationRows = rows;
 
   const simTotal = useMemo(() => calcProcessTotal(calculationRows), [calculationRows]);
   const simPesoTotal = useMemo(() => calcPesoTotal(calculationRows), [calculationRows]);
@@ -123,7 +121,7 @@ export default function SimuladorNotas({
   const simResultadoFinal = calcResultadoFinalFIUNA(baseFinalProceso, clampNum(finalPct ?? 60, 0, 100));
   const simNotaFinal = simResultadoFinal.notaFinal;
 
-  const sectionTitle = (txt: string) => (
+  const sectionTitle = (txt: string, actions?: ReactNode) => (
     <div
       style={{
         padding: "10px 12px",
@@ -132,49 +130,27 @@ export default function SimuladorNotas({
         borderRadius: 14,
         fontWeight: 950,
         color: "var(--primary)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        flexWrap: "wrap",
       }}
     >
-      {txt}
+      <span>{txt}</span>
+      {actions}
     </div>
   );
 
-  function startEditing() {
-    setDraftRows(cloneRowsDeep(rows));
-    setIsEditing(true);
+  function updateStandaloneRow(_itemId: string, rid: string, patch: Partial<Row>) {
+    setRows(rows.map((r) => (r.rid === rid ? { ...r, ...patch } : r)));
   }
 
-  function cancelEditing() {
-    setDraftRows(null);
-    setIsEditing(false);
-  }
-
-  function saveEditing() {
-    if (draftRows) {
-      setRows(draftRows);
-    }
-    setDraftRows(null);
-    setIsEditing(false);
-  }
-
-  function updateDraftRow(itemId: string, rid: string, patch: Partial<Row>) {
-    setDraftRows((prev) => {
-      if (!prev) return prev;
-      return prev.map((r) => (r.rid === rid ? { ...r, ...patch } : r));
-    });
-  }
-
-  function updateDraftChild(itemId: string, groupRid: string, childRid: string, patch: Partial<ChildRow>) {
-    setDraftRows((prev) => {
-      if (!prev) return prev;
-      return prev.map((r) => {
-        if (r.rid !== groupRid) return r;
-        const kids = Array.isArray(r.children) ? r.children : [];
-        return {
-          ...r,
-          children: kids.map((c) => (c.rid === childRid ? { ...c, ...patch } : c)),
-        };
-      });
-    });
+  function updateStandaloneChild(_itemId: string, groupRid: string, childRid: string, patch: Partial<ChildRow>) {
+    setRows(rows.map((r) => r.rid !== groupRid ? r : {
+      ...r,
+      children: (r.children || []).map((c) => (c.rid === childRid ? { ...c, ...patch } : c)),
+    }));
   }
 
   function makeLocalId(prefix: string) {
@@ -183,7 +159,7 @@ export default function SimuladorNotas({
 
   function addRow() {
     const newRow: Row = { rid: makeLocalId("r"), label: "Nueva instancia", peso: 0, min: 0, pct: 0 };
-    setDraftRows((prev) => (prev ? [...prev, newRow] : [newRow]));
+    setRows([...rows, newRow]);
   }
 
   function addGroup() {
@@ -191,29 +167,21 @@ export default function SimuladorNotas({
       rid: makeLocalId("g"), label: "Nuevo grupo", peso: 0, min: 0, pct: 0, isGroup: true,
       children: [{ rid: makeLocalId("c"), label: "Nueva subinstancia", peso: 0, pct: 0 }],
     };
-    setDraftRows((prev) => (prev ? [...prev, newGroup] : [newGroup]));
+    setRows([...rows, newGroup]);
   }
 
   function addSubRow(groupRid: string) {
     const newChild: ChildRow = { rid: makeLocalId("c"), label: "Nueva subinstancia", peso: 0, pct: 0 };
-    setDraftRows((prev) => {
-      if (!prev) return prev;
-      return prev.map((r) => (r.rid === groupRid ? { ...r, children: [...(r.children || []), newChild] } : r));
-    });
+    setRows(rows.map((r) => (r.rid === groupRid ? { ...r, children: [...(r.children || []), newChild] } : r)));
   }
 
   function removeRow(_itemId: string, rid: string) {
-    setDraftRows((prev) => (prev ? prev.filter((r) => r.rid !== rid) : prev));
+    setRows(rows.filter((r) => r.rid !== rid));
   }
 
   function removeSubRow(_itemId: string, groupRid: string, childRid: string) {
-    setDraftRows((prev) => {
-      if (!prev) return prev;
-      return prev.map((r) => (r.rid !== groupRid ? r : { ...r, children: (r.children || []).filter((c) => c.rid !== childRid) }));
-    });
+    setRows(rows.map((r) => (r.rid !== groupRid ? r : { ...r, children: (r.children || []).filter((c) => c.rid !== childRid) })));
   }
-
-  const tableRows = isEditing && draftRows ? draftRows : rows;
 
   return (
     <div
@@ -225,24 +193,7 @@ export default function SimuladorNotas({
         gap: 12,
       }}
     >
-      {mode === "standalone" && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-start" }}>
-          <div className="pill">
-            Semestre: <select
-              className="kbd"
-              value={String(internalSemestre)}
-              onChange={(e) => setInternalSemestre(Number(e.target.value))}
-              style={{ marginLeft: 8, padding: "4px 8px", borderRadius: 8 }}
-            >
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
-      <div
+      {mode !== "standalone" && <div
         style={{
           background: "var(--card)",
           border: "1px solid rgba(2,6,23,0.10)",
@@ -259,30 +210,12 @@ export default function SimuladorNotas({
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <div style={{ fontWeight: 950, fontSize: 16 }}>{title}</div>
 
-          {mode === "standalone" && (
-            <div style={{ display: "flex", gap: 8 }}>
-              {!isEditing ? (
-                <button className="btn" type="button" onClick={() => startEditing()} style={{ borderRadius: 999, fontWeight: 950, fontSize: 12, padding: "6px 12px", height: 32 }}>
-                  ✏️ Editar
-                </button>
-              ) : (
-                <>
-                  <button className="btn" type="button" onClick={() => saveEditing()} style={{ borderRadius: 999, fontWeight: 950, fontSize: 12, padding: "6px 12px", height: 32 }}>
-                    💾 Guardar
-                  </button>
-                  <button className="btn" type="button" onClick={() => cancelEditing()} style={{ borderRadius: 999, fontWeight: 950, fontSize: 12, padding: "6px 12px", height: 32 }}>
-                    Cancelar
-                  </button>
-                </>
-              )}
-            </div>
-          )}
         </div>
 
         <div style={{ fontSize: 12, color: "var(--muted)" }}>
           {rows.length ? "Calculadora temporal" : "Inicio vacío"}
         </div>
-      </div>
+      </div>}
 
       <div
         className="simTwoCols"
@@ -305,7 +238,17 @@ export default function SimuladorNotas({
             gap: 10,
           }}
         >
-          {sectionTitle("📋 Proceso editable (solo simulador)")}
+          {sectionTitle(
+            "📋 Proceso editable (solo simulador)",
+            mode === "standalone" ? (
+              <label className="pill" style={{ fontSize: 12, color: "var(--primary)", whiteSpace: "nowrap" }}>
+                Semestre:
+                <select className="kbd" value={String(internalSemestre)} onChange={(e) => setInternalSemestre(Number(e.target.value))} style={{ marginLeft: 8, padding: "4px 8px", borderRadius: 8 }}>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+            ) : undefined
+          )}
 
           {!simPesoOk && (
             <div
@@ -327,10 +270,10 @@ export default function SimuladorNotas({
             {mode === "standalone" ? (
               <ProcesoTable
                 itemId="standalone"
-                rows={tableRows}
-                isEditing={isEditing}
-                updateDraftRow={updateDraftRow}
-                updateDraftChild={updateDraftChild}
+                rows={rows}
+                isEditing
+                updateDraftRow={updateStandaloneRow}
+                updateDraftChild={updateStandaloneChild}
                 addRow={() => addRow()}
                 addGroup={() => addGroup()}
                 addSubRow={(itemId, groupRid) => addSubRow(groupRid)}
