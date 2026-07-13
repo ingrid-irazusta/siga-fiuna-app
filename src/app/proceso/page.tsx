@@ -305,12 +305,16 @@ export default function ProcesoPage() {
   const [editingItems, setEditingItems] = useState<Record<string, boolean>>({});
   const [draftRowsById, setDraftRowsById] = useState<Record<string, Row[]>>({});
   const [finalModalId, setFinalModalId] = useState<string | null>(null);
+  const [courseSituation, setCourseSituation] = useState<"aprobada" | "conserva_firma" | "reprobada_sin_firma" | "abandonada">("aprobada");
   const [finalMethod, setFinalMethod] = useState<"exoneracion" | "examen_final">("exoneracion");
   const [finalExamPct, setFinalExamPct] = useState("");
   const [finalOpportunity, setFinalOpportunity] = useState<"" | "1" | "2" | "3">("");
   const [finalStep, setFinalStep] = useState<"form" | "review" | "confirm">("form");
   const [finalVerified, setFinalVerified] = useState(false);
   const [finalFlowMessage, setFinalFlowMessage] = useState("");
+  const [signatureYear, setSignatureYear] = useState(String(new Date().getFullYear()));
+  const [signatureObservation, setSignatureObservation] = useState("");
+  const [closureComment, setClosureComment] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -557,11 +561,15 @@ export default function ProcesoPage() {
 
   const openFinalization = (it: CourseItem) => {
     setFinalModalId(it.id);
+    setCourseSituation("aprobada");
     setFinalMethod("exoneracion");
     setFinalExamPct("");
     setFinalOpportunity("");
     setFinalStep("form");
     setFinalVerified(false);
+    setSignatureYear(String(new Date().getFullYear()));
+    setSignatureObservation("");
+    setClosureComment("");
   };
 
   const closeFinalization = () => {
@@ -705,6 +713,13 @@ export default function ProcesoPage() {
         const officialFormValid = isOfficialExoneration
           ? officialExoneration.ok
           : finalExamValid && finalOpportunity !== "";
+        const signatureYearNumber = Number(signatureYear);
+        const situationFormValid = courseSituation === "aprobada"
+          ? officialFormValid && officialApproved
+          : courseSituation === "conserva_firma"
+            ? hab && Number.isInteger(signatureYearNumber) && signatureYearNumber >= 1900 && signatureYearNumber <= 2100
+            : true;
+        const situationLabel = courseSituation === "aprobada" ? "Aprobada" : courseSituation === "conserva_firma" ? "Conserva firma" : courseSituation === "reprobada_sin_firma" ? "Reprobada sin firma" : "Abandonada";
 
         const isExpanded = !!expandedItems[it.id];
 
@@ -761,41 +776,83 @@ export default function ProcesoPage() {
                   />
                 </BigModal>
 
-                <BigModal open={finalModalId === it.id} title={`🎓 Registrar resultado final — ${it.nombre}`} onClose={closeFinalization}>
+                <BigModal open={finalModalId === it.id} title={`🎓 Situación actual — ${it.nombre}`} onClose={closeFinalization}>
                   <div style={{ display: "grid", gap: 14 }}>
                     {finalStep === "form" && <>
-                      <div style={{ fontWeight: 950 }}>Forma de finalización</div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button type="button" className="btn" onClick={() => setFinalMethod("exoneracion")} style={{ background: isOfficialExoneration ? "var(--primary)" : "var(--card)", color: isOfficialExoneration ? "white" : "var(--text)" }}>Exoneración</button>
-                        <button type="button" className="btn" onClick={() => setFinalMethod("examen_final")} style={{ background: !isOfficialExoneration ? "var(--primary)" : "var(--card)", color: !isOfficialExoneration ? "white" : "var(--text)" }}>Examen final</button>
+                      <div style={{ fontWeight: 950, fontSize: 17 }}>¿Cuál es la situación actual de esta materia?</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10 }}>
+                        {[
+                          ["aprobada", "✅", "Aprobada"],
+                          ["conserva_firma", "📌", "Conserva firma"],
+                          ["reprobada_sin_firma", "❌", "Reprobada sin firma"],
+                          ["abandonada", "⏸", "Abandonada"],
+                        ].map(([value, icon, label]) => {
+                          const selected = courseSituation === value;
+                          return <button key={value} type="button" className="btn" onClick={() => setCourseSituation(value as typeof courseSituation)} style={{ padding: 14, minHeight: 72, display: "grid", gap: 4, justifyItems: "start", border: selected ? "2px solid var(--primary)" : "1px solid var(--border)", background: selected ? "var(--primary2)" : "var(--card)", color: selected ? "var(--primary)" : "var(--text)" }}><span style={{ fontSize: 21 }}>{icon}</span><span style={{ fontWeight: 950 }}>{label}</span></button>;
+                        })}
                       </div>
-                      {!isOfficialExoneration && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-                        <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Porcentaje obtenido<input className="input" type="number" min={0} max={100} value={finalExamPct} onChange={(e) => setFinalExamPct(e.target.value)} placeholder="0–100" /></label>
-                        <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Oportunidad<select className="input" value={finalOpportunity} onChange={(e) => setFinalOpportunity(e.target.value as "" | "1" | "2" | "3")}><option value="">Seleccionar</option><option value="1">1ra</option><option value="2">2da</option><option value="3">3ra</option></select></label>
+
+                      {courseSituation === "aprobada" && <div style={{ display: "grid", gap: 12 }}>
+                        <div style={{ fontWeight: 950 }}>Forma de aprobación</div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button type="button" className="btn" onClick={() => setFinalMethod("exoneracion")} style={{ background: isOfficialExoneration ? "var(--primary)" : "var(--card)", color: isOfficialExoneration ? "white" : "var(--text)" }}>Exoneración</button>
+                          <button type="button" className="btn" onClick={() => setFinalMethod("examen_final")} style={{ background: !isOfficialExoneration ? "var(--primary)" : "var(--card)", color: !isOfficialExoneration ? "white" : "var(--text)" }}>Examen final</button>
+                        </div>
+                        {!isOfficialExoneration && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Porcentaje obtenido<input className="input" type="number" min={0} max={100} value={finalExamPct} onChange={(e) => setFinalExamPct(e.target.value)} placeholder="0–100" /></label>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Oportunidad<select className="input" value={finalOpportunity} onChange={(e) => setFinalOpportunity(e.target.value as "" | "1" | "2" | "3")}><option value="">Seleccionar</option><option value="1">1ra</option><option value="2">2da</option><option value="3">3ra</option></select></label>
+                        </div>}
+                        {isOfficialExoneration && !officialExoneration.ok && <div style={{ padding: 12, borderRadius: 12, background: "rgba(220,38,38,0.10)", color: "rgba(220,38,38,0.95)", fontWeight: 850 }}>Exoneración no disponible. Se requieren {officialExoneration.umbral} puntos y el proceso actual es {total}.</div>}
+                        {!isOfficialExoneration && officialFormValid && !officialApproved && <div style={{ padding: 12, borderRadius: 12, background: "rgba(220,38,38,0.10)", color: "rgba(220,38,38,0.95)", fontWeight: 850 }}>El resultado ingresado no corresponde a una materia aprobada. Selecciona “Reprobada sin firma” si esa es la situación real.</div>}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10 }}>
+                          {[["Proceso", `${total}%`], ["RP definitivo", officialFormValid ? `${officialRp}%` : "—"], ["Nota FIUNA", officialFormValid ? officialGrade : "—"], ["Resultado", officialFormValid ? (officialApproved ? "Aprobada" : "Reprobada") : "—"]].map(([label, value]) => <div key={String(label)} style={{ padding: 10, borderRadius: 12, border: "1px solid var(--border)", background: "rgba(2,6,23,0.02)" }}><div style={{ fontSize: 12, color: "var(--muted)" }}>{label}</div><div style={{ marginTop: 3, fontWeight: 950 }}>{value}</div></div>)}
+                        </div>
                       </div>}
-                      {isOfficialExoneration && !officialExoneration.ok && <div style={{ padding: 12, borderRadius: 12, background: "rgba(220,38,38,0.10)", color: "rgba(220,38,38,0.95)", fontWeight: 850 }}>Exoneración no disponible. Se requieren {officialExoneration.umbral} puntos y el proceso actual es {total}.</div>}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10 }}>
-                        {[["Materia", it.nombre], ["Semestre", it.semestre], ["Proceso obtenido", `${total}%`], ["RP definitivo", officialFormValid ? `${officialRp}%` : "—"], ["Nota final FIUNA", officialFormValid ? officialGrade : "—"], ["Resultado", officialFormValid ? (officialApproved ? "Aprobada" : "Reprobada") : "—"]].map(([label, value]) => <div key={String(label)} style={{ padding: 10, borderRadius: 12, border: "1px solid var(--border)", background: "rgba(2,6,23,0.02)" }}><div style={{ fontSize: 12, color: "var(--muted)" }}>{label}</div><div style={{ marginTop: 3, fontWeight: 950 }}>{value}</div></div>)}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}><button type="button" className="btn" onClick={closeFinalization}>Cancelar</button><button type="button" className="btn" disabled={!officialFormValid} onClick={() => setFinalStep("review")} style={{ opacity: officialFormValid ? 1 : 0.5 }}>Revisar resultado</button></div>
+
+                      {courseSituation === "conserva_firma" && <div style={{ display: "grid", gap: 12 }}>
+                        <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)" }}>La materia dejará de aparecer entre las materias en curso, pero conservará la firma para volver a rendir o mejorarla más adelante.</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                          <div style={{ padding: 10, borderRadius: 12, border: "1px solid var(--border)" }}><div style={{ fontSize: 12, color: "var(--muted)" }}>Firma actual</div><div style={{ fontWeight: 950 }}>{hab ? `Habilitada (${total} puntos)` : "No habilitada"}</div></div>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Año de obtención<input className="input" type="number" min={1900} max={2100} value={signatureYear} onChange={(e) => setSignatureYear(e.target.value)} /></label>
+                        </div>
+                        {!hab && <div style={{ color: "rgba(220,38,38,0.95)", fontWeight: 850 }}>El proceso actual no alcanza los requisitos de firma.</div>}
+                        <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Observación opcional<textarea className="input" value={signatureObservation} onChange={(e) => setSignatureObservation(e.target.value)} rows={3} /></label>
+                      </div>}
+
+                      {courseSituation === "reprobada_sin_firma" && <div style={{ display: "grid", gap: 12 }}>
+                        <div style={{ padding: 12, borderRadius: 12, background: "rgba(220,38,38,0.08)" }}>La materia no quedará aprobada ni conservará firma. Dejará de aparecer entre las materias activas y podrá volver a agregarse cuando se curse nuevamente.</div>
+                        <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Motivo o comentario opcional<textarea className="input" value={closureComment} onChange={(e) => setClosureComment(e.target.value)} rows={3} /></label>
+                      </div>}
+
+                      {courseSituation === "abandonada" && <div style={{ display: "grid", gap: 12 }}>
+                        <div style={{ padding: 12, borderRadius: 12, background: "rgba(2,6,23,0.04)" }}>La materia se retirará de tus materias activas sin registrar aprobación ni firma.</div>
+                        <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Motivo o comentario opcional<textarea className="input" value={closureComment} onChange={(e) => setClosureComment(e.target.value)} rows={3} /></label>
+                      </div>}
+
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}><button type="button" className="btn" onClick={closeFinalization}>Cancelar</button><button type="button" className="btn" disabled={!situationFormValid} onClick={() => setFinalStep("review")} style={{ opacity: situationFormValid ? 1 : 0.5 }}>Revisar situación</button></div>
                     </>}
 
                     {finalStep === "review" && <>
-                      <div style={{ fontWeight: 950, fontSize: 16 }}>Resumen del resultado</div>
+                      <div style={{ fontWeight: 950, fontSize: 17 }}>Resumen de la situación</div>
                       <div style={{ display: "grid", gap: 7, padding: 12, borderRadius: 14, border: "1px solid var(--border)", background: "rgba(2,6,23,0.02)" }}>
-                        <div><b>Materia:</b> {it.nombre}</div><div><b>Semestre:</b> {it.semestre}</div><div><b>Forma:</b> {isOfficialExoneration ? "Exoneración" : "Examen final"}</div><div><b>Proceso:</b> {total}%</div>
-                        {!isOfficialExoneration && <div><b>Examen final:</b> {finalExamValue}%</div>}{!isOfficialExoneration && <div><b>Oportunidad:</b> {finalOpportunity === "1" ? "1ra" : finalOpportunity === "2" ? "2da" : "3ra"}</div>}
-                        <div><b>RP definitivo:</b> {officialRp}%</div><div><b>Nota FIUNA:</b> {officialGrade}</div><div><b>Resultado:</b> {officialApproved ? "Aprobada" : "Reprobada"}</div>
+                        <div><b>Materia:</b> {it.nombre}</div><div><b>Semestre:</b> {it.semestre}</div><div><b>Situación:</b> {situationLabel}</div>
+                        {courseSituation === "aprobada" && <><div><b>Forma:</b> {isOfficialExoneration ? "Exoneración" : "Examen final"}</div><div><b>Proceso:</b> {total}%</div>{!isOfficialExoneration && <div><b>Examen final:</b> {finalExamValue}%</div>}{!isOfficialExoneration && <div><b>Oportunidad:</b> {finalOpportunity === "1" ? "1ra" : finalOpportunity === "2" ? "2da" : "3ra"}</div>}<div><b>RP definitivo:</b> {officialRp}%</div><div><b>Nota FIUNA:</b> {officialGrade}</div></>}
+                        {courseSituation === "conserva_firma" && <><div><b>Firma actual:</b> Habilitada ({total} puntos)</div><div><b>Año:</b> {signatureYear}</div>{signatureObservation && <div><b>Observación:</b> {signatureObservation}</div>}</>}
+                        {(courseSituation === "reprobada_sin_firma" || courseSituation === "abandonada") && <><div><b>Estado final:</b> {situationLabel}</div>{closureComment && <div><b>Comentario:</b> {closureComment}</div>}</>}
                       </div>
-                      <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontWeight: 850 }}>Esta acción guardará la nota final y quitará la materia de Materias cursadas, Horario de clases, Proceso de evaluación y Evaluaciones activas relacionadas.</div>
                       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="btn" onClick={closeFinalization}>Cancelar</button><button type="button" className="btn" onClick={() => { setFinalVerified(false); setFinalStep("confirm"); }}>Continuar</button></div>
                     </>}
 
                     {finalStep === "confirm" && <>
-                      <div style={{ fontWeight: 950, fontSize: 18 }}>¿Estás seguro de registrar este resultado final?</div>
-                      <div style={{ padding: 12, borderRadius: 12, background: "rgba(220,38,38,0.10)", color: "rgba(220,38,38,0.95)", fontWeight: 850 }}>Esta acción eliminará los datos activos de la materia y no podrá deshacerse desde SIGA.</div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 850 }}><input type="checkbox" checked={finalVerified} onChange={(e) => setFinalVerified(e.target.checked)} />He verificado que la materia y la nota son correctas.</label>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="btn" onClick={() => setFinalStep("review")}>Volver</button><button type="button" className="btn" disabled={!finalVerified} style={{ opacity: finalVerified ? 1 : 0.5 }} onClick={() => { const pendingData = { materia: it.nombre, semestre: it.semestre, forma: finalMethod, proceso: total, examenFinal: finalExamValue, oportunidad: finalOpportunity || null, rpDefinitivo: officialRp, notaFinal: officialGrade, resultado: officialApproved ? "Aprobada" : "Reprobada" }; if (process.env.NODE_ENV === "development") console.log("Resultado final pendiente de persistencia", pendingData); closeFinalization(); setFinalFlowMessage("Flujo validado. El guardado definitivo se conectará en la siguiente fase."); window.setTimeout(() => setFinalFlowMessage(""), 4500); }}>Confirmar resultado</button></div>
+                      <div style={{ fontWeight: 950, fontSize: 18 }}>¿Estás seguro de registrar esta situación?</div>
+                      <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontWeight: 850 }}>
+                        {courseSituation === "aprobada" && "Se registrará la nota final, se actualizará la malla y la materia dejará de aparecer entre las materias activas."}
+                        {courseSituation === "conserva_firma" && "La materia dejará de aparecer entre las materias en curso y quedará registrada como materia con firma."}
+                        {courseSituation === "reprobada_sin_firma" && "La materia dejará de aparecer entre las materias activas y no conservará firma."}
+                        {courseSituation === "abandonada" && "La materia se retirará de tus materias activas sin registrar aprobación ni firma."}
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 850 }}><input type="checkbox" checked={finalVerified} onChange={(e) => setFinalVerified(e.target.checked)} />He verificado que la situación seleccionada es correcta.</label>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="btn" onClick={() => setFinalStep("review")}>Volver</button><button type="button" className="btn" disabled={!finalVerified} style={{ opacity: finalVerified ? 1 : 0.5 }} onClick={() => { const pendingData = { materia: it.nombre, semestre: it.semestre, situacion: courseSituation, forma: courseSituation === "aprobada" ? finalMethod : null, proceso: total, examenFinal: courseSituation === "aprobada" ? finalExamValue : null, oportunidad: courseSituation === "aprobada" ? (finalOpportunity || null) : null, rpDefinitivo: courseSituation === "aprobada" ? officialRp : null, notaFinal: courseSituation === "aprobada" ? officialGrade : null, anioFirma: courseSituation === "conserva_firma" ? signatureYear : null, observacion: courseSituation === "conserva_firma" ? signatureObservation : closureComment }; if (process.env.NODE_ENV === "development") console.log("Situación de materia pendiente de persistencia", pendingData); closeFinalization(); setFinalFlowMessage("Flujo validado. La persistencia se conectará en una fase posterior."); window.setTimeout(() => setFinalFlowMessage(""), 4500); }}>Confirmar situación</button></div>
                     </>}
                   </div>
                 </BigModal>
@@ -1615,14 +1672,14 @@ export default function ProcesoPage() {
                             }}
                           >
                             <div style={{ fontWeight: 950, color: "var(--primary)" }}>
-                              🎓 REGISTRAR RESULTADO FINAL
+                              🎓 REGISTRAR SITUACIÓN DE LA MATERIA
                             </div>
                             <div style={{ fontSize: 13, color: "var(--muted)" }}>
-                              Cuando ya tengas el resultado oficial de la materia, regístralo aquí.
+                              Cuando termine o pauses esta cursada, registra aquí su situación actual.
                             </div>
                             <div>
                               <button type="button" className="btn" onClick={() => openFinalization(it)}>
-                                Registrar resultado
+                                Registrar situación
                               </button>
                             </div>
                           </div>
