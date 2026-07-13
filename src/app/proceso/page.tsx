@@ -34,16 +34,6 @@ interface CourseItem {
   semestre: number;
   withLab: boolean;
   rows: Row[];
-  realRecuOn: boolean;
-  realRecuPct: number;
-  realPreferExo: boolean;
-  realFinalPanelOpen: boolean;
-  realFinalOn: boolean;
-  realFinalPct: number;
-  realUseRecuForFinal: boolean;
-  realThirdAttempt: boolean;
-  realAction: "rendir" | "recu" | "final" | "exo";
-  realExamPct: number;
 }
 
 interface Course {
@@ -119,11 +109,9 @@ import {
   calcPesoTotal,
   calcCumpleMinimos,
   groupTotals,
-  calcTotalConRecu,
-  recuTarget,
   calcExoneracion,
   calcParcialPts,
-  calcNotaFinalFIUNA,
+  calcResultadoFinalFIUNA,
   createEmptyRows,
   rowTotalOf as utilRowTotalOf,
 } from "@/lib/procesoUtils";
@@ -225,16 +213,6 @@ function mergeCoursesIntoItems(courses: Course[], existingItems: CourseItem[]): 
         semestre: c.semestre,
         withLab: false,
         rows: defaultRows(false),
-        realRecuOn: false,
-        realRecuPct: 0,
-        realPreferExo: false,
-        realFinalPanelOpen: false,
-        realFinalOn: false,
-        realFinalPct: 0,
-        realUseRecuForFinal: true,
-        realThirdAttempt: false,
-        realAction: "rendir" as const,
-        realExamPct: 0,
       }
     );
   });
@@ -282,19 +260,7 @@ function defaultRows(withLab: boolean): Row[] {
 
 function migrateItemIfNeeded(it: any): CourseItem {
   if (it && Array.isArray(it.rows)) {
-    return {
-      ...it,
-      realRecuOn: !!it?.realRecuOn,
-      realRecuPct: it?.realRecuPct ?? 0,
-      realPreferExo: !!it?.realPreferExo,
-      realFinalOn: !!it?.realFinalOn,
-      realFinalPct: it?.realFinalPct ?? 0,
-      realUseRecuForFinal: it?.realUseRecuForFinal ?? true,
-      realThirdAttempt: !!it?.realThirdAttempt,
-      realAction: it?.realAction ?? "rendir",
-      realExamPct: it?.realExamPct ?? 0,
-      realFinalPanelOpen: it?.realFinalPanelOpen ?? false,
-    };
+    return it as CourseItem;
   }
 
   const withLab = !!it?.withLab;
@@ -319,12 +285,6 @@ function migrateItemIfNeeded(it: any): CourseItem {
     ...it,
     withLab,
     rows: nextRows,
-    realRecuOn: !!it?.realRecuOn,
-    realRecuPct: it?.realRecuPct ?? 0,
-    realPreferExo: !!it?.realPreferExo,
-    realFinalOn: !!it?.realFinalOn,
-    realFinalPct: it?.realFinalPct ?? 0,
-    realUseRecuForFinal: it?.realUseRecuForFinal ?? true,
   };
 }
 
@@ -336,7 +296,6 @@ export default function ProcesoPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [simRowsById, setSimRowsById] = useState<Record<string, Row[]>>({});
   const [items, setItems] = useState<CourseItem[]>(DEFAULT_ITEMS);
-  const [recuPctByItem, setRecuPctByItem] = useState<Record<string, number>>({});
   const [simOpenId, setSimOpenId] = useState<string | null>(null);
   const [simRecuPctByItem, setSimRecuPctByItem] = useState<Record<string, number>>({});
   const [simFinalPctByItem, setSimFinalPctByItem] = useState<Record<string, number>>({});
@@ -345,6 +304,13 @@ export default function ProcesoPage() {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [editingItems, setEditingItems] = useState<Record<string, boolean>>({});
   const [draftRowsById, setDraftRowsById] = useState<Record<string, Row[]>>({});
+  const [finalModalId, setFinalModalId] = useState<string | null>(null);
+  const [finalMethod, setFinalMethod] = useState<"exoneracion" | "examen_final">("exoneracion");
+  const [finalExamPct, setFinalExamPct] = useState("");
+  const [finalOpportunity, setFinalOpportunity] = useState<"" | "1" | "2" | "3">("");
+  const [finalStep, setFinalStep] = useState<"form" | "review" | "confirm">("form");
+  const [finalVerified, setFinalVerified] = useState(false);
+  const [finalFlowMessage, setFinalFlowMessage] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -379,21 +345,6 @@ export default function ProcesoPage() {
     if (!userId) return;
     const courses = await loadCourses(userId);
     setItems((prev) => mergeCoursesIntoItems(courses, prev).map(migrateItemIfNeeded));
-  };
-
-  const updateItem = (id: string, patch: Partial<CourseItem>) => {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-  };
-
-  const updateRow = (id: string, rid: string, patch: Partial<Row>) => {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const rows = Array.isArray(it.rows) ? it.rows : [];
-        const nextRows = rows.map((r) => (r.rid === rid ? { ...r, ...patch } : r));
-        return { ...it, rows: nextRows };
-      })
-    );
   };
 
   const addRow = (id: string) => {
@@ -484,10 +435,6 @@ export default function ProcesoPage() {
         }),
       };
     });
-  };
-
-  const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((x) => x.id !== id));
   };
 
   const totals: Totals = useMemo(() => {
@@ -608,6 +555,21 @@ export default function ProcesoPage() {
     setSimOpenId(it.id);
   };
 
+  const openFinalization = (it: CourseItem) => {
+    setFinalModalId(it.id);
+    setFinalMethod("exoneracion");
+    setFinalExamPct("");
+    setFinalOpportunity("");
+    setFinalStep("form");
+    setFinalVerified(false);
+  };
+
+  const closeFinalization = () => {
+    setFinalModalId(null);
+    setFinalStep("form");
+    setFinalVerified(false);
+  };
+
 
   if (isLoading) {
     return (
@@ -636,6 +598,11 @@ export default function ProcesoPage() {
 
   return (
     <div className="grid" style={{ gap: 14 }}>
+      {finalFlowMessage && (
+        <div style={{ padding: "10px 12px", borderRadius: 14, background: "var(--success2)", border: "1px solid var(--success)", color: "var(--success)", fontWeight: 900 }}>
+          {finalFlowMessage}
+        </div>
+      )}
       {items.map((it) => {
         const withLab = !!it.withLab;
         const isEditing = !!editingItems[it.id];
@@ -727,46 +694,17 @@ export default function ProcesoPage() {
           return base;
         }
 
-        const recuPct = clampNum(recuPctByItem[it.id] ?? 60, 0, 100);
-        const target = recuTarget(rows);
-        const totalConRecu = calcTotalConRecu(rows, recuPct);
-        const exConRecu = validoParaReglas
-          ? calcExoneracion(it.semestre, totalConRecu)
-          : { ok: false, nota: null };
-
-        const realRecuOn = !!it.realRecuOn;
-        const realRecuPct = clampNum(it.realRecuPct ?? 0, 0, 100);
-        const realCanRecu = validoParaReglas && recuperatorio;
-
-        const realTotalConRecu =
-          realRecuOn && realCanRecu ? calcTotalConRecu(rows, realRecuPct) : null;
-
-        const realExConRecu =
-          realRecuOn && realCanRecu
-            ? calcExoneracion(it.semestre, realTotalConRecu!)
-            : { ok: false, nota: null };
-
-        const realExPossible = realRecuOn ? (realExConRecu.ok ? realExConRecu : ex) : ex;
-
-        const realProcesoParaFinal =
-          it.realUseRecuForFinal && realTotalConRecu != null ? realTotalConRecu : total;
-
-        const realHasFirma = validoParaReglas && realProcesoParaFinal >= 50;
-
-        const realFinalOn = !!it.realFinalOn;
-        const realExamPct = clampNum(it.realExamPct ?? 0, 0, 100);
-
-        const realPreferExo = !!it.realPreferExo;
-        const realNotaFinal =
-          realPreferExo && realExPossible.ok
-            ? realExPossible.nota
-            : realHasFirma && realFinalOn
-              ? calcNotaFinalFIUNA(realProcesoParaFinal, realExamPct)
-              : null;
-
-        const realCanExonerar = validoParaReglas && !it.realThirdAttempt && !!realExPossible.ok;
-
-        const realFinalPanelOpen = !!it.realFinalPanelOpen;
+        const officialExoneration = calcExoneracion(it.semestre, total);
+        const finalExamValue = finalExamPct === "" ? null : Number(finalExamPct);
+        const finalExamValid = finalExamValue !== null && Number.isFinite(finalExamValue) && finalExamValue >= 0 && finalExamValue <= 100;
+        const officialFinalResult = calcResultadoFinalFIUNA(total, finalExamValid ? finalExamValue : 0);
+        const isOfficialExoneration = finalMethod === "exoneracion";
+        const officialRp = isOfficialExoneration ? total : officialFinalResult.rendimientoPonderado;
+        const officialGrade = isOfficialExoneration ? (officialExoneration.nota ?? 1) : officialFinalResult.notaFinal;
+        const officialApproved = isOfficialExoneration ? officialExoneration.ok : officialGrade >= 2;
+        const officialFormValid = isOfficialExoneration
+          ? officialExoneration.ok
+          : finalExamValid && finalOpportunity !== "";
 
         const isExpanded = !!expandedItems[it.id];
 
@@ -821,6 +759,45 @@ export default function ProcesoPage() {
                     semestre={it.semestre}
                     mode="process"
                   />
+                </BigModal>
+
+                <BigModal open={finalModalId === it.id} title={`🎓 Registrar resultado final — ${it.nombre}`} onClose={closeFinalization}>
+                  <div style={{ display: "grid", gap: 14 }}>
+                    {finalStep === "form" && <>
+                      <div style={{ fontWeight: 950 }}>Forma de finalización</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button type="button" className="btn" onClick={() => setFinalMethod("exoneracion")} style={{ background: isOfficialExoneration ? "var(--primary)" : "var(--card)", color: isOfficialExoneration ? "white" : "var(--text)" }}>Exoneración</button>
+                        <button type="button" className="btn" onClick={() => setFinalMethod("examen_final")} style={{ background: !isOfficialExoneration ? "var(--primary)" : "var(--card)", color: !isOfficialExoneration ? "white" : "var(--text)" }}>Examen final</button>
+                      </div>
+                      {!isOfficialExoneration && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                        <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Porcentaje obtenido<input className="input" type="number" min={0} max={100} value={finalExamPct} onChange={(e) => setFinalExamPct(e.target.value)} placeholder="0–100" /></label>
+                        <label style={{ display: "grid", gap: 6, fontWeight: 850 }}>Oportunidad<select className="input" value={finalOpportunity} onChange={(e) => setFinalOpportunity(e.target.value as "" | "1" | "2" | "3")}><option value="">Seleccionar</option><option value="1">1ra</option><option value="2">2da</option><option value="3">3ra</option></select></label>
+                      </div>}
+                      {isOfficialExoneration && !officialExoneration.ok && <div style={{ padding: 12, borderRadius: 12, background: "rgba(220,38,38,0.10)", color: "rgba(220,38,38,0.95)", fontWeight: 850 }}>Exoneración no disponible. Se requieren {officialExoneration.umbral} puntos y el proceso actual es {total}.</div>}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10 }}>
+                        {[["Materia", it.nombre], ["Semestre", it.semestre], ["Proceso obtenido", `${total}%`], ["RP definitivo", officialFormValid ? `${officialRp}%` : "—"], ["Nota final FIUNA", officialFormValid ? officialGrade : "—"], ["Resultado", officialFormValid ? (officialApproved ? "Aprobada" : "Reprobada") : "—"]].map(([label, value]) => <div key={String(label)} style={{ padding: 10, borderRadius: 12, border: "1px solid var(--border)", background: "rgba(2,6,23,0.02)" }}><div style={{ fontSize: 12, color: "var(--muted)" }}>{label}</div><div style={{ marginTop: 3, fontWeight: 950 }}>{value}</div></div>)}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}><button type="button" className="btn" onClick={closeFinalization}>Cancelar</button><button type="button" className="btn" disabled={!officialFormValid} onClick={() => setFinalStep("review")} style={{ opacity: officialFormValid ? 1 : 0.5 }}>Revisar resultado</button></div>
+                    </>}
+
+                    {finalStep === "review" && <>
+                      <div style={{ fontWeight: 950, fontSize: 16 }}>Resumen del resultado</div>
+                      <div style={{ display: "grid", gap: 7, padding: 12, borderRadius: 14, border: "1px solid var(--border)", background: "rgba(2,6,23,0.02)" }}>
+                        <div><b>Materia:</b> {it.nombre}</div><div><b>Semestre:</b> {it.semestre}</div><div><b>Forma:</b> {isOfficialExoneration ? "Exoneración" : "Examen final"}</div><div><b>Proceso:</b> {total}%</div>
+                        {!isOfficialExoneration && <div><b>Examen final:</b> {finalExamValue}%</div>}{!isOfficialExoneration && <div><b>Oportunidad:</b> {finalOpportunity === "1" ? "1ra" : finalOpportunity === "2" ? "2da" : "3ra"}</div>}
+                        <div><b>RP definitivo:</b> {officialRp}%</div><div><b>Nota FIUNA:</b> {officialGrade}</div><div><b>Resultado:</b> {officialApproved ? "Aprobada" : "Reprobada"}</div>
+                      </div>
+                      <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontWeight: 850 }}>Esta acción guardará la nota final y quitará la materia de Materias cursadas, Horario de clases, Proceso de evaluación y Evaluaciones activas relacionadas.</div>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="btn" onClick={closeFinalization}>Cancelar</button><button type="button" className="btn" onClick={() => { setFinalVerified(false); setFinalStep("confirm"); }}>Continuar</button></div>
+                    </>}
+
+                    {finalStep === "confirm" && <>
+                      <div style={{ fontWeight: 950, fontSize: 18 }}>¿Estás seguro de registrar este resultado final?</div>
+                      <div style={{ padding: 12, borderRadius: 12, background: "rgba(220,38,38,0.10)", color: "rgba(220,38,38,0.95)", fontWeight: 850 }}>Esta acción eliminará los datos activos de la materia y no podrá deshacerse desde SIGA.</div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 850 }}><input type="checkbox" checked={finalVerified} onChange={(e) => setFinalVerified(e.target.checked)} />He verificado que la materia y la nota son correctas.</label>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="btn" onClick={() => setFinalStep("review")}>Volver</button><button type="button" className="btn" disabled={!finalVerified} style={{ opacity: finalVerified ? 1 : 0.5 }} onClick={() => { const pendingData = { materia: it.nombre, semestre: it.semestre, forma: finalMethod, proceso: total, examenFinal: finalExamValue, oportunidad: finalOpportunity || null, rpDefinitivo: officialRp, notaFinal: officialGrade, resultado: officialApproved ? "Aprobada" : "Reprobada" }; if (process.env.NODE_ENV === "development") console.log("Resultado final pendiente de persistencia", pendingData); closeFinalization(); setFinalFlowMessage("Flujo validado. El guardado definitivo se conectará en la siguiente fase."); window.setTimeout(() => setFinalFlowMessage(""), 4500); }}>Confirmar resultado</button></div>
+                    </>}
+                  </div>
                 </BigModal>
 
                 <div style={{ display: "grid", gap: 12 }}>
@@ -1627,514 +1604,28 @@ export default function ProcesoPage() {
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            className="btn"
-                            onClick={() =>
-                              updateItem(it.id, {
-                                realFinalPanelOpen: !realFinalPanelOpen,
-                              })
-                            }
+                          <div
                             style={{
-                              width: "100%",
-                              borderRadius: 16,
-                              padding: "12px 12px",
-                              fontWeight: 950,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
                               border: "1px solid rgba(2,6,23,0.10)",
-                              background: "rgba(2,6,23,0.03)",
+                              borderRadius: 16,
+                              background: "var(--card)",
+                              padding: 14,
+                              display: "grid",
+                              gap: 10,
                             }}
-                            title={realFinalPanelOpen ? "Ocultar" : "Mostrar"}
                           >
-                            <span>📌 EXAMEN FINAL</span>
-                            <span style={{ fontWeight: 950 }}>
-                              {realFinalPanelOpen ? "▾" : "▸"}
-                            </span>
-                          </button>
-
-                          {realFinalPanelOpen && (
-                            <div
-                              style={{
-                                border: "1px solid rgba(2,6,23,0.10)",
-                                borderRadius: 16,
-                                background: "var(--card)",
-                                padding: 12,
-                                display: "grid",
-                                gap: 12,
-                              }}
-                            >
-                              <label
-                                style={{
-                                  display: "flex",
-                                  gap: 10,
-                                  alignItems: "center",
-                                  padding: 10,
-                                  borderRadius: 14,
-                                  border: "1px solid rgba(2,6,23,0.10)",
-                                  background: "var(--card)",
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={!!it.realThirdAttempt}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    updateItem(
-                                      it.id,
-                                      checked
-                                        ? {
-                                          realThirdAttempt: true,
-                                          realPreferExo: false,
-                                          realFinalOn: true,
-                                        }
-                                        : { realThirdAttempt: false }
-                                    );
-                                  }}
-                                />
-                                <div style={{ lineHeight: 1.1 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 13,
-                                      fontWeight: 950,
-                                      color: "var(--text)",
-                                    }}
-                                  >
-                                    Es mi 3ra oportunidad
-                                  </div>
-                                  <div
-                                    style={{ fontSize: 11, color: "var(--muted)" }}
-                                  >
-                                    (En 3ra oportunidad no se puede exonerar)
-                                  </div>
-                                </div>
-                              </label>
-
-                              <div style={{ fontWeight: 950, color: "var(--text)" }}>
-                                ELEGÍ QUÉ VAS A HACER
-                              </div>
-
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "1fr 1fr 1fr",
-                                  gap: 8,
-                                  background: "rgba(2,6,23,0.04)",
-                                  padding: 6,
-                                  borderRadius: 16,
-                                  border: "1px solid rgba(2,6,23,0.08)",
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  className="btn"
-                                  onClick={() => updateItem(it.id, { realAction: "recu" })}
-                                  style={{
-                                    borderRadius: 14,
-                                    padding: "10px 10px",
-                                    fontWeight: 950,
-                                    fontSize: 12,
-                                    background:
-                                      it.realAction === "recu" ? "white" : "transparent",
-                                    border: "1px solid rgba(2,6,23,0.08)",
-                                    boxShadow:
-                                      it.realAction === "recu"
-                                        ? "0 8px 18px rgba(2,6,23,0.06)"
-                                        : "none",
-                                  }}
-                                >
-                                  🧪 Recu
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn"
-                                  onClick={() =>
-                                    updateItem(it.id, {
-                                      realAction: "final",
-                                      realPreferExo: false,
-                                      realFinalOn: true,
-                                    })
-                                  }
-                                  style={{
-                                    borderRadius: 14,
-                                    padding: "10px 10px",
-                                    fontWeight: 950,
-                                    fontSize: 12,
-                                    background:
-                                      it.realAction === "final" ? "white" : "transparent",
-                                    border: "1px solid rgba(2,6,23,0.08)",
-                                    boxShadow:
-                                      it.realAction === "final"
-                                        ? "0 8px 18px rgba(2,6,23,0.06)"
-                                        : "none",
-                                  }}
-                                >
-                                  🎓 Final
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn"
-                                  onClick={() =>
-                                    updateItem(it.id, {
-                                      realAction: "exo",
-                                      realPreferExo: true,
-                                      realFinalOn: false,
-                                    })
-                                  }
-                                  style={{
-                                    borderRadius: 14,
-                                    padding: "10px 10px",
-                                    fontWeight: 950,
-                                    fontSize: 12,
-                                    background:
-                                      it.realAction === "exo" ? "white" : "transparent",
-                                    border: "1px solid rgba(2,6,23,0.08)",
-                                    boxShadow:
-                                      it.realAction === "exo"
-                                        ? "0 8px 18px rgba(2,6,23,0.06)"
-                                        : "none",
-                                  }}
-                                  disabled={!realCanExonerar}
-                                  title={
-                                    it.realThirdAttempt
-                                      ? "En 3ra oportunidad no se puede exonerar"
-                                      : !validoParaReglas
-                                        ? "Primero cumplí mínimos y peso total"
-                                        : realCanExonerar
-                                          ? "Exonerar"
-                                          : "No disponible"
-                                  }
-                                >
-                                  🏅 Exoneración
-                                </button>
-                              </div>
-
-                              {it.realAction === "recu" && (
-                                <div
-                                  style={{
-                                    border: "1px solid rgba(2,6,23,0.10)",
-                                    borderRadius: 16,
-                                    padding: 12,
-                                    background: "var(--card)",
-                                  }}
-                                >
-                                  <div style={{ fontWeight: 950, marginBottom: 8 }}>
-                                    🧪 RECUPERATORIO
-                                  </div>
-
-                                  <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
-                                    <div>
-                                      <button
-                                        type="button"
-                                        className="btn"
-                                        onClick={() => {
-                                          const next = !realRecuOn;
-                                          updateItem(
-                                            it.id,
-                                            next
-                                              ? { realRecuOn: true }
-                                              : {
-                                                realRecuOn: false,
-                                                realPreferExo: false,
-                                                realUseRecuForFinal: true,
-                                              }
-                                          );
-                                        }}
-                                        disabled={!realCanRecu}
-                                        style={{
-                                          borderRadius: 999,
-                                          height: 30,
-                                          padding: "0 10px",
-                                          fontSize: 11,
-                                          fontWeight: 950,
-                                          opacity: realCanRecu ? 1 : 0.5,
-                                          cursor: realCanRecu ? "pointer" : "not-allowed",
-                                        }}
-                                        title={
-                                          realCanRecu
-                                            ? "Marcar si rendiste recu"
-                                            : "No habilitado"
-                                        }
-                                      >
-                                        {realRecuOn ? "Rendiste recu: SI" : "Rendiste recu: NO"}
-                                      </button>
-                                    </div>
-
-                                    <div
-                                      style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "1fr 120px",
-                                        gap: 10,
-                                        alignItems: "center",
-                                      }}
-                                    >
-                                      <div>
-                                        Puntaje recu:
-                                        <div style={{ fontSize: 11, opacity: 0.7 }}>
-                                          (solo se edita si está habilitado y marcás "SI")
-                                        </div>
-                                      </div>
-
-                                      <input
-                                        className="input"
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        value={String(realRecuPct)}
-                                        disabled={!(realCanRecu && realRecuOn)}
-                                        onChange={(e) =>
-                                          updateItem(it.id, { realRecuPct: clampNum(e.target.value, 0, 100) })
-                                        }
-                                        style={{
-                                          textAlign: "center",
-                                          fontWeight: 950,
-                                          borderRadius: 12,
-                                        }}
-                                      />
-                                    </div>
-
-                                    <div>
-                                      Reemplaza: <b>{target.label}</b>
-                                    </div>
-                                    <div>
-                                      Total con recu:{" "}
-                                      <b>
-                                        {realCanRecu && realRecuOn
-                                          ? realTotalConRecu ?? "-"
-                                          : "-"}
-                                      </b>
-                                    </div>
-                                    <div>
-                                      ¿Exonerás con recu?:{" "}
-                                      <b>
-                                        {realCanRecu && realRecuOn
-                                          ? realExConRecu.ok
-                                            ? `SI (nota ${realExConRecu.nota})`
-                                            : "NO"
-                                          : "-"}
-                                      </b>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {it.realAction === "final" && (
-                                <div
-                                  style={{
-                                    border: "1px solid rgba(2,6,23,0.10)",
-                                    borderRadius: 16,
-                                    padding: 12,
-                                    background: "var(--card)",
-                                  }}
-                                >
-                                  <div style={{ fontWeight: 950, marginBottom: 8 }}>
-                                    🎓 EXAMEN FINAL
-                                  </div>
-
-                                  <div style={{ display: "grid", gap: 10, fontSize: 13 }}>
-                                    <div>
-                                      Necesitás firma:{" "}
-                                      <b>
-                                        {realHasFirma
-                                          ? "SI"
-                                          : `NO (${realProcesoParaFinal} / 50)`}
-                                      </b>
-                                    </div>
-
-                                    <div
-                                      style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "1fr 140px",
-                                        gap: 10,
-                                        alignItems: "stretch",
-                                      }}
-                                    >
-                                      <div style={{ display: "grid", gap: 6 }}>
-                                        <div
-                                          style={{
-                                            fontSize: 11,
-                                            fontWeight: 950,
-                                            color: "rgba(21,101,192,0.85)",
-                                            textTransform: "uppercase",
-                                          }}
-                                        >
-                                          Puntaje examen
-                                        </div>
-
-                                        <input
-                                          className="input"
-                                          type="number"
-                                          min={0}
-                                          max={100}
-                                          value={String(realExamPct)}
-                                          disabled={!realHasFirma}
-                                          onChange={(e) =>
-                                            updateItem(it.id, {
-                                              realExamPct: clampNum(e.target.value, 0, 100),
-                                              realFinalOn: true,
-                                              realPreferExo: false,
-                                            })
-                                          }
-                                          placeholder="0 - 100"
-                                          style={{
-                                            padding: "10px 12px",
-                                            borderRadius: 14,
-                                            fontSize: 16,
-                                            fontWeight: 950,
-                                            textAlign: "center",
-                                            border: "2px solid rgba(21,101,192,0.15)",
-                                          }}
-                                        />
-
-                                        {!realHasFirma && (
-                                          <div
-                                            style={{
-                                              fontSize: 11,
-                                              color: "var(--muted)",
-                                            }}
-                                          >
-                                            (Se muestra, pero no se puede editar sin firma)
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {(() => {
-                                        const hasExam =
-                                          String(realExamPct) !== "" &&
-                                          String(realExamPct) != null;
-                                        const previewNota =
-                                          realHasFirma && hasExam
-                                            ? calcNotaFinalFIUNA(
-                                              realProcesoParaFinal,
-                                              realExamPct
-                                            )
-                                            : "-";
-
-                                        const msg =
-                                          previewNota === "-"
-                                            ? "Pendiente"
-                                            : previewNota > 1
-                                              ? "Aprobado"
-                                              : "Insuf.";
-
-                                        return (
-                                          <div
-                                            style={{
-                                              borderRadius: 16,
-                                              border: "1px solid rgba(2,6,23,0.10)",
-                                              background: "rgba(2,6,23,0.03)",
-                                              padding: 10,
-                                              display: "grid",
-                                              alignContent: "center",
-                                              justifyItems: "center",
-                                              minHeight: 84,
-                                            }}
-                                          >
-                                            <div
-                                              style={{
-                                                fontSize: 10,
-                                                fontWeight: 950,
-                                                opacity: 0.65,
-                                                letterSpacing: 1,
-                                              }}
-                                            >
-                                              NOTA (1–5)
-                                            </div>
-                                            <div
-                                              style={{
-                                                fontSize: 32,
-                                                fontWeight: 950,
-                                                lineHeight: 1,
-                                              }}
-                                            >
-                                              {previewNota}
-                                            </div>
-                                            <div
-                                              style={{
-                                                marginTop: 6,
-                                                fontSize: 11,
-                                                fontWeight: 900,
-                                                padding: "4px 10px",
-                                                borderRadius: 999,
-                                                background: "var(--surface-soft)",
-                                                border: "1px solid var(--border)",
-                                              }}
-                                            >
-                                              {msg}
-                                            </div>
-                                          </div>
-                                        );
-                                      })()}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {it.realAction === "exo" && (
-                                <div
-                                  style={{
-                                    border: "1px solid rgba(2,6,23,0.10)",
-                                    borderRadius: 16,
-                                    padding: 12,
-                                    background: "var(--card)",
-                                  }}
-                                >
-                                  <div style={{ fontWeight: 950, marginBottom: 8 }}>
-                                    🏅 EXONERACIÓN
-                                  </div>
-
-                                  {(() => {
-                                    const umbral = (Number(it.semestre) || 0) <= 4 ? 71 : 81;
-                                    const mejorProceso =
-                                      realTotalConRecu != null
-                                        ? Math.max(total, realTotalConRecu)
-                                        : total;
-                                    const falta = Math.max(0, umbral - mejorProceso);
-
-                                    if (!validoParaReglas) {
-                                      return (
-                                        <div style={{ fontSize: 13 }}>
-                                          Estado: <b>NO disponible</b>. Primero cumplí
-                                          mínimos.
-                                        </div>
-                                      );
-                                    }
-
-                                    if (it.realThirdAttempt) {
-                                      return (
-                                        <div style={{ fontSize: 13 }}>
-                                          Estado: <b>NO disponible</b>. En 3ra oportunidad no
-                                          se puede exonerar.
-                                        </div>
-                                      );
-                                    }
-
-                                    if (realExPossible.ok) {
-                                      return (
-                                        <div style={{ fontSize: 13 }}>
-                                          ✅ Estado: <b>Disponible</b>. Nota de exoneración:{" "}
-                                          <b>{realExPossible.nota}</b>
-                                        </div>
-                                      );
-                                    }
-
-                                    return (
-                                      <div style={{ fontSize: 13 }}>
-                                        Estado: <b>NO disponible</b>.
-                                        <div style={{ marginTop: 6, opacity: 0.85 }}>
-                                          Te falta llegar a <b>{falta}</b> puntos para
-                                          exonerar.
-                                        </div>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              )}
+                            <div style={{ fontWeight: 950, color: "var(--primary)" }}>
+                              🎓 REGISTRAR RESULTADO FINAL
                             </div>
-                          )}
+                            <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                              Cuando ya tengas el resultado oficial de la materia, regístralo aquí.
+                            </div>
+                            <div>
+                              <button type="button" className="btn" onClick={() => openFinalization(it)}>
+                                Registrar resultado
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
