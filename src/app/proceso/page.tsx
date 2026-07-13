@@ -782,12 +782,12 @@ export default function ProcesoPage() {
                       <div style={{ fontWeight: 950, fontSize: 17 }}>¿Cuál es la situación actual de esta materia?</div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10 }}>
                         {[
-                          ["aprobada", "✅", "Aprobada"],
-                          ["conserva_firma", "📌", "Conserva firma"],
-                          ["reprobada_sin_firma", "❌", "No conserva firma"],
-                        ].map(([value, icon, label]) => {
+                          { value: "aprobada", label: "Aprobada", background: "rgba(22,163,74,0.09)", border: "rgba(22,163,74,0.32)", color: "#166534" },
+                          { value: "conserva_firma", label: "Conserva firma", background: "rgba(217,119,6,0.09)", border: "rgba(217,119,6,0.32)", color: "#92400e" },
+                          { value: "reprobada_sin_firma", label: "No conserva firma", background: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.28)", color: "#991b1b" },
+                        ].map(({ value, label, background, border, color }) => {
                           const selected = courseSituation === value;
-                          return <button key={value} type="button" className="btn" onClick={() => setCourseSituation(value as typeof courseSituation)} style={{ padding: 14, minHeight: 72, display: "grid", gap: 4, justifyItems: "start", border: selected ? "2px solid var(--primary)" : "1px solid var(--border)", background: selected ? "var(--primary2)" : "var(--card)", color: selected ? "var(--primary)" : "var(--text)" }}><span style={{ fontSize: 21 }}>{icon}</span><span style={{ fontWeight: 950 }}>{label}</span></button>;
+                          return <button key={value} type="button" className="btn" onClick={() => setCourseSituation(value as typeof courseSituation)} style={{ padding: 14, minHeight: 72, display: "grid", gap: 4, justifyItems: "start", border: selected ? `2px solid ${border}` : "1px solid var(--border)", background: selected ? background : "var(--card)", color: selected ? color : "var(--text)" }}><span style={{ fontWeight: 950 }}>{label}</span></button>;
                         })}
                       </div>
 
