@@ -93,14 +93,18 @@ export default function SimuladorNotas({
   const useRecuForFinal = controlledUseRecuForFinal ?? internalUseRecuForFinal;
   const setUseRecuForFinal = onUseRecuForFinalChange ?? setInternalUseRecuForFinal;
 
-  const simTotal = useMemo(() => calcProcessTotal(rows), [rows]);
-  const simPesoTotal = useMemo(() => calcPesoTotal(rows), [rows]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftRows, setDraftRows] = useState<Row[] | null>(null);
+  const calculationRows = isEditing && draftRows ? draftRows : rows;
+
+  const simTotal = useMemo(() => calcProcessTotal(calculationRows), [calculationRows]);
+  const simPesoTotal = useMemo(() => calcPesoTotal(calculationRows), [calculationRows]);
   const simPesoOk = simPesoTotal === 100;
-  const simCumpleMin = useMemo(() => calcCumpleMinimos(rows), [rows]);
+  const simCumpleMin = useMemo(() => calcCumpleMinimos(calculationRows), [calculationRows]);
   const simValido = simPesoOk && simCumpleMin;
 
-  const sp1 = rows.find((x) => x.rid === "p1") || rows.find((x) => normText(x?.label).includes("parcial 1"));
-  const sp2 = rows.find((x) => x.rid === "p2") || rows.find((x) => normText(x?.label).includes("parcial 2"));
+  const sp1 = calculationRows.find((x) => x.rid === "p1") || calculationRows.find((x) => normText(x?.label).includes("parcial 1"));
+  const sp2 = calculationRows.find((x) => x.rid === "p2") || calculationRows.find((x) => normText(x?.label).includes("parcial 2"));
   const sp1pct = clampNum(sp1?.pct ?? 0, 0, 100);
   const sp2pct = clampNum(sp2?.pct ?? 0, 0, 100);
 
@@ -110,8 +114,8 @@ export default function SimuladorNotas({
   const activeSemestre = mode === "standalone" ? internalSemestre : semestre;
   const simEx = simValido ? calcExoneracion(activeSemestre, simTotal) : { ok: false, nota: null };
   const simRecuPctValue = clampNum(recuPct ?? 60, 0, 100);
-  const simTarget = recuTarget(rows);
-  const simTotalConRecu = calcTotalConRecu(rows, simRecuPctValue);
+  const simTarget = recuTarget(calculationRows);
+  const simTotalConRecu = calcTotalConRecu(calculationRows, simRecuPctValue);
   const simExConRecu = simValido ? calcExoneracion(activeSemestre, simTotalConRecu) : { ok: false, nota: null };
 
   const baseFinalProceso = useRecuForFinal && simRecuperatorio ? simTotalConRecu : simTotal;
@@ -132,10 +136,6 @@ export default function SimuladorNotas({
       {txt}
     </div>
   );
-
-  // Local editing state for standalone mode (drafts, handlers)
-  const [isEditing, setIsEditing] = useState(false);
-  const [draftRows, setDraftRows] = useState<Row[] | null>(null);
 
   function startEditing() {
     setDraftRows(cloneRowsDeep(rows));
@@ -176,15 +176,25 @@ export default function SimuladorNotas({
     });
   }
 
-  function addGroup() {
-    const nid = "g" + Date.now();
-    const newRow: Row = { rid: nid, label: "Nueva instancia", peso: 0, min: 0, pct: 0 };
+  function makeLocalId(prefix: string) {
+    return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function addRow() {
+    const newRow: Row = { rid: makeLocalId("r"), label: "Nueva instancia", peso: 0, min: 0, pct: 0 };
     setDraftRows((prev) => (prev ? [...prev, newRow] : [newRow]));
   }
 
+  function addGroup() {
+    const newGroup: Row = {
+      rid: makeLocalId("g"), label: "Nuevo grupo", peso: 0, min: 0, pct: 0, isGroup: true,
+      children: [{ rid: makeLocalId("c"), label: "Nueva subinstancia", peso: 0, pct: 0 }],
+    };
+    setDraftRows((prev) => (prev ? [...prev, newGroup] : [newGroup]));
+  }
+
   function addSubRow(groupRid: string) {
-    const nid = "s" + Date.now();
-    const newChild: ChildRow = { rid: nid, label: "Nueva subfila", peso: 0, pct: 0 };
+    const newChild: ChildRow = { rid: makeLocalId("c"), label: "Nueva subinstancia", peso: 0, pct: 0 };
     setDraftRows((prev) => {
       if (!prev) return prev;
       return prev.map((r) => (r.rid === groupRid ? { ...r, children: [...(r.children || []), newChild] } : r));
@@ -320,6 +330,7 @@ export default function SimuladorNotas({
                 isEditing={isEditing}
                 updateDraftRow={updateDraftRow}
                 updateDraftChild={updateDraftChild}
+                addRow={() => addRow()}
                 addGroup={() => addGroup()}
                 addSubRow={(itemId, groupRid) => addSubRow(groupRid)}
                 removeRow={(itemId, rid) => removeRow(itemId, rid)}

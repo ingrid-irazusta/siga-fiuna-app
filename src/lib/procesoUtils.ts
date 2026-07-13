@@ -189,6 +189,17 @@ export function createEmptyRows(): Row[] {
   return [
     { rid: "p1", label: "Parcial 1", peso: 0, min: 0, pct: 0 },
     { rid: "p2", label: "Parcial 2", peso: 0, min: 0, pct: 0 },
-    { rid: "final", label: "Final", peso: 0, min: 0, pct: 0 },
+    {
+      rid: "g_talleres",
+      label: "Talleres",
+      peso: 0,
+      min: 0,
+      pct: 0,
+      isGroup: true,
+      children: [
+        { rid: "t1", label: "Taller 1", peso: 0, pct: 0 },
+        { rid: "t2", label: "Taller 2", peso: 0, pct: 0 },
+      ],
+    },
   ];
 }

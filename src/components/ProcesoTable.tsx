@@ -15,6 +15,7 @@ interface ProcesoTableProps {
   isEditing: boolean;
   updateDraftRow: (itemId: string, rid: string, patch: Partial<Row>) => void;
   updateDraftChild: (itemId: string, groupRid: string, childRid: string, patch: Partial<ChildRow>) => void;
+  addRow?: (itemId: string) => void;
   addGroup?: (itemId: string) => void;
   addSubRow?: (itemId: string, groupRid: string) => void;
   removeRow?: (itemId: string, rid: string) => void;
@@ -23,7 +24,7 @@ interface ProcesoTableProps {
   simTotal?: number;
 }
 
-export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, updateDraftChild, addGroup, addSubRow, removeRow, removeSubRow, pesoTotal, simTotal }: ProcesoTableProps) {
+export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, updateDraftChild, addRow, addGroup, addSubRow, removeRow, removeSubRow, pesoTotal, simTotal }: ProcesoTableProps) {
   return (
     <div
       className="procTableWrap procEvalWrap"
@@ -37,7 +38,7 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
             <col style={{ width: 50 }} />
             <col style={{ width: 50 }} />
             <col style={{ width: 40 }} />
-            <col style={{ width: 40 }} />
+            <col style={{ width: 92 }} />
           </colgroup>
 
           <thead>
@@ -53,7 +54,6 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
 
           <tbody>
             {rows.flatMap((r) => {
-              const isP = r.rid === "p1" || r.rid === "p2";
               const isGroup = !!r.isGroup;
 
               const hasKids = Array.isArray(r.children) && r.children.length > 0;
@@ -63,7 +63,7 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
               const groupRow = (
                 <tr key={r.rid} style={{ borderTop: "1px solid rgba(2,6,23,0.08)", background: "transparent" }}>
                   <td style={{ padding: "4px 6px", textAlign: "left" }}>
-                    {isP || !isEditing ? (
+                    {!isEditing ? (
                       <div style={{ fontWeight: 900, padding: "4px 6px" }}>{String(r?.label ?? "")}</div>
                     ) : (
                       <input
@@ -92,10 +92,7 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
                   </td>
 
                   <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                    {isP ? (
-                      <span style={{ opacity: 0.6 }}> </span>
-                    ) : (
-                      <input
+                    <input
                         className="input numMini"
                         type="number"
                         min={0}
@@ -104,8 +101,7 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
                         disabled={!isEditing}
                         onChange={(e) => updateDraftRow(itemId, r.rid, { min: clampNum(e.target.value, 0, 999) })}
                         style={{ width: 72, minWidth: 72, maxWidth: 72, padding: "4px 6px", fontWeight: 800, textAlign: "center" }}
-                      />
-                    )}
+                    />
                   </td>
 
                   <td style={{ padding: "4px 6px", textAlign: "center" }}>
@@ -129,18 +125,12 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
                   <td style={{ padding: "4px 6px", textAlign: "center" }}>
                     {!isEditing ? (
                       <span />
-                    ) : isP ? (
-                      <span />
                     ) : isGroup ? (
                       hasKids ? (
-                        <button
-                          className="btn"
-                          onClick={() => addSubRow && addSubRow(itemId, r.rid)}
-                          style={{ width: 34, height: 34, padding: 0, borderRadius: 999 }}
-                          title="Agregar subfila"
-                        >
-                          +
-                        </button>
+                        <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                          <button type="button" className="btn" onClick={() => addSubRow?.(itemId, r.rid)} style={{ width: 34, height: 34, padding: 0, borderRadius: 999 }} title="Agregar subinstancia">+</button>
+                          <button type="button" className="btn" onClick={() => removeRow?.(itemId, r.rid)} style={{ width: 34, height: 34, padding: 0, borderRadius: 999 }} title="Eliminar grupo">✕</button>
+                        </div>
                       ) : (
                         <button
                           className="btn"
@@ -172,7 +162,11 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
                 <tr key={`${r.rid}__${k.rid}`} style={{ borderTop: "1px solid rgba(2,6,23,0.06)", background: "rgba(2,6,23,0.03)" }}>
                   <td style={{ padding: "6px 8px", fontSize: 12 }}>
                     <span style={{ opacity: 0.65, marginRight: 6 }}>↳</span>
-                    <span style={{ fontWeight: 800 }}>{String(k?.label ?? "")}</span>
+                    {isEditing ? (
+                      <input className="input numMini" value={String(k?.label ?? "")} onChange={(e) => updateDraftChild(itemId, r.rid, k.rid, { label: e.target.value })} style={{ width: "calc(100% - 24px)", padding: "4px 6px", fontWeight: 800 }} />
+                    ) : (
+                      <span style={{ fontWeight: 800 }}>{String(k?.label ?? "")}</span>
+                    )}
                   </td>
                   <td style={{ padding: "6px 8px", textAlign: "center" }}>
                     <input
@@ -232,6 +226,12 @@ export default function ProcesoTable({ itemId, rows, isEditing, updateDraftRow, 
             </tr>
           </tbody>
         </table>
+        {isEditing && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "10px 6px 2px" }}>
+            <button type="button" className="btn" onClick={() => addRow?.(itemId)} style={{ padding: "6px 10px", fontSize: 12 }}>+ Agregar instancia</button>
+            <button type="button" className="btn" onClick={() => addGroup?.(itemId)} style={{ padding: "6px 10px", fontSize: 12 }}>+ Agregar grupo</button>
+          </div>
+        )}
       </div>
     </div>
   );
