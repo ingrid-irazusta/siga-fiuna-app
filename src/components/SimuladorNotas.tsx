@@ -674,7 +674,9 @@ export default function SimuladorNotas({
               background: "rgba(2,6,23,0.02)",
             }}
           >
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>Rendimiento ponderado estimado</div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>Rendimiento ponderado calculado</div>
+            <div style={{ fontWeight: 950, fontSize: 22 }}>{simHabFinal ? `${simResultadoFinal.ponderadoCalculado}%` : "-"}</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)" }}>RP definitivo aplicado</div>
             <div style={{ fontWeight: 950, fontSize: 22 }}>{simHabFinal ? `${simResultadoFinal.rendimientoPonderado}%` : "-"}</div>
           </div>
 
@@ -688,6 +690,9 @@ export default function SimuladorNotas({
           >
             <div style={{ fontSize: 12, color: "var(--muted)" }}>Nota final FIUNA estimada</div>
             <div style={{ fontWeight: 950, fontSize: 28 }}>{simHabFinal ? simNotaFinal : "-"}</div>
+            {simHabFinal && !simResultadoFinal.cumpleMinimoFinal && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)" }}>Reprobado: el examen final es menor al 40%.</div>
+            )}
           </div>
         </div>
       </div>

@@ -174,21 +174,27 @@ export function calcParcialPts(rows: Row[], rid: string): number {
 }
 
 export interface ResultadoFinalFIUNA {
+  ponderadoCalculado: number;
   rendimientoPonderado: number;
   notaFinal: 1 | 2 | 3 | 4 | 5;
+  cumpleMinimoFinal: boolean;
 }
 
 export function calcResultadoFinalFIUNA(procesoPct: number, examenFinalPct: number): ResultadoFinalFIUNA {
   const proceso = clampNum(procesoPct, 0, 100);
   const examenFinal = clampNum(examenFinalPct, 0, 100);
-  const rendimientoPonderado = clampNum(Math.round(Math.max(proceso, (0.3 * proceso) + (0.7 * examenFinal))), 0, 100);
-  const notaFinal: ResultadoFinalFIUNA["notaFinal"] =
+  const ponderadoSinRedondear = (0.3 * examenFinal) + (0.7 * proceso);
+  const ponderadoCalculado = Number(ponderadoSinRedondear.toFixed(2));
+  const rendimientoPonderado = clampNum(Math.round(Math.max(examenFinal, ponderadoSinRedondear)), 0, 100);
+  const cumpleMinimoFinal = examenFinal >= 40;
+  const notaPorRendimiento: ResultadoFinalFIUNA["notaFinal"] =
     rendimientoPonderado >= 91 ? 5 :
     rendimientoPonderado >= 81 ? 4 :
     rendimientoPonderado >= 71 ? 3 :
     rendimientoPonderado >= 60 ? 2 : 1;
+  const notaFinal: ResultadoFinalFIUNA["notaFinal"] = cumpleMinimoFinal ? notaPorRendimiento : 1;
 
-  return { rendimientoPonderado, notaFinal };
+  return { ponderadoCalculado, rendimientoPonderado, notaFinal, cumpleMinimoFinal };
 }
 
 export function calcNotaFinalFIUNA(baseFinalProceso: number, finalPct: number): ResultadoFinalFIUNA["notaFinal"] {
