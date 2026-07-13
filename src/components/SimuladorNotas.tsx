@@ -608,8 +608,8 @@ export default function SimuladorNotas({
           </span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div
+        <div style={{ display: "grid", gridTemplateColumns: mode === "standalone" ? "1fr" : "1fr 1fr", gap: 12 }}>
+          {mode !== "standalone" && <div
             style={{
               border: "1px solid rgba(2,6,23,0.10)",
               borderRadius: 14,
@@ -621,7 +621,7 @@ export default function SimuladorNotas({
             <div style={{ fontWeight: 950, fontSize: 22 }}>{simHabFinal ? `${simResultadoFinal.ponderadoCalculado}%` : "-"}</div>
             <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)" }}>RP definitivo aplicado</div>
             <div style={{ fontWeight: 950, fontSize: 22 }}>{simHabFinal ? `${simResultadoFinal.rendimientoPonderado}%` : "-"}</div>
-          </div>
+          </div>}
 
           <div
             style={{
