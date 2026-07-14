@@ -1650,7 +1650,7 @@ export default function ProcesoPage() {
                             </div>
                           </div>
 
-                          <div
+                          {false && <div
                             style={{
                               border: "1px solid rgba(2,6,23,0.10)",
                               borderRadius: 16,
@@ -1678,7 +1678,7 @@ export default function ProcesoPage() {
                                 Finalizar cursada
                               </button>
                             </div>
-                          </div>
+                          </div>}
                         </div>
                       </div>
                     </div>
