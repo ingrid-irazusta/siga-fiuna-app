@@ -88,19 +88,17 @@ export default function SemesterSetupWizard({
 
   const currentStepIndex = STEPS.findIndex((item) => item.value === step);
   const cleanSubjects = subjects.map((subject) => subject.materia.trim()).filter(Boolean);
-  const selectedSections = Array.from(
-    new Map(
-      draftSchedule.map((item) => [
-        `${item.materia}|${item.tipo}|${item.seccion}`,
-        `${item.materia} — ${item.tipo}, sección ${item.seccion}`,
-      ])
-    ).values()
-  );
-  const scheduleByDay = draftSchedule.reduce<Record<string, CourseScheduleClass[]>>((groups, item) => {
-    const day = item.dia || "Sin día";
-    groups[day] = [...(groups[day] || []), item];
-    return groups;
-  }, {});
+  const uniqueSubjects = Array.from(new Set(cleanSubjects));
+  const scheduleBySubject = uniqueSubjects.map((subject) => ({
+    subject,
+    classes: draftSchedule
+      .filter((item) => item.materia.trim() === subject)
+      .slice()
+      .sort((a, b) =>
+        Number(a.day_id) - Number(b.day_id) ||
+        String(a.inicio).localeCompare(String(b.inicio))
+      ),
+  }));
 
   const handleCoursesChange = (nextCourses: CourseRow[]) => {
     setSubjects(nextCourses);
@@ -313,32 +311,22 @@ export default function SemesterSetupWizard({
             <div style={{ display: "grid", gap: 9, padding: 15, border: "1px solid var(--border)", borderRadius: 14 }}>
               <div><b>Carrera:</b> {career || "Sin seleccionar"}</div>
               <div><b>Malla:</b> {curriculum || "Sin seleccionar"}</div>
-              <div><b>Materias agregadas:</b> {cleanSubjects.length}</div>
-              {cleanSubjects.length > 0 && (
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {cleanSubjects.map((subject, index) => <li key={`${subject}-${index}`}>{subject}</li>)}
-                </ul>
-              )}
-              <div><b>Secciones elegidas:</b> {selectedSections.length}</div>
-              {selectedSections.length > 0 && (
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {selectedSections.map((section) => <li key={section}>{section}</li>)}
-                </ul>
-              )}
-              <div><b>Clases en el horario borrador:</b> {draftSchedule.length}</div>
-              {Object.entries(scheduleByDay).map(([day, classes]) => (
-                <div key={day} style={{ display: "grid", gap: 4 }}>
-                  <div style={{ fontWeight: 850 }}>{day}</div>
-                  {classes
-                    .slice()
-                    .sort((a, b) => String(a.inicio).localeCompare(String(b.inicio)))
-                    .map((item) => (
-                      <div key={`${item.materia}-${item.tipo}-${item.seccion}-${item.inicio}`} style={{ color: "var(--muted)", fontSize: 13 }}>
-                        {item.inicio}–{item.fin} · {item.materia} · {item.tipo}, sección {item.seccion}
+              <div style={{ marginTop: 3, fontWeight: 900, color: "var(--primary)" }}>
+                {uniqueSubjects.length} {uniqueSubjects.length === 1 ? "materia" : "materias"} · {draftSchedule.length} {draftSchedule.length === 1 ? "clase seleccionada" : "clases seleccionadas"}
+              </div>
+
+              <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
+                {scheduleBySubject.map(({ subject, classes }) => (
+                  <div key={subject} style={{ display: "grid", gap: 7, padding: 12, border: "1px solid var(--border)", borderRadius: 12, background: "rgba(2,6,23,0.02)" }}>
+                    <div style={{ fontWeight: 900 }}>{subject}</div>
+                    {classes.map((item) => (
+                      <div key={`${item.tipo}-${item.seccion}-${item.day_id}-${item.inicio}`} style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.45 }}>
+                        {item.tipo} — Sección {item.seccion} — {item.dia || "Sin día"} {item.inicio}–{item.fin}
                       </div>
                     ))}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div>
