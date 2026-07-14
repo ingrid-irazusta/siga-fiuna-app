@@ -4,22 +4,14 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/components/Card";
+import SemesterSetupWizard from "@/components/SemesterSetupWizard";
+import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
 import { getSupabase } from "@/lib/supabaseClient";
 import { Session } from "@supabase/supabase-js";
 
 /* =========================================================
    CONSTANTES
 ========================================================= */
-const CARRERAS = [
-  "Ingeniería Geográfica y Ambiental",
-  "Ingeniería Electromecánica",
-  "Ingeniería Electrónica",
-  "Ingeniería Mecánica",
-  "Ingeniería Mecatrónica",
-  "Ingeniería Industrial",
-  "Ingeniería Civil",
-];
-
 const SEMESTRE_OPTIONS = [
   { value: "1°", label: "1°" },
   { value: "2°", label: "2°" },
@@ -411,6 +403,8 @@ export default function Page() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [semesterSetupOpen, setSemesterSetupOpen] = useState(false);
+  const [semesterSetupMessage, setSemesterSetupMessage] = useState("");
 
   /* =======================================================
      ESTADOS PERFIL
@@ -1363,6 +1357,17 @@ export default function Page() {
 
   return (
     <div className="grid" style={{ gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {semesterSetupMessage && (
+          <div role="status" style={{ color: "var(--primary)", fontWeight: 800, fontSize: 13 }}>
+            {semesterSetupMessage}
+          </div>
+        )}
+        <button type="button" className="btn btnPrimary" onClick={() => setSemesterSetupOpen(true)}>
+          Configurar nuevo ciclo
+        </button>
+      </div>
+
       <div className="dashGrid">
 
         {/* ===============================================
@@ -1467,7 +1472,7 @@ export default function Page() {
                   disabled={!profileEditMode}
                 >
                   <option value="">Selecciona tu carrera</option>
-                  {CARRERAS.map((c) => (
+                  {CAREER_OPTIONS.map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>
@@ -1521,8 +1526,9 @@ export default function Page() {
                   disabled={!profileEditMode}
                 >
                   <option value="">Selecciona la malla</option>
-                  <option value="2013">2013</option>
-                  <option value="2023">2023</option>
+                  {CURRICULUM_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
                 </select>
                 <span className="muted">▼</span>
               </div>
@@ -2173,6 +2179,19 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      <SemesterSetupWizard
+        open={semesterSetupOpen}
+        mode="new-cycle"
+        initialCareer={profile.carrera}
+        initialCurriculum={profile.malla}
+        onClose={() => setSemesterSetupOpen(false)}
+        onComplete={() => {
+          setSemesterSetupOpen(false);
+          setSemesterSetupMessage("Flujo validado. El guardado definitivo se conectará en una fase posterior.");
+          window.setTimeout(() => setSemesterSetupMessage(""), 4500);
+        }}
+      />
     </div>
   );
 }
