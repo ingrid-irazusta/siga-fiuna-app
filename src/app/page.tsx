@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/components/Card";
 import CourseManager, { type CourseRow } from "@/components/CourseManager";
+import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import SemesterSetupWizard from "@/components/SemesterSetupWizard";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
 import { getSupabase } from "@/lib/supabaseClient";
@@ -348,6 +349,7 @@ async function trackUserActivity(userId: string): Promise<void> {
 ========================================================= */
 export default function Page() {
   const router = useRouter();
+  const maintenance = useMaintenanceMode();
 
   /* =======================================================
      ESTADOS GENERALES
@@ -1116,7 +1118,20 @@ export default function Page() {
             )}
 
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)", display: "grid", gap: 8 }}>
-              <button type="button" className="btn btnPrimary" onClick={() => setSemesterSetupOpen(true)} style={{ width: "100%" }}>
+              <button
+                type="button"
+                className="btn btnPrimary"
+                onClick={() => {
+                  if (maintenance.isRestricted) {
+                    setSemesterSetupMessage(maintenance.actionMessage);
+                    return;
+                  }
+                  setSemesterSetupOpen(true);
+                }}
+                disabled={maintenance.isRestricted}
+                title={maintenance.isRestricted ? maintenance.disabledMessage : undefined}
+                style={{ width: "100%", opacity: maintenance.isRestricted ? 0.58 : 1 }}
+              >
                 Configurar nuevo ciclo
               </button>
               {semesterSetupMessage && (

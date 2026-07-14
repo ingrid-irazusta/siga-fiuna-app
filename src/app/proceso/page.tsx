@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Card from "../../components/Card";
 import SimuladorNotas from "../../components/SimuladorNotas";
 import ProcesoTable from "../../components/ProcesoTable";
+import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { getSupabase } from "@/lib/supabaseClient";
 import BigModal from "../proceso/components/BigModal";
 import InfoTip from "../proceso/components/InfoTip";
@@ -292,6 +293,7 @@ function migrateItemIfNeeded(it: any): CourseItem {
 
 export default function ProcesoPage() {
   const router = useRouter();
+  const maintenance = useMaintenanceMode();
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [simRowsById, setSimRowsById] = useState<Record<string, Row[]>>({});
@@ -1665,7 +1667,14 @@ export default function ProcesoPage() {
                               Cuando termine el semestre y ya conozcas el resultado oficial de esta materia, regístralo aquí.
                             </div>
                             <div>
-                              <button type="button" className="btn" onClick={() => openFinalization(it)}>
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => openFinalization(it)}
+                                disabled={maintenance.isRestricted}
+                                title={maintenance.isRestricted ? maintenance.disabledMessage : undefined}
+                                style={{ opacity: maintenance.isRestricted ? 0.58 : 1 }}
+                              >
                                 Finalizar cursada
                               </button>
                             </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import CourseManager, { type CourseRow } from "@/components/CourseManager";
+import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
 
 export type SemesterSetupMode = "first-use" | "new-cycle";
@@ -37,6 +38,7 @@ export default function SemesterSetupWizard({
   onClose,
   onComplete,
 }: SemesterSetupWizardProps) {
+  const maintenance = useMaintenanceMode();
   const [step, setStep] = useState<SemesterSetupStep>("career");
   const [furthestStep, setFurthestStep] = useState(0);
   const [career, setCareer] = useState("");
@@ -291,7 +293,7 @@ export default function SemesterSetupWizard({
 
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <button type="button" className="btn" onClick={goBack}>Volver</button>
-              <button type="button" className="btn btnPrimary" onClick={complete}>Configurar ciclo</button>
+              <button type="button" className="btn btnPrimary" onClick={complete} disabled={maintenance.isRestricted} title={maintenance.isRestricted ? maintenance.disabledMessage : undefined} style={{ opacity: maintenance.isRestricted ? 0.58 : 1 }}>Configurar ciclo</button>
             </div>
           </div>
         )}

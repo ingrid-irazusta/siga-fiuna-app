@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, ReactNode } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { MaintenanceProvider, useMaintenanceMode } from "@/components/MaintenanceProvider";
 
 const APP_TITLE = "SISTEMA INTELIGENTE DE GESTIÓN ACADÉMICA FIUNA";
 const APP_VERSION = "v18";
@@ -48,9 +49,18 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-export default function AppShell({ children }: AppShellProps) {
+export default function AppShell(props: AppShellProps) {
+  return (
+    <MaintenanceProvider>
+      <AppShellContent {...props} />
+    </MaintenanceProvider>
+  );
+}
+
+function AppShellContent({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const maintenance = useMaintenanceMode();
   const [navOpen, setNavOpen] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -194,6 +204,42 @@ export default function AppShell({ children }: AppShellProps) {
             <div className="dashHeader">
               <div className="dashHeaderTop">{headerTop}</div>
             </div>
+          )}
+          {!isAuthPage && maintenance.isEnabled && maintenance.sessionResolved && (
+            maintenance.isBypassUser ? (
+              <div
+                style={{
+                  width: "fit-content",
+                  margin: "0 0 12px",
+                  padding: "6px 10px",
+                  border: "1px solid rgba(180, 83, 9, 0.24)",
+                  borderRadius: 999,
+                  background: "rgba(251, 191, 36, 0.10)",
+                  color: "#92400e",
+                  fontSize: 12,
+                  fontWeight: 850,
+                }}
+              >
+                Modo mantenimiento — acceso de prueba
+              </div>
+            ) : (
+              <div
+                role="status"
+                style={{
+                  margin: "0 0 12px",
+                  padding: "12px 14px",
+                  border: "1px solid rgba(14, 116, 144, 0.20)",
+                  borderRadius: 14,
+                  background: "rgba(14, 165, 233, 0.08)",
+                  color: "var(--text)",
+                }}
+              >
+                <div style={{ fontWeight: 900 }}>SIGA está recibiendo una actualización.</div>
+                <div style={{ marginTop: 3, color: "var(--muted)", fontSize: 13 }}>
+                  Algunas funciones de edición están temporalmente deshabilitadas. Puedes seguir consultando tu horario, procesos, evaluaciones y notas.
+                </div>
+              </div>
+            )
           )}
           {children}
         </div>

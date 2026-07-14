@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Card from "@/components/Card";
+import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { getSupabase } from "@/lib/supabaseClient";
 
 export type CourseRow = {
@@ -74,6 +75,8 @@ export default function CourseManager({
   onScheduleSaved,
 }: CourseManagerProps) {
   const isDraft = mode === "draft";
+  const maintenance = useMaintenanceMode();
+  const editsBlocked = maintenance.isRestricted;
   const [courses, setCourses] = useState<CourseRow[]>(initialCourses);
   const [draft, setDraft] = useState<CourseRow[]>(initialCourses);
   const [editing, setEditing] = useState(isDraft);
@@ -237,6 +240,10 @@ export default function CourseManager({
   };
 
   const saveCourses = async () => {
+    if (editsBlocked) {
+      setMessage(maintenance.actionMessage);
+      return;
+    }
     closeAutocomplete();
     const clean = cleanCourses(draft);
 
@@ -279,6 +286,10 @@ export default function CourseManager({
   };
 
   const saveSelectedClasses = async () => {
+    if (editsBlocked) {
+      setMessage(maintenance.actionMessage);
+      return;
+    }
     const selectedIds = Object.entries(selectedSuggestions).filter(([, selected]) => selected).map(([id]) => id);
     const selectedClasses = suggestions.groups.flatMap((group) =>
       group.options.filter((option) => selectedIds.includes(option.tempId))
@@ -328,17 +339,18 @@ export default function CourseManager({
 
   const controls = editing ? (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      <button type="button" className="btn" onClick={() => updateDraft((current) => [...current, { semestre: "", materia: "", firma: "", tipos: [] }])}>Agregar materia</button>
-      <button type="button" className="btn btnPrimary" onClick={saveCourses}>{isDraft ? "Buscar secciones" : "Guardar"}</button>
+      <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => [...current, { semestre: "", materia: "", firma: "", tipos: [] }])}>Agregar materia</button>
+      <button type="button" className="btn btnPrimary" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>{isDraft ? "Buscar secciones" : "Guardar"}</button>
       {!isDraft && <button type="button" className="btn" onClick={() => { setDraft(courses); setEditing(false); }}>Cancelar</button>}
     </div>
   ) : (
-    <button type="button" className="btn" onClick={() => { setDraft(courses); setEditing(true); }}>Editar</button>
+    <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => { setDraft(courses); setEditing(true); }}>Editar</button>
   );
 
   const content = loading ? <div className="muted">Cargando materias…</div> : (
     <div style={{ display: "grid", gap: 10 }}>
       {embedded && controls}
+      {editsBlocked && <div className="muted" style={{ fontSize: 12 }}>{maintenance.disabledMessage}</div>}
       <div style={{ overflowX: "auto" }}>
         <table className="tableMini">
           <thead><tr><th className="semestre">Semestre</th><th>Materia</th><th className="firma">Firma</th></tr></thead>
@@ -346,7 +358,7 @@ export default function CourseManager({
             {(editing ? draft : courses).map((course, index) => (
               <tr key={course.id || index}>
                 <td>{editing ? (
-                  <select className="fakeInput" value={course.semestre} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, semestre: event.target.value } : item))}>
+                  <select className="fakeInput" value={course.semestre} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, semestre: event.target.value } : item))}>
                     <option value="">Seleccionar</option>
                     {SEMESTER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
                   </select>
@@ -360,6 +372,8 @@ export default function CourseManager({
                       aria-autocomplete="list"
                       aria-expanded={activeAutocomplete === index}
                       autoComplete="off"
+                      disabled={editsBlocked}
+                      title={editsBlocked ? maintenance.disabledMessage : undefined}
                       onFocus={() => { setActiveAutocomplete(index); setHighlightedSuggestion(0); void loadCourseNames(); }}
                       onChange={(event) => { updateDraft((current) => current.map((item, i) => i === index ? { ...item, materia: event.target.value } : item)); setActiveAutocomplete(index); setHighlightedSuggestion(0); }}
                       onKeyDown={(event) => handleNameKeyDown(event, index)}
@@ -377,14 +391,14 @@ export default function CourseManager({
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {["T", "P", "LAB"].map((type) => {
                         const active = (course.tipos || []).includes(type);
-                        return <button key={type} type="button" onClick={() => updateDraft((current) => current.map((item, i) => i === index ? { ...item, tipos: active ? (item.tipos || []).filter((value) => value !== type) : [...(item.tipos || []), type] } : item))} style={{ minWidth: 48, padding: "8px 12px", borderRadius: 12, border: "1px solid var(--border)", background: active ? "var(--success)" : "var(--card)", color: active ? "#fff" : "var(--text)", fontWeight: 800, cursor: "pointer" }}>{type}</button>;
+                        return <button key={type} type="button" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => current.map((item, i) => i === index ? { ...item, tipos: active ? (item.tipos || []).filter((value) => value !== type) : [...(item.tipos || []), type] } : item))} style={{ minWidth: 48, padding: "8px 12px", borderRadius: 12, border: "1px solid var(--border)", background: active ? "var(--success)" : "var(--card)", color: active ? "#fff" : "var(--text)", fontWeight: 800, cursor: editsBlocked ? "not-allowed" : "pointer", opacity: editsBlocked ? 0.6 : 1 }}>{type}</button>;
                       })}
                     </div>
                   </div>
                 ) : <span>{course.materia}</span>}</td>
                 <td><div style={{ display: "flex", gap: 8 }}>{editing ? <>
-                  <select className="fakeInput" value={course.firma} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, firma: event.target.value } : item))}><option value="">—</option><option value="SI">SI</option><option value="NO">NO</option></select>
-                  <button type="button" className="btn" onClick={() => updateDraft((current) => current.filter((_, i) => i !== index))}>Eliminar</button>
+                  <select className="fakeInput" value={course.firma} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, firma: event.target.value } : item))}><option value="">—</option><option value="SI">SI</option><option value="NO">NO</option></select>
+                  <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => current.filter((_, i) => i !== index))}>Eliminar</button>
                 </> : <span>{course.firma || "—"}</span>}</div></td>
               </tr>
             ))}
@@ -408,11 +422,11 @@ export default function CourseManager({
           <div style={{ padding: 20, display: "grid", gap: 18 }}>
             {suggestionsLoading ? <div className="muted">Buscando coincidencias en la distribución de aulas…</div> : <>
               {!suggestions.groups.length && !suggestions.missing.length && <div className="muted">Aún no hay resultados para mostrar.</div>}
-              {suggestions.groups.map((group) => <div key={group.materia} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 14, display: "grid", gap: 10 }}><div style={{ fontWeight: 900 }}>{group.materia}</div>{group.options.map((option) => { const checked = Boolean(selectedSuggestions[option.tempId]); return <label key={option.tempId} style={{ display: "grid", gridTemplateColumns: "22px 1fr", gap: 12, padding: 12, borderRadius: 12, border: checked ? "1px solid var(--success)" : "1px solid var(--border)", background: checked ? "var(--success2)" : "var(--card)", cursor: "pointer" }}><input type="checkbox" checked={checked} onChange={() => setSelectedSuggestions((current) => ({ ...current, [option.tempId]: !current[option.tempId] }))} /><div><div style={{ fontWeight: 800 }}>{option.tipo} — Sec. {option.seccion} — {option.dia}</div><div className="metaLine"><span>{option.inicio} - {option.fin}</span><span>{option.prof || "—"}</span></div></div></label>; })}</div>)}
+              {suggestions.groups.map((group) => <div key={group.materia} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 14, display: "grid", gap: 10 }}><div style={{ fontWeight: 900 }}>{group.materia}</div>{group.options.map((option) => { const checked = Boolean(selectedSuggestions[option.tempId]); return <label key={option.tempId} title={editsBlocked ? maintenance.disabledMessage : undefined} style={{ display: "grid", gridTemplateColumns: "22px 1fr", gap: 12, padding: 12, borderRadius: 12, border: checked ? "1px solid var(--success)" : "1px solid var(--border)", background: checked ? "var(--success2)" : "var(--card)", cursor: editsBlocked ? "not-allowed" : "pointer", opacity: editsBlocked ? 0.65 : 1 }}><input type="checkbox" checked={checked} disabled={editsBlocked} onChange={() => setSelectedSuggestions((current) => ({ ...current, [option.tempId]: !current[option.tempId] }))} /><div><div style={{ fontWeight: 800 }}>{option.tipo} — Sec. {option.seccion} — {option.dia}</div><div className="metaLine"><span>{option.inicio} - {option.fin}</span><span>{option.prof || "—"}</span></div></div></label>; })}</div>)}
               {!!suggestions.missing.length && <div style={{ border: "1px dashed rgba(180,83,9,0.35)", background: "rgba(251,191,36,0.10)", borderRadius: 14, padding: 14 }}><b>Aún no encontradas en la distribución</b><div className="muted" style={{ marginTop: 6 }}>{suggestions.missing.join(", ")}</div></div>}
             </>}
           </div>
-          <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: 10 }}><button type="button" className="btn" onClick={closeModal}>Cerrar por ahora</button><button type="button" className="btn btnPrimary" onClick={saveSelectedClasses} disabled={savingSuggestions}>{savingSuggestions ? "Guardando…" : isDraft ? "Usar selección en el borrador" : "Guardar Horario de Clases"}</button></div>
+          <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: 10 }}><button type="button" className="btn" onClick={closeModal}>Cerrar por ahora</button><button type="button" className="btn btnPrimary" onClick={saveSelectedClasses} disabled={savingSuggestions || editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined}>{savingSuggestions ? "Guardando…" : isDraft ? "Usar selección en el borrador" : "Guardar Horario de Clases"}</button></div>
         </div>
       </div>
     )}
