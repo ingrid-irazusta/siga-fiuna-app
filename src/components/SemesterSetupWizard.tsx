@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import CourseManager, { type CourseRow } from "@/components/CourseManager";
+import CourseManager, { type CourseRow, type CourseScheduleClass } from "@/components/CourseManager";
 import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
 
@@ -12,6 +12,7 @@ export type SemesterSetupData = {
   career: string;
   curriculum: string;
   subjects: string[];
+  schedule: CourseScheduleClass[];
 };
 
 type SemesterSetupWizardProps = {
@@ -44,8 +45,15 @@ export default function SemesterSetupWizard({
   const [career, setCareer] = useState("");
   const [curriculum, setCurriculum] = useState("");
   const [subjects, setSubjects] = useState<CourseRow[]>([]);
+  const [draftSchedule, setDraftSchedule] = useState<CourseScheduleClass[]>([]);
   const [careerEditable, setCareerEditable] = useState(true);
   const [curriculumEditable, setCurriculumEditable] = useState(true);
+
+  const discardAndClose = () => {
+    setSubjects([]);
+    setDraftSchedule([]);
+    onClose();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -59,6 +67,7 @@ export default function SemesterSetupWizard({
     setCareer(initialCareer);
     setCurriculum(initialCurriculum);
     setSubjects([]);
+    setDraftSchedule([]);
     setCareerEditable(!(mode === "new-cycle" && initialCareer));
     setCurriculumEditable(!(mode === "new-cycle" && initialCurriculum));
   }, [open, mode, initialCareer, initialCurriculum]);
@@ -66,7 +75,7 @@ export default function SemesterSetupWizard({
   useEffect(() => {
     if (!open) return;
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") discardAndClose();
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
@@ -76,6 +85,25 @@ export default function SemesterSetupWizard({
 
   const currentStepIndex = STEPS.findIndex((item) => item.value === step);
   const cleanSubjects = subjects.map((subject) => subject.materia.trim()).filter(Boolean);
+  const selectedSections = Array.from(
+    new Map(
+      draftSchedule.map((item) => [
+        `${item.materia}|${item.tipo}|${item.seccion}`,
+        `${item.materia} — ${item.tipo}, sección ${item.seccion}`,
+      ])
+    ).values()
+  );
+  const scheduleByDay = draftSchedule.reduce<Record<string, CourseScheduleClass[]>>((groups, item) => {
+    const day = item.dia || "Sin día";
+    groups[day] = [...(groups[day] || []), item];
+    return groups;
+  }, {});
+
+  const handleCoursesChange = (nextCourses: CourseRow[]) => {
+    setSubjects(nextCourses);
+    const courseNames = new Set(nextCourses.map((course) => course.materia.trim()).filter(Boolean));
+    setDraftSchedule((current) => current.filter((item) => courseNames.has(item.materia.trim())));
+  };
 
   const goToStep = (nextStep: SemesterSetupStep) => {
     const nextIndex = STEPS.findIndex((item) => item.value === nextStep);
@@ -94,10 +122,12 @@ export default function SemesterSetupWizard({
   };
 
   const complete = () => {
-    const data: SemesterSetupData = { career, curriculum, subjects: cleanSubjects };
+    const data: SemesterSetupData = { career, curriculum, subjects: cleanSubjects, schedule: draftSchedule };
     if (process.env.NODE_ENV === "development") {
       console.log("Configuración de ciclo pendiente de persistencia", data);
     }
+    setSubjects([]);
+    setDraftSchedule([]);
     onComplete(data);
   };
 
@@ -107,7 +137,7 @@ export default function SemesterSetupWizard({
       aria-modal="true"
       aria-labelledby="semester-setup-title"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) discardAndClose();
       }}
       style={{
         position: "fixed",
@@ -139,7 +169,7 @@ export default function SemesterSetupWizard({
               Define la información académica del ciclo actual.
             </div>
           </div>
-          <button type="button" className="btn" onClick={onClose} aria-label="Cerrar asistente">Cerrar</button>
+          <button type="button" className="btn" onClick={discardAndClose} aria-label="Cerrar asistente">Cerrar</button>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, margin: "22px 0" }}>
@@ -196,7 +226,7 @@ export default function SemesterSetupWizard({
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+              <button type="button" className="btn" onClick={discardAndClose}>Cancelar</button>
               <button type="button" className="btn btnPrimary" disabled={!career} onClick={goForward} style={{ opacity: career ? 1 : 0.55 }}>
                 Continuar
               </button>
@@ -249,7 +279,9 @@ export default function SemesterSetupWizard({
               mode="draft"
               embedded
               initialCourses={subjects}
-              onCoursesChange={setSubjects}
+              initialSchedule={draftSchedule}
+              onCoursesChange={handleCoursesChange}
+              onScheduleChange={setDraftSchedule}
             />
 
             <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontSize: 13, fontWeight: 750 }}>
@@ -279,6 +311,26 @@ export default function SemesterSetupWizard({
                   {cleanSubjects.map((subject, index) => <li key={`${subject}-${index}`}>{subject}</li>)}
                 </ul>
               )}
+              <div><b>Secciones elegidas:</b> {selectedSections.length}</div>
+              {selectedSections.length > 0 && (
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {selectedSections.map((section) => <li key={section}>{section}</li>)}
+                </ul>
+              )}
+              <div><b>Clases en el horario borrador:</b> {draftSchedule.length}</div>
+              {Object.entries(scheduleByDay).map(([day, classes]) => (
+                <div key={day} style={{ display: "grid", gap: 4 }}>
+                  <div style={{ fontWeight: 850 }}>{day}</div>
+                  {classes
+                    .slice()
+                    .sort((a, b) => String(a.inicio).localeCompare(String(b.inicio)))
+                    .map((item) => (
+                      <div key={`${item.materia}-${item.tipo}-${item.seccion}-${item.inicio}`} style={{ color: "var(--muted)", fontSize: 13 }}>
+                        {item.inicio}–{item.fin} · {item.materia} · {item.tipo}, sección {item.seccion}
+                      </div>
+                    ))}
+                </div>
+              ))}
             </div>
 
             <div>

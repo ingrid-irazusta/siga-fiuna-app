@@ -13,7 +13,7 @@ export type CourseRow = {
   tipos?: string[];
 };
 
-type SuggestedClass = {
+export type CourseScheduleClass = {
   tempId: string;
   day_id: number;
   dia: string;
@@ -27,7 +27,7 @@ type SuggestedClass = {
 
 type SuggestionResponse = {
   ok: boolean;
-  groups: Array<{ materia: string; options: SuggestedClass[] }>;
+  groups: Array<{ materia: string; options: CourseScheduleClass[] }>;
   missing: string[];
 };
 
@@ -35,9 +35,11 @@ type CourseManagerProps = {
   mode: "persisted" | "draft";
   userId?: string;
   initialCourses?: CourseRow[];
+  initialSchedule?: CourseScheduleClass[];
   loading?: boolean;
   embedded?: boolean;
   onCoursesChange?: (courses: CourseRow[]) => void;
+  onScheduleChange?: (classes: CourseScheduleClass[]) => void;
   onScheduleSaved?: () => void | Promise<void>;
 };
 
@@ -69,9 +71,11 @@ export default function CourseManager({
   mode,
   userId = "",
   initialCourses = [],
+  initialSchedule = [],
   loading = false,
   embedded = false,
   onCoursesChange,
+  onScheduleChange,
   onScheduleSaved,
 }: CourseManagerProps) {
   const isDraft = mode === "draft";
@@ -211,7 +215,15 @@ export default function CourseManager({
       const initialSelected: Record<string, boolean> = {};
       if (isDraft) {
         for (const group of nextSuggestions.groups) {
-          for (const option of group.options) initialSelected[option.tempId] = false;
+          for (const option of group.options) {
+            initialSelected[option.tempId] = initialSchedule.some((existing) =>
+              String(existing.materia || "").trim() === String(option.materia || "").trim() &&
+              String(existing.tipo || "").trim() === String(option.tipo || "").trim() &&
+              String(existing.seccion || "").trim() === String(option.seccion || "").trim() &&
+              Number(existing.day_id) === Number(option.day_id) &&
+              String(existing.inicio || "").trim() === String(option.inicio || "").trim()
+            );
+          }
         }
       } else if (userId) {
         const supabase = getSupabase();
@@ -296,6 +308,7 @@ export default function CourseManager({
     );
 
     if (isDraft) {
+      onScheduleChange?.(selectedClasses);
       setMessage(`Selección local lista (${selectedClasses.length} clases)`);
       closeModal();
       window.setTimeout(() => setMessage(""), 2500);
