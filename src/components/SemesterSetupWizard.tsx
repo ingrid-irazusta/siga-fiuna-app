@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import CourseManager, { type CourseRow } from "@/components/CourseManager";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
 
 export type SemesterSetupMode = "first-use" | "new-cycle";
@@ -10,11 +11,6 @@ export type SemesterSetupData = {
   career: string;
   curriculum: string;
   subjects: string[];
-};
-
-type TemporarySubject = {
-  id: number;
-  name: string;
 };
 
 type SemesterSetupWizardProps = {
@@ -45,10 +41,9 @@ export default function SemesterSetupWizard({
   const [furthestStep, setFurthestStep] = useState(0);
   const [career, setCareer] = useState("");
   const [curriculum, setCurriculum] = useState("");
-  const [subjects, setSubjects] = useState<TemporarySubject[]>([]);
+  const [subjects, setSubjects] = useState<CourseRow[]>([]);
   const [careerEditable, setCareerEditable] = useState(true);
   const [curriculumEditable, setCurriculumEditable] = useState(true);
-  const nextSubjectId = useRef(1);
 
   useEffect(() => {
     if (!open) return;
@@ -64,7 +59,6 @@ export default function SemesterSetupWizard({
     setSubjects([]);
     setCareerEditable(!(mode === "new-cycle" && initialCareer));
     setCurriculumEditable(!(mode === "new-cycle" && initialCurriculum));
-    nextSubjectId.current = 1;
   }, [open, mode, initialCareer, initialCurriculum]);
 
   useEffect(() => {
@@ -79,7 +73,7 @@ export default function SemesterSetupWizard({
   if (!open) return null;
 
   const currentStepIndex = STEPS.findIndex((item) => item.value === step);
-  const cleanSubjects = subjects.map((subject) => subject.name.trim()).filter(Boolean);
+  const cleanSubjects = subjects.map((subject) => subject.materia.trim()).filter(Boolean);
 
   const goToStep = (nextStep: SemesterSetupStep) => {
     const nextIndex = STEPS.findIndex((item) => item.value === nextStep);
@@ -95,19 +89,6 @@ export default function SemesterSetupWizard({
   const goBack = () => {
     const previous = STEPS[currentStepIndex - 1];
     if (previous) setStep(previous.value);
-  };
-
-  const addSubject = () => {
-    const id = nextSubjectId.current++;
-    setSubjects((current) => [...current, { id, name: "" }]);
-  };
-
-  const updateSubject = (id: number, name: string) => {
-    setSubjects((current) => current.map((subject) => subject.id === id ? { ...subject, name } : subject));
-  };
-
-  const removeSubject = (id: number) => {
-    setSubjects((current) => current.filter((subject) => subject.id !== id));
   };
 
   const complete = () => {
@@ -262,28 +243,15 @@ export default function SemesterSetupWizard({
               </p>
             </div>
 
-            <div style={{ display: "grid", gap: 9 }}>
-              {subjects.map((subject) => (
-                <div key={subject.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8 }}>
-                  <input
-                    className="fakeInput"
-                    value={subject.name}
-                    onChange={(event) => updateSubject(subject.id, event.target.value)}
-                    placeholder="Nombre de la materia"
-                  />
-                  <button type="button" className="btn" onClick={() => removeSubject(subject.id)}>Eliminar</button>
-                </div>
-              ))}
-              {!subjects.length && (
-                <div style={{ padding: 14, border: "1px dashed var(--border)", borderRadius: 14, color: "var(--muted)" }}>
-                  Todavía no agregaste materias para este ciclo.
-                </div>
-              )}
-              <div><button type="button" className="btn" onClick={addSubject}>Agregar materia</button></div>
-            </div>
+            <CourseManager
+              mode="draft"
+              embedded
+              initialCourses={subjects}
+              onCoursesChange={setSubjects}
+            />
 
             <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontSize: 13, fontWeight: 750 }}>
-              En la siguiente fase se conectará aquí el mismo sistema de materias y secciones que ya utiliza SIGA.
+              En esta fase, las materias y secciones permanecen como borrador y no modifican tus datos actuales.
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
