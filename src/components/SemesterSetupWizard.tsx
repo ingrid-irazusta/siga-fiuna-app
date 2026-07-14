@@ -46,12 +46,14 @@ export default function SemesterSetupWizard({
   const [curriculum, setCurriculum] = useState("");
   const [subjects, setSubjects] = useState<CourseRow[]>([]);
   const [draftSchedule, setDraftSchedule] = useState<CourseScheduleClass[]>([]);
+  const [draftReady, setDraftReady] = useState(false);
   const [careerEditable, setCareerEditable] = useState(true);
   const [curriculumEditable, setCurriculumEditable] = useState(true);
 
   const discardAndClose = () => {
     setSubjects([]);
     setDraftSchedule([]);
+    setDraftReady(false);
     onClose();
   };
 
@@ -68,6 +70,7 @@ export default function SemesterSetupWizard({
     setCurriculum(initialCurriculum);
     setSubjects([]);
     setDraftSchedule([]);
+    setDraftReady(false);
     setCareerEditable(!(mode === "new-cycle" && initialCareer));
     setCurriculumEditable(!(mode === "new-cycle" && initialCurriculum));
   }, [open, mode, initialCareer, initialCurriculum]);
@@ -101,6 +104,7 @@ export default function SemesterSetupWizard({
 
   const handleCoursesChange = (nextCourses: CourseRow[]) => {
     setSubjects(nextCourses);
+    setDraftReady(false);
     const courseNames = new Set(nextCourses.map((course) => course.materia.trim()).filter(Boolean));
     setDraftSchedule((current) => current.filter((item) => courseNames.has(item.materia.trim())));
   };
@@ -112,6 +116,7 @@ export default function SemesterSetupWizard({
   };
 
   const goForward = () => {
+    if (step === "subjects" && !draftReady) return;
     const next = STEPS[currentStepIndex + 1];
     if (next) goToStep(next.value);
   };
@@ -128,6 +133,7 @@ export default function SemesterSetupWizard({
     }
     setSubjects([]);
     setDraftSchedule([]);
+    setDraftReady(false);
     onComplete(data);
   };
 
@@ -176,12 +182,13 @@ export default function SemesterSetupWizard({
           {STEPS.map((item, index) => {
             const active = item.value === step;
             const reached = index <= furthestStep;
+            const available = reached && !(item.value === "summary" && !draftReady);
             return (
               <button
                 key={item.value}
                 type="button"
-                onClick={() => reached && setStep(item.value)}
-                disabled={!reached}
+                onClick={() => available && setStep(item.value)}
+                disabled={!available}
                 style={{
                   minWidth: 0,
                   padding: "9px 5px",
@@ -192,8 +199,8 @@ export default function SemesterSetupWizard({
                   font: "inherit",
                   fontSize: 12,
                   fontWeight: active || reached ? 850 : 700,
-                  cursor: reached ? "pointer" : "default",
-                  opacity: reached ? 1 : 0.65,
+                  cursor: available ? "pointer" : "default",
+                  opacity: available ? 1 : 0.65,
                 }}
               >
                 {item.label}
@@ -269,9 +276,9 @@ export default function SemesterSetupWizard({
         {step === "subjects" && (
           <div style={{ display: "grid", gap: 16 }}>
             <div>
-              <h3 style={{ margin: 0 }}>Materias del ciclo</h3>
+              <h3 style={{ margin: 0 }}>Añade todas las materias que cursarás en este ciclo</h3>
               <p style={{ margin: "7px 0 0", color: "var(--muted)" }}>
-                Estas materias alimentarán automáticamente Horario de clases, Clases de hoy, Proceso de evaluación y Horario de exámenes.
+                Cuando termines de agregarlas, confirma la lista para buscar todas las secciones disponibles.
               </p>
             </div>
 
@@ -282,6 +289,7 @@ export default function SemesterSetupWizard({
               initialSchedule={draftSchedule}
               onCoursesChange={handleCoursesChange}
               onScheduleChange={setDraftSchedule}
+              onDraftReadyChange={setDraftReady}
             />
 
             <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontSize: 13, fontWeight: 750 }}>
@@ -290,7 +298,7 @@ export default function SemesterSetupWizard({
 
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <button type="button" className="btn" onClick={goBack}>Volver</button>
-              <button type="button" className="btn btnPrimary" onClick={goForward}>Revisar resumen</button>
+              <button type="button" className="btn btnPrimary" onClick={goForward} disabled={!draftReady} title={!draftReady ? "Confirma las materias y termina la selección de secciones antes de continuar." : undefined} style={{ opacity: draftReady ? 1 : 0.55 }}>Revisar resumen</button>
             </div>
           </div>
         )}

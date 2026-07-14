@@ -40,6 +40,7 @@ type CourseManagerProps = {
   embedded?: boolean;
   onCoursesChange?: (courses: CourseRow[]) => void;
   onScheduleChange?: (classes: CourseScheduleClass[]) => void;
+  onDraftReadyChange?: (ready: boolean) => void;
   onScheduleSaved?: () => void | Promise<void>;
 };
 
@@ -76,6 +77,7 @@ export default function CourseManager({
   embedded = false,
   onCoursesChange,
   onScheduleChange,
+  onDraftReadyChange,
   onScheduleSaved,
 }: CourseManagerProps) {
   const isDraft = mode === "draft";
@@ -118,7 +120,10 @@ export default function CourseManager({
   }, [activeQuery, courseNames]);
 
   const notifyDraft = (next: CourseRow[]) => {
-    if (isDraft) onCoursesChange?.(next);
+    if (isDraft) {
+      onCoursesChange?.(next);
+      onDraftReadyChange?.(false);
+    }
   };
 
   const updateDraft = (updater: (current: CourseRow[]) => CourseRow[]) => {
@@ -263,6 +268,7 @@ export default function CourseManager({
       setCourses(clean);
       setDraft(clean);
       onCoursesChange?.(clean);
+      onDraftReadyChange?.(false);
       setMessage(clean.length ? `Borrador listo (${clean.length} materias)` : "No hay materias agregadas");
       if (clean.length) await openSections(clean);
       window.setTimeout(() => setMessage(""), 2500);
@@ -308,7 +314,15 @@ export default function CourseManager({
     );
 
     if (isDraft) {
+      const everyCourseSelected = suggestions.missing.length === 0 && suggestions.groups.length > 0 && suggestions.groups.every((group) =>
+        group.options.some((option) => selectedIds.includes(option.tempId))
+      );
+      if (!everyCourseSelected) {
+        setMessage("Selecciona al menos una clase para cada materia antes de continuar.");
+        return;
+      }
       onScheduleChange?.(selectedClasses);
+      onDraftReadyChange?.(true);
       setMessage(`Selección local lista (${selectedClasses.length} clases)`);
       closeModal();
       window.setTimeout(() => setMessage(""), 2500);
@@ -353,16 +367,22 @@ export default function CourseManager({
   const controls = editing ? (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => [...current, { semestre: "", materia: "", firma: "", tipos: [] }])}>Agregar materia</button>
-      <button type="button" className="btn btnPrimary" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>{isDraft ? "Buscar secciones" : "Guardar"}</button>
+      <button type="button" className="btn btnPrimary" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>Guardar</button>
       {!isDraft && <button type="button" className="btn" onClick={() => { setDraft(courses); setEditing(false); }}>Cancelar</button>}
     </div>
   ) : (
     <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => { setDraft(courses); setEditing(true); }}>Editar</button>
   );
+  const draftSelectionComplete =
+    suggestions.missing.length === 0 &&
+    suggestions.groups.length > 0 &&
+    suggestions.groups.every((group) =>
+      group.options.some((option) => Boolean(selectedSuggestions[option.tempId]))
+    );
 
   const content = loading ? <div className="muted">Cargando materias…</div> : (
     <div style={{ display: "grid", gap: 10 }}>
-      {embedded && controls}
+      {embedded && !isDraft && controls}
       {editsBlocked && <div className="muted" style={{ fontSize: 12 }}>{maintenance.disabledMessage}</div>}
       <div style={{ overflowX: "auto" }}>
         <table className="tableMini">
@@ -420,6 +440,16 @@ export default function CourseManager({
       </div>
       {!(editing ? draft.length : courses.length) && <div className="muted">Aún no agregaste materias.</div>}
       {message && <div className="muted" role="status">{message}</div>}
+      {embedded && isDraft && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+          <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => [...current, { semestre: "", materia: "", firma: "", tipos: [] }])}>
+            Agregar materia
+          </button>
+          <button type="button" className="btn btnPrimary" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>
+            Confirmar materias y buscar secciones
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -439,7 +469,7 @@ export default function CourseManager({
               {!!suggestions.missing.length && <div style={{ border: "1px dashed rgba(180,83,9,0.35)", background: "rgba(251,191,36,0.10)", borderRadius: 14, padding: 14 }}><b>Aún no encontradas en la distribución</b><div className="muted" style={{ marginTop: 6 }}>{suggestions.missing.join(", ")}</div></div>}
             </>}
           </div>
-          <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: 10 }}><button type="button" className="btn" onClick={closeModal}>Cerrar por ahora</button><button type="button" className="btn btnPrimary" onClick={saveSelectedClasses} disabled={savingSuggestions || editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined}>{savingSuggestions ? "Guardando…" : isDraft ? "Usar selección en el borrador" : "Guardar Horario de Clases"}</button></div>
+          <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><button type="button" className="btn" onClick={closeModal}>Cerrar por ahora</button>{isDraft && !draftSelectionComplete && <span className="muted" style={{ fontSize: 12 }}>Selecciona al menos una clase para cada materia antes de generar el horario borrador.</span>}<button type="button" className="btn btnPrimary" onClick={saveSelectedClasses} disabled={savingSuggestions || editsBlocked || (isDraft && !draftSelectionComplete)} title={editsBlocked ? maintenance.disabledMessage : undefined}>{savingSuggestions ? "Guardando…" : isDraft ? "Generar horario borrador" : "Guardar Horario de Clases"}</button></div>
         </div>
       </div>
     )}
