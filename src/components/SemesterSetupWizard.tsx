@@ -364,7 +364,7 @@ export default function SemesterSetupWizard({
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
               <div style={{ padding: 14, borderRadius: 14, border: "1px solid rgba(220,38,38,0.22)", background: "rgba(220,38,38,0.06)" }}>
-                <div style={{ fontWeight: 900, color: "#991b1b", marginBottom: 8 }}>SE REEMPLAZARÁN</div>
+                <div style={{ fontWeight: 900, color: "#991b1b", marginBottom: 8 }}>SE ACTUALIZARÁN</div>
                 <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
                   <li>Materias en curso</li>
                   <li>Horario de clases</li>
@@ -388,7 +388,7 @@ export default function SemesterSetupWizard({
             {cycleSummaryContent}
 
             <div style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(217,119,6,0.24)", background: "rgba(251,191,36,0.10)", color: "#92400e", fontWeight: 800 }}>
-              Los datos activos del ciclo anterior dejarán de aparecer en SIGA cuando se confirme el nuevo ciclo.
+              Al confirmar, SIGA actualizará la información activa del ciclo con las materias y secciones seleccionadas.
             </div>
 
             <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontWeight: 850 }}>
