@@ -440,6 +440,36 @@ export default function Page() {
   });
   const [selectedSuggestions, setSelectedSuggestions] = useState<Record<string, boolean>>({});
   const [savingSuggestions, setSavingSuggestions] = useState(false);
+  const [courseNameOptions, setCourseNameOptions] = useState<string[]>([]);
+  const [courseNamesStatus, setCourseNamesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [activeCourseAutocomplete, setActiveCourseAutocomplete] = useState<number | null>(null);
+  const [highlightedCourseSuggestion, setHighlightedCourseSuggestion] = useState(0);
+  const courseNamesLoadedRef = useRef(false);
+
+  const activeCourseQuery =
+    activeCourseAutocomplete === null
+      ? ""
+      : String(coursesDraft[activeCourseAutocomplete]?.materia || "");
+
+  const courseNameSuggestions = useMemo(() => {
+    const query = normText(activeCourseQuery);
+    if (!query) return [];
+
+    return courseNameOptions
+      .map((name) => ({
+        name,
+        normalized: normText(name),
+      }))
+      .filter((item) => item.normalized.includes(query))
+      .sort((a, b) => {
+        const aStarts = a.normalized.startsWith(query) ? 0 : 1;
+        const bStarts = b.normalized.startsWith(query) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+      })
+      .slice(0, 8)
+      .map((item) => item.name);
+  }, [activeCourseQuery, courseNameOptions]);
 
   const saveSelectedClasses = async () => {
     if (!userId) return;
@@ -1016,6 +1046,28 @@ export default function Page() {
   /* =======================================================
      FUNCIONES MATERIAS
   ======================================================== */
+  const loadCourseNames = async () => {
+    if (courseNamesLoadedRef.current || courseNamesStatus === "loading") return;
+
+    try {
+      setCourseNamesStatus("loading");
+      const response = await fetch("/api/horario-sugerencias", { method: "GET" });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.ok || !Array.isArray(data.materias)) {
+        setCourseNamesStatus("error");
+        return;
+      }
+
+      setCourseNameOptions(data.materias.filter((name: unknown) => typeof name === "string"));
+      courseNamesLoadedRef.current = true;
+      setCourseNamesStatus("ready");
+    } catch (error) {
+      console.error("Error loading course names from aulas cache:", error);
+      setCourseNamesStatus("error");
+    }
+  };
+
   // Materias en curso: edición amigable
   const addRow = () => {
     setCoursesDraft((prev) => [
@@ -1030,7 +1082,55 @@ export default function Page() {
     );
   };
 
+  const closeCourseAutocomplete = () => {
+    setActiveCourseAutocomplete(null);
+    setHighlightedCourseSuggestion(0);
+  };
+
+  const openCourseAutocomplete = (idx: number) => {
+    setActiveCourseAutocomplete(idx);
+    setHighlightedCourseSuggestion(0);
+    void loadCourseNames();
+  };
+
+  const selectCourseSuggestion = (idx: number, name: string) => {
+    updateRow(idx, { materia: name });
+    closeCourseAutocomplete();
+  };
+
+  const handleCourseAutocompleteKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+    idx: number
+  ) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCourseAutocomplete();
+      return;
+    }
+
+    if (!courseNameSuggestions.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedCourseSuggestion((current) =>
+        current >= courseNameSuggestions.length - 1 ? 0 : current + 1
+      );
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedCourseSuggestion((current) =>
+        current <= 0 ? courseNameSuggestions.length - 1 : current - 1
+      );
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      selectCourseSuggestion(
+        idx,
+        courseNameSuggestions[Math.min(highlightedCourseSuggestion, courseNameSuggestions.length - 1)]
+      );
+    }
+  };
+
   const removeRow = (idx: number) => {
+    if (activeCourseAutocomplete === idx) closeCourseAutocomplete();
     setCoursesDraft((prev) => prev.filter((_, i) => i !== idx));
   };
   const toggleSuggestedClass = (tempId: string) => {
@@ -1154,6 +1254,7 @@ export default function Page() {
   };
 
   const onCancelCourses = () => {
+    closeCourseAutocomplete();
     setCoursesDraft(courses);
     setCoursesEditMode(false);
     setToastCourses("");
@@ -1161,6 +1262,8 @@ export default function Page() {
 
   const saveCourses = async () => {
     if (!userId) return;
+
+    closeCourseAutocomplete();
 
     const clean = coursesDraft
       .map((c) => ({
@@ -1711,13 +1814,85 @@ export default function Page() {
                           <td>
                             {coursesEditMode ? (
                               <div style={{ display: "grid", gap: 8 }}>
-                                <input
-                                  className="fakeInput"
-                                  value={c.materia}
-                                  onChange={(e) =>
-                                    updateRow(idx, { materia: e.target.value })
-                                  }
-                                />
+                                <div style={{ display: "grid", gap: 4, minWidth: 220 }}>
+                                  <input
+                                    className="fakeInput"
+                                    value={c.materia}
+                                    role="combobox"
+                                    aria-autocomplete="list"
+                                    aria-expanded={activeCourseAutocomplete === idx}
+                                    aria-controls={`course-suggestions-${idx}`}
+                                    autoComplete="off"
+                                    onFocus={() => openCourseAutocomplete(idx)}
+                                    onChange={(e) => {
+                                      updateRow(idx, { materia: e.target.value });
+                                      setActiveCourseAutocomplete(idx);
+                                      setHighlightedCourseSuggestion(0);
+                                    }}
+                                    onKeyDown={(e) => handleCourseAutocompleteKeyDown(e, idx)}
+                                    onBlur={() => {
+                                      window.setTimeout(() => {
+                                        setActiveCourseAutocomplete((current) => current === idx ? null : current);
+                                        setHighlightedCourseSuggestion(0);
+                                      }, 100);
+                                    }}
+                                  />
+
+                                  {activeCourseAutocomplete === idx && courseNamesStatus === "loading" && (
+                                    <div style={{ fontSize: 12, color: "var(--muted)", padding: "4px 2px" }}>
+                                      Cargando nombres de materias…
+                                    </div>
+                                  )}
+
+                                  {activeCourseAutocomplete === idx && courseNamesStatus === "ready" && activeCourseQuery.trim() && courseNameSuggestions.length > 0 && (
+                                    <div
+                                      id={`course-suggestions-${idx}`}
+                                      role="listbox"
+                                      style={{
+                                        display: "grid",
+                                        border: "1px solid var(--border)",
+                                        borderRadius: 12,
+                                        background: "var(--card)",
+                                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.10)",
+                                        overflow: "hidden",
+                                      }}
+                                    >
+                                      {courseNameSuggestions.map((name, suggestionIdx) => {
+                                        const highlighted = suggestionIdx === highlightedCourseSuggestion;
+                                        return (
+                                          <button
+                                            key={name}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={highlighted}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onMouseEnter={() => setHighlightedCourseSuggestion(suggestionIdx)}
+                                            onClick={() => selectCourseSuggestion(idx, name)}
+                                            style={{
+                                              border: 0,
+                                              borderBottom: suggestionIdx < courseNameSuggestions.length - 1 ? "1px solid var(--border)" : 0,
+                                              padding: "10px 12px",
+                                              background: highlighted ? "var(--primary2)" : "var(--card)",
+                                              color: "var(--text)",
+                                              textAlign: "left",
+                                              font: "inherit",
+                                              fontWeight: highlighted ? 850 : 700,
+                                              cursor: "pointer",
+                                            }}
+                                          >
+                                            {name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {activeCourseAutocomplete === idx && courseNamesStatus === "ready" && activeCourseQuery.trim() && courseNameSuggestions.length === 0 && (
+                                    <div style={{ fontSize: 12, color: "var(--muted)", padding: "4px 2px" }}>
+                                      Sin coincidencias. La materia se guardará con el nombre escrito.
+                                    </div>
+                                  )}
+                                </div>
 
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                   {["T", "P", "LAB"].map((tipo) => {

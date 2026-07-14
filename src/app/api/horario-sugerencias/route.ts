@@ -157,6 +157,49 @@ function pickColIndexes(cabeceras: any[]) {
   };
 }
 
+export async function GET() {
+  try {
+    const supabase = getSupabaseServer();
+    const { data, error } = await supabase
+      .from("aulas_cache")
+      .select("dias")
+      .single();
+
+    if (error || !data?.dias) {
+      return Response.json({ ok: false, error: "Sin datos de aulas en cache" }, { status: 503 });
+    }
+
+    const materiasUnicas = new Map<string, string>();
+
+    for (const dayData of Object.values(data.dias as DiasData)) {
+      if (!dayData?.filas?.length) continue;
+
+      const cols = pickColIndexes(dayData.cabeceras || []);
+      if (cols.materia < 0) continue;
+
+      for (const row of dayData.filas) {
+        const nombreExacto = String(row[cols.materia] || "").trim();
+        const clave = normalizeText(nombreExacto);
+        if (clave && !materiasUnicas.has(clave)) {
+          materiasUnicas.set(clave, nombreExacto);
+        }
+      }
+    }
+
+    const materias = Array.from(materiasUnicas.values()).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" })
+    );
+
+    return Response.json({ ok: true, materias });
+  } catch (e: any) {
+    console.error("ERROR listado de materias de aulas:", e);
+    return Response.json(
+      { ok: false, error: e?.message || "Error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
