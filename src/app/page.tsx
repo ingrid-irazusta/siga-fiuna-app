@@ -1347,7 +1347,7 @@ export default function Page() {
         onClose={() => setSemesterSetupOpen(false)}
         onComplete={() => {
           setSemesterSetupOpen(false);
-          setSemesterSetupMessage("Flujo validado. El guardado definitivo se conectará en una fase posterior.");
+          setSemesterSetupMessage("Flujo validado. El guardado real se conectará en la siguiente fase.");
           window.setTimeout(() => setSemesterSetupMessage(""), 4500);
         }}
       />

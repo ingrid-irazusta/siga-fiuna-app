@@ -6,7 +6,7 @@ import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
 
 export type SemesterSetupMode = "first-use" | "new-cycle";
-export type SemesterSetupStep = "career" | "curriculum" | "subjects" | "summary";
+export type SemesterSetupStep = "career" | "curriculum" | "subjects" | "summary" | "confirm";
 
 export type SemesterSetupData = {
   career: string;
@@ -47,6 +47,7 @@ export default function SemesterSetupWizard({
   const [subjects, setSubjects] = useState<CourseRow[]>([]);
   const [draftSchedule, setDraftSchedule] = useState<CourseScheduleClass[]>([]);
   const [draftReady, setDraftReady] = useState(false);
+  const [finalVerified, setFinalVerified] = useState(false);
   const [careerEditable, setCareerEditable] = useState(true);
   const [curriculumEditable, setCurriculumEditable] = useState(true);
 
@@ -54,6 +55,7 @@ export default function SemesterSetupWizard({
     setSubjects([]);
     setDraftSchedule([]);
     setDraftReady(false);
+    setFinalVerified(false);
     onClose();
   };
 
@@ -71,6 +73,7 @@ export default function SemesterSetupWizard({
     setSubjects([]);
     setDraftSchedule([]);
     setDraftReady(false);
+    setFinalVerified(false);
     setCareerEditable(!(mode === "new-cycle" && initialCareer));
     setCurriculumEditable(!(mode === "new-cycle" && initialCurriculum));
   }, [open, mode, initialCareer, initialCurriculum]);
@@ -99,6 +102,27 @@ export default function SemesterSetupWizard({
         String(a.inicio).localeCompare(String(b.inicio))
       ),
   }));
+  const cycleSummaryContent = (
+    <div style={{ display: "grid", gap: 9, padding: 15, border: "1px solid var(--border)", borderRadius: 14 }}>
+      <div><b>Carrera:</b> {career || "Sin seleccionar"}</div>
+      <div><b>Malla:</b> {curriculum || "Sin seleccionar"}</div>
+      <div style={{ marginTop: 3, fontWeight: 900, color: "var(--primary)" }}>
+        {uniqueSubjects.length} {uniqueSubjects.length === 1 ? "materia" : "materias"} · {draftSchedule.length} {draftSchedule.length === 1 ? "clase seleccionada" : "clases seleccionadas"}
+      </div>
+      <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
+        {scheduleBySubject.map(({ subject, classes }) => (
+          <div key={subject} style={{ display: "grid", gap: 7, padding: 12, border: "1px solid var(--border)", borderRadius: 12, background: "rgba(2,6,23,0.02)" }}>
+            <div style={{ fontWeight: 900 }}>{subject}</div>
+            {classes.map((item) => (
+              <div key={`${item.tipo}-${item.seccion}-${item.day_id}-${item.inicio}`} style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.45 }}>
+                {item.tipo} — Sección {item.seccion} — {item.dia || "Sin día"} {item.inicio}–{item.fin}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const handleCoursesChange = (nextCourses: CourseRow[]) => {
     setSubjects(nextCourses);
@@ -125,6 +149,7 @@ export default function SemesterSetupWizard({
   };
 
   const complete = () => {
+    if (!finalVerified || maintenance.isRestricted) return;
     const data: SemesterSetupData = { career, curriculum, subjects: cleanSubjects, schedule: draftSchedule };
     if (process.env.NODE_ENV === "development") {
       console.log("Configuración de ciclo pendiente de persistencia", data);
@@ -132,6 +157,7 @@ export default function SemesterSetupWizard({
     setSubjects([]);
     setDraftSchedule([]);
     setDraftReady(false);
+    setFinalVerified(false);
     onComplete(data);
   };
 
@@ -308,26 +334,7 @@ export default function SemesterSetupWizard({
               <p style={{ margin: "7px 0 0", color: "var(--muted)" }}>Revisa la configuración antes de continuar.</p>
             </div>
 
-            <div style={{ display: "grid", gap: 9, padding: 15, border: "1px solid var(--border)", borderRadius: 14 }}>
-              <div><b>Carrera:</b> {career || "Sin seleccionar"}</div>
-              <div><b>Malla:</b> {curriculum || "Sin seleccionar"}</div>
-              <div style={{ marginTop: 3, fontWeight: 900, color: "var(--primary)" }}>
-                {uniqueSubjects.length} {uniqueSubjects.length === 1 ? "materia" : "materias"} · {draftSchedule.length} {draftSchedule.length === 1 ? "clase seleccionada" : "clases seleccionadas"}
-              </div>
-
-              <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
-                {scheduleBySubject.map(({ subject, classes }) => (
-                  <div key={subject} style={{ display: "grid", gap: 7, padding: 12, border: "1px solid var(--border)", borderRadius: 12, background: "rgba(2,6,23,0.02)" }}>
-                    <div style={{ fontWeight: 900 }}>{subject}</div>
-                    {classes.map((item) => (
-                      <div key={`${item.tipo}-${item.seccion}-${item.day_id}-${item.inicio}`} style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.45 }}>
-                        {item.tipo} — Sección {item.seccion} — {item.dia || "Sin día"} {item.inicio}–{item.fin}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {cycleSummaryContent}
 
             <div>
               <div style={{ fontWeight: 900, marginBottom: 7 }}>Al confirmar, estas materias alimentarán automáticamente:</div>
@@ -341,7 +348,59 @@ export default function SemesterSetupWizard({
 
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <button type="button" className="btn" onClick={goBack}>Volver</button>
-              <button type="button" className="btn btnPrimary" onClick={complete} disabled={maintenance.isRestricted} title={maintenance.isRestricted ? maintenance.disabledMessage : undefined} style={{ opacity: maintenance.isRestricted ? 0.58 : 1 }}>Configurar ciclo</button>
+              <button type="button" className="btn btnPrimary" onClick={() => { setFinalVerified(false); setStep("confirm"); }} disabled={maintenance.isRestricted} title={maintenance.isRestricted ? maintenance.disabledMessage : undefined} style={{ opacity: maintenance.isRestricted ? 0.58 : 1 }}>Configurar ciclo</button>
+            </div>
+          </div>
+        )}
+
+        {step === "confirm" && (
+          <div style={{ display: "grid", gap: 16 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Confirmar nuevo ciclo</h3>
+              <p style={{ margin: "7px 0 0", color: "var(--muted)" }}>
+                Revisa qué información se actualizará antes de continuar.
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
+              <div style={{ padding: 14, borderRadius: 14, border: "1px solid rgba(220,38,38,0.22)", background: "rgba(220,38,38,0.06)" }}>
+                <div style={{ fontWeight: 900, color: "#991b1b", marginBottom: 8 }}>SE REEMPLAZARÁN</div>
+                <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
+                  <li>Materias en curso</li>
+                  <li>Horario de clases</li>
+                  <li>Procesos de evaluación activos</li>
+                  <li>Evaluaciones activas</li>
+                </ul>
+              </div>
+
+              <div style={{ padding: 14, borderRadius: 14, border: "1px solid rgba(22,163,74,0.22)", background: "rgba(22,163,74,0.06)" }}>
+                <div style={{ fontWeight: 900, color: "#166534", marginBottom: 8 }}>SE CONSERVARÁN</div>
+                <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
+                  <li>Perfil del estudiante</li>
+                  <li>Carrera y malla seleccionadas</li>
+                  <li>Notas finales</li>
+                  <li>Materias aprobadas</li>
+                  <li>Datos de la malla curricular</li>
+                </ul>
+              </div>
+            </div>
+
+            {cycleSummaryContent}
+
+            <div style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(217,119,6,0.24)", background: "rgba(251,191,36,0.10)", color: "#92400e", fontWeight: 800 }}>
+              Los datos activos del ciclo anterior dejarán de aparecer en SIGA cuando se confirme el nuevo ciclo.
+            </div>
+
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontWeight: 850 }}>
+              <input type="checkbox" checked={finalVerified} onChange={(event) => setFinalVerified(event.target.checked)} style={{ marginTop: 2 }} />
+              <span>He revisado las materias y secciones del nuevo ciclo.</span>
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <button type="button" className="btn" onClick={() => setStep("summary")}>Volver</button>
+              <button type="button" className="btn btnPrimary" onClick={complete} disabled={!finalVerified || maintenance.isRestricted} title={maintenance.isRestricted ? maintenance.disabledMessage : undefined} style={{ opacity: finalVerified && !maintenance.isRestricted ? 1 : 0.55 }}>
+                Comenzar nuevo ciclo
+              </button>
             </div>
           </div>
         )}
