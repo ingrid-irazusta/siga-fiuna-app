@@ -1246,6 +1246,24 @@ button, input, select { font: inherit; }
   cursor: pointer;
   font-size: 15px;
 }
+.cycleLaunchButton:not(:disabled){
+  animation: cycleLaunchPulse 2.8s ease-in-out infinite;
+}
+@keyframes cycleLaunchPulse{
+  0%, 100%{
+    transform: scale(1);
+    box-shadow: 0 8px 20px rgba(0,176,255,0.20);
+  }
+  50%{
+    transform: scale(1.008);
+    box-shadow: 0 11px 26px rgba(0,176,255,0.34);
+  }
+}
+@media (prefers-reduced-motion: reduce){
+  .cycleLaunchButton:not(:disabled){
+    animation: none;
+  }
+}
 .cycleLaunchButton:disabled{
   cursor: not-allowed;
 }

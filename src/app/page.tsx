@@ -7,6 +7,7 @@ import Card from "@/components/Card";
 import CourseManager, { type CourseRow } from "@/components/CourseManager";
 import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import SemesterSetupWizard from "@/components/SemesterSetupWizard";
+import { getCurrentAcademicCycle } from "@/lib/academicCycle";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
 import { getSupabase } from "@/lib/supabaseClient";
 import { Session } from "@supabase/supabase-js";
@@ -21,6 +22,7 @@ type Profile = {
   malla: string;
   ingreso: string;
   intensificacion?: string; // 👈 NUEVO
+  last_configured_cycle: string | null;
   user_id?: string;
 };
 
@@ -67,6 +69,7 @@ const DEFAULT_PROFILE: Profile = {
   malla: "",
   ingreso: "",
   intensificacion: "", // 👈 NUEVO
+  last_configured_cycle: null,
 };
 
 /* =========================================================
@@ -447,7 +450,7 @@ export default function Page() {
         /* --- cargar perfil desde Supabase --- */
         const { data: profileData } = await supabase
           .from("user_profiles")
-          .select("alumno, ci, carrera, malla, ingreso, intensificacion, user_id")
+          .select("alumno, ci, carrera, malla, ingreso, intensificacion, last_configured_cycle, user_id")
           .eq("user_id", uid)
           .single();
 
@@ -529,6 +532,10 @@ export default function Page() {
   }, [router]);
 
   const userId = session?.user.id;
+  const currentCycle = getCurrentAcademicCycle();
+  const needsSetup =
+    !profile.last_configured_cycle ||
+    profile.last_configured_cycle !== currentCycle.key;
 
   const refreshHomeAfterCycleSetup = async () => {
     if (!userId) throw new Error("Tu sesión venció. Inicia sesión nuevamente.");
@@ -541,7 +548,7 @@ export default function Page() {
       const [profileResult, coursesResult, nextExamData] = await Promise.all([
         supabase
           .from("user_profiles")
-          .select("alumno, ci, carrera, malla, ingreso, intensificacion, user_id")
+          .select("alumno, ci, carrera, malla, ingreso, intensificacion, last_configured_cycle, user_id")
           .eq("user_id", userId)
           .single(),
         supabase
@@ -566,6 +573,7 @@ export default function Page() {
         malla: profileResult.data.malla || "",
         ingreso: profileResult.data.ingreso || "",
         intensificacion: profileResult.data.intensificacion || "",
+        last_configured_cycle: profileResult.data.last_configured_cycle || null,
         user_id: profileResult.data.user_id,
       };
       const refreshedCourses: CourseRow[] = (coursesResult.data || []).map((course) => ({
@@ -829,6 +837,7 @@ export default function Page() {
         malla: perfilActualizado.malla || "",
         ingreso: perfilActualizado.ingreso || "",
         intensificacion: perfilActualizado.intensificacion || "",
+        last_configured_cycle: perfilActualizado.last_configured_cycle || null,
         user_id: perfilActualizado.user_id,
       });
 
@@ -839,6 +848,7 @@ export default function Page() {
         malla: perfilActualizado.malla || "",
         ingreso: perfilActualizado.ingreso || "",
         intensificacion: perfilActualizado.intensificacion || "",
+        last_configured_cycle: perfilActualizado.last_configured_cycle || null,
         user_id: perfilActualizado.user_id,
       });
 
@@ -1194,29 +1204,33 @@ export default function Page() {
               </div>
             )}
 
-            <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)", display: "grid", gap: 6 }}>
-              <button
-                type="button"
-                className="btn dashHeaderTop cycleLaunchButton"
-                onClick={() => {
-                  if (maintenance.isRestricted) {
-                    setSemesterSetupMessage(maintenance.actionMessage);
-                    return;
-                  }
-                  setSemesterSetupOpen(true);
-                }}
-                disabled={maintenance.isRestricted}
-                title={maintenance.isRestricted ? maintenance.disabledMessage : undefined}
-                style={{ width: "100%", opacity: maintenance.isRestricted ? 0.58 : 1 }}
-              >
-                Configurar nuevo ciclo (2° 2026)
-              </button>
-              {semesterSetupMessage && (
-                <div role="status" style={{ color: "var(--primary)", fontWeight: 800, fontSize: 12 }}>
-                  {semesterSetupMessage}
-                </div>
-              )}
-            </div>
+            {(needsSetup || semesterSetupMessage) && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)", display: "grid", gap: 6 }}>
+                {needsSetup && (
+                  <button
+                    type="button"
+                    className="btn dashHeaderTop cycleLaunchButton"
+                    onClick={() => {
+                      if (maintenance.isRestricted) {
+                        setSemesterSetupMessage(maintenance.actionMessage);
+                        return;
+                      }
+                      setSemesterSetupOpen(true);
+                    }}
+                    disabled={maintenance.isRestricted}
+                    title={maintenance.isRestricted ? maintenance.disabledMessage : undefined}
+                    style={{ width: "100%", opacity: maintenance.isRestricted ? 0.58 : 1 }}
+                  >
+                    Configurar nuevo ciclo ({currentCycle.label})
+                  </button>
+                )}
+                {semesterSetupMessage && (
+                  <div role="status" style={{ color: "var(--primary)", fontWeight: 800, fontSize: 12 }}>
+                    {semesterSetupMessage}
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
         </div>
 
