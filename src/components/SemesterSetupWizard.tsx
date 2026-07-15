@@ -365,9 +365,9 @@ export default function SemesterSetupWizard({
         {step === "subjects" && (
           <div style={{ display: "grid", gap: 16 }}>
             <div>
-              <h3 style={{ margin: 0 }}>Añade todas las materias que cursarás en este ciclo</h3>
+              <h3 style={{ margin: 0 }}>Materias del ciclo</h3>
               <p style={{ margin: "7px 0 0", color: "var(--muted)" }}>
-                Cuando termines de agregarlas, confirma la lista para buscar todas las secciones disponibles.
+                Agrega todas las materias y luego busca sus secciones.
               </p>
             </div>
 
@@ -381,7 +381,7 @@ export default function SemesterSetupWizard({
               onDraftReadyChange={handleDraftReadyChange}
             />
 
-            <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontSize: 13, fontWeight: 750 }}>
+            <div className="setupDraftNotice">
               En esta fase, las materias y secciones permanecen como borrador y no modifican tus datos actuales.
             </div>
 

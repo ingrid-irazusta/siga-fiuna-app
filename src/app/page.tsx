@@ -1194,7 +1194,7 @@ export default function Page() {
               </div>
             )}
 
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)", display: "grid", gap: 8 }}>
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)", display: "grid", gap: 6 }}>
               <button
                 type="button"
                 className="btn dashHeaderTop cycleLaunchButton"
@@ -1209,7 +1209,7 @@ export default function Page() {
                 title={maintenance.isRestricted ? maintenance.disabledMessage : undefined}
                 style={{ width: "100%", opacity: maintenance.isRestricted ? 0.58 : 1 }}
               >
-                Comenzar 2.º ciclo 2026
+                Configurar nuevo ciclo (2° 2026)
               </button>
               {semesterSetupMessage && (
                 <div role="status" style={{ color: "var(--primary)", fontWeight: 800, fontSize: 12 }}>
