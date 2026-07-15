@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import CourseManager, { type CourseRow, type CourseScheduleClass } from "@/components/CourseManager";
 import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
+import { configureNewCycle } from "@/lib/configureNewCycle";
 
 export type SemesterSetupMode = "first-use" | "new-cycle";
 export type SemesterSetupStep = "career" | "curriculum" | "subjects" | "summary" | "confirm";
@@ -11,7 +12,7 @@ export type SemesterSetupStep = "career" | "curriculum" | "subjects" | "summary"
 export type SemesterSetupData = {
   career: string;
   curriculum: string;
-  subjects: string[];
+  courses: CourseRow[];
   schedule: CourseScheduleClass[];
 };
 
@@ -21,7 +22,7 @@ type SemesterSetupWizardProps = {
   initialCareer?: string;
   initialCurriculum?: string;
   onClose: () => void;
-  onComplete: (data: SemesterSetupData) => void;
+  onComplete: (data: SemesterSetupData) => void | Promise<void>;
 };
 
 const STEPS: Array<{ value: SemesterSetupStep; label: string }> = [
@@ -50,12 +51,20 @@ export default function SemesterSetupWizard({
   const [finalVerified, setFinalVerified] = useState(false);
   const [careerEditable, setCareerEditable] = useState(true);
   const [curriculumEditable, setCurriculumEditable] = useState(true);
+  const [initialCareerSnapshot, setInitialCareerSnapshot] = useState("");
+  const [initialCurriculumSnapshot, setInitialCurriculumSnapshot] = useState("");
+  const [careerEdited, setCareerEdited] = useState(false);
+  const [curriculumEdited, setCurriculumEdited] = useState(false);
+  const [savingCycle, setSavingCycle] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const discardAndClose = () => {
+    if (savingCycle) return;
     setSubjects([]);
     setDraftSchedule([]);
     setDraftReady(false);
     setFinalVerified(false);
+    setSaveError("");
     onClose();
   };
 
@@ -70,10 +79,16 @@ export default function SemesterSetupWizard({
     setFurthestStep(initialStepIndex);
     setCareer(initialCareer);
     setCurriculum(initialCurriculum);
+    setInitialCareerSnapshot(initialCareer.trim());
+    setInitialCurriculumSnapshot(initialCurriculum.trim());
+    setCareerEdited(false);
+    setCurriculumEdited(false);
     setSubjects([]);
     setDraftSchedule([]);
     setDraftReady(false);
     setFinalVerified(false);
+    setSavingCycle(false);
+    setSaveError("");
     setCareerEditable(!(mode === "new-cycle" && initialCareer));
     setCurriculumEditable(!(mode === "new-cycle" && initialCurriculum));
   }, [open, mode, initialCareer, initialCurriculum]);
@@ -81,11 +96,11 @@ export default function SemesterSetupWizard({
   useEffect(() => {
     if (!open) return;
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") discardAndClose();
+      if (event.key === "Escape" && !savingCycle) discardAndClose();
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [open, onClose]);
+  }, [open, onClose, savingCycle]);
 
   if (!open) return null;
 
@@ -148,17 +163,62 @@ export default function SemesterSetupWizard({
     if (previous) setStep(previous.value);
   };
 
-  const complete = () => {
-    if (!finalVerified || maintenance.isRestricted) return;
-    const data: SemesterSetupData = { career, curriculum, subjects: cleanSubjects, schedule: draftSchedule };
-    if (process.env.NODE_ENV === "development") {
-      console.log("Configuración de ciclo pendiente de persistencia", data);
+  const complete = async () => {
+    if (savingCycle) return;
+    setSaveError("");
+
+    if (!finalVerified) {
+      setSaveError("Confirma que revisaste las materias y secciones del nuevo ciclo.");
+      return;
     }
-    setSubjects([]);
-    setDraftSchedule([]);
-    setDraftReady(false);
-    setFinalVerified(false);
-    onComplete(data);
+    if (maintenance.isRestricted) {
+      setSaveError(maintenance.actionMessage);
+      return;
+    }
+    if (!subjects.length || !cleanSubjects.length) {
+      setSaveError("Debes seleccionar al menos una materia.");
+      return;
+    }
+
+    const scheduledSubjects = new Set(
+      draftSchedule.map((item) => item.materia.trim()).filter(Boolean)
+    );
+    if (cleanSubjects.some((subject) => !scheduledSubjects.has(subject))) {
+      setSaveError("Todas las materias deben tener al menos una clase seleccionada.");
+      return;
+    }
+
+    const data: SemesterSetupData = {
+      career: career.trim(),
+      curriculum: curriculum.trim(),
+      courses: subjects,
+      schedule: draftSchedule,
+    };
+
+    setSavingCycle(true);
+    try {
+      await configureNewCycle({
+        career: data.career,
+        curriculum: data.curriculum,
+        courses: data.courses,
+        schedule: data.schedule,
+        updateCareer: careerEdited && data.career !== initialCareerSnapshot,
+        updateCurriculum: curriculumEdited && data.curriculum !== initialCurriculumSnapshot,
+      });
+      await onComplete(data);
+      setSubjects([]);
+      setDraftSchedule([]);
+      setDraftReady(false);
+      setFinalVerified(false);
+      setSaveError("");
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("No se pudo configurar el nuevo ciclo", error);
+      }
+      setSaveError(error instanceof Error ? error.message : "No se pudo configurar el nuevo ciclo.");
+    } finally {
+      setSavingCycle(false);
+    }
   };
 
   return (
@@ -167,7 +227,7 @@ export default function SemesterSetupWizard({
       aria-modal="true"
       aria-labelledby="semester-setup-title"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) discardAndClose();
+        if (event.target === event.currentTarget && !savingCycle) discardAndClose();
       }}
       style={{
         position: "fixed",
@@ -199,7 +259,7 @@ export default function SemesterSetupWizard({
               Define la información académica del ciclo actual.
             </div>
           </div>
-          <button type="button" className="btn" onClick={discardAndClose} aria-label="Cerrar asistente">Cerrar</button>
+          <button type="button" className="btn" onClick={discardAndClose} disabled={savingCycle} aria-label="Cerrar asistente">Cerrar</button>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, margin: "22px 0" }}>
@@ -211,8 +271,8 @@ export default function SemesterSetupWizard({
               <button
                 key={item.value}
                 type="button"
-                onClick={() => available && setStep(item.value)}
-                disabled={!available}
+                onClick={() => available && !savingCycle && setStep(item.value)}
+                disabled={!available || savingCycle}
                 style={{
                   minWidth: 0,
                   padding: "9px 5px",
@@ -250,7 +310,7 @@ export default function SemesterSetupWizard({
                 </button>
               </div>
             ) : (
-              <select className="fakeInput" value={career} onChange={(event) => setCareer(event.target.value)}>
+              <select className="fakeInput" value={career} onChange={(event) => { setCareer(event.target.value); setCareerEdited(true); }}>
                 <option value="">Selecciona tu carrera</option>
                 {CAREER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
@@ -282,7 +342,7 @@ export default function SemesterSetupWizard({
                 </button>
               </div>
             ) : (
-              <select className="fakeInput" value={curriculum} onChange={(event) => setCurriculum(event.target.value)}>
+              <select className="fakeInput" value={curriculum} onChange={(event) => { setCurriculum(event.target.value); setCurriculumEdited(true); }}>
                 <option value="">Selecciona la malla</option>
                 {CURRICULUM_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
@@ -392,14 +452,20 @@ export default function SemesterSetupWizard({
             </div>
 
             <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontWeight: 850 }}>
-              <input type="checkbox" checked={finalVerified} onChange={(event) => setFinalVerified(event.target.checked)} style={{ marginTop: 2 }} />
+              <input type="checkbox" checked={finalVerified} disabled={savingCycle} onChange={(event) => setFinalVerified(event.target.checked)} style={{ marginTop: 2 }} />
               <span>He revisado las materias y secciones del nuevo ciclo.</span>
             </label>
 
+            {saveError && (
+              <div role="alert" style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(220,38,38,0.24)", background: "rgba(220,38,38,0.08)", color: "#991b1b", fontWeight: 800 }}>
+                {saveError}
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-              <button type="button" className="btn" onClick={() => setStep("summary")}>Volver</button>
-              <button type="button" className="btn btnPrimary" onClick={complete} disabled={!finalVerified || maintenance.isRestricted} title={maintenance.isRestricted ? maintenance.disabledMessage : undefined} style={{ opacity: finalVerified && !maintenance.isRestricted ? 1 : 0.55 }}>
-                Comenzar nuevo ciclo
+              <button type="button" className="btn" disabled={savingCycle} onClick={() => setStep("summary")}>Volver</button>
+              <button type="button" className="btn btnPrimary" onClick={complete} disabled={!finalVerified || maintenance.isRestricted || savingCycle} title={maintenance.isRestricted ? maintenance.disabledMessage : undefined} style={{ opacity: finalVerified && !maintenance.isRestricted && !savingCycle ? 1 : 0.55 }}>
+                {savingCycle ? "Configurando ciclo..." : "Comenzar nuevo ciclo"}
               </button>
             </div>
           </div>

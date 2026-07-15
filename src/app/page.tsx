@@ -530,6 +530,83 @@ export default function Page() {
 
   const userId = session?.user.id;
 
+  const refreshHomeAfterCycleSetup = async () => {
+    if (!userId) throw new Error("Tu sesión venció. Inicia sesión nuevamente.");
+
+    const supabase = getSupabase();
+    setLoadingCourses(true);
+    setLoadingClasses(true);
+
+    try {
+      const [profileResult, coursesResult, nextExamData] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select("alumno, ci, carrera, malla, ingreso, intensificacion, user_id")
+          .eq("user_id", userId)
+          .single(),
+        supabase
+          .from("student_courses")
+          .select("id, semestre, materia, firma, tipos")
+          .eq("user_id", userId)
+          .order("semestre", { ascending: true }),
+        computeNextExam(userId),
+      ]);
+
+      if (profileResult.error || !profileResult.data) {
+        throw new Error("No se pudo volver a cargar el perfil.");
+      }
+      if (coursesResult.error) {
+        throw new Error("No se pudieron volver a cargar las materias.");
+      }
+
+      const refreshedProfile: Profile = {
+        alumno: profileResult.data.alumno || "",
+        ci: profileResult.data.ci || "",
+        carrera: profileResult.data.carrera || "",
+        malla: profileResult.data.malla || "",
+        ingreso: profileResult.data.ingreso || "",
+        intensificacion: profileResult.data.intensificacion || "",
+        user_id: profileResult.data.user_id,
+      };
+      const refreshedCourses: CourseRow[] = (coursesResult.data || []).map((course) => ({
+        id: course.id,
+        semestre: String(course.semestre ?? ""),
+        materia: course.materia ?? "",
+        firma: course.firma ?? "",
+        tipos: Array.isArray(course.tipos) ? course.tipos : [],
+      }));
+
+      const activeDate = testDateISO || new Date().toISOString().slice(0, 10);
+      const dayId = dayIdFromISO(activeDate);
+      const [events, classes, kpis] = await Promise.all([
+        loadAcademicEvents(activeDate),
+        loadScheduleForDay(userId, dayId),
+        computeNotasKpis(
+          userId,
+          refreshedProfile.carrera,
+          refreshedProfile.malla || DEFAULT_PROFILE.malla,
+          refreshedProfile.intensificacion || ""
+        ),
+      ]);
+
+      classes.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+      setProfile(refreshedProfile);
+      setProfileDraft(refreshedProfile);
+      setProfileHasData(true);
+      setProfileEditMode(false);
+      setCourses(refreshedCourses);
+      setClassesForDay(classes);
+      setAcademicEvents(events);
+      setNextExam(nextExamData);
+      setNotasKpis(kpis);
+      setAulasInfo({});
+      setAulasError("");
+    } finally {
+      setLoadingCourses(false);
+      setLoadingClasses(false);
+    }
+  };
+
   const handleLogout = async () => {
     const supabase = getSupabase();
     await supabase.auth.signOut();
@@ -1345,10 +1422,18 @@ export default function Page() {
         initialCareer={profile.carrera}
         initialCurriculum={profile.malla}
         onClose={() => setSemesterSetupOpen(false)}
-        onComplete={() => {
-          setSemesterSetupOpen(false);
-          setSemesterSetupMessage("Flujo validado. El guardado real se conectará en la siguiente fase.");
-          window.setTimeout(() => setSemesterSetupMessage(""), 4500);
+        onComplete={async () => {
+          try {
+            await refreshHomeAfterCycleSetup();
+          } catch (error) {
+            if (process.env.NODE_ENV === "development") {
+              console.error("El ciclo se configuró, pero Inicio no pudo recargarse", error);
+            }
+          } finally {
+            setSemesterSetupOpen(false);
+            setSemesterSetupMessage("Nuevo ciclo configurado correctamente.");
+            window.setTimeout(() => setSemesterSetupMessage(""), 4500);
+          }
         }}
       />
     </div>
