@@ -1210,9 +1210,9 @@ button, input, select { font: inherit; }
 .tableMini td{ font-weight: 850; }
 .tableMini .semestre{ width: 90px; }
 .tableMini .firma{ width: 120px; }
-.draftCourseComposer{
+.draftCourseEntryGrid{
   display: grid;
-  grid-template-columns: minmax(100px, 140px) minmax(0, 1fr);
+  grid-template-columns: 90px minmax(220px, 1fr) 120px;
   align-items: start;
   gap: 8px;
 }
@@ -1226,10 +1226,12 @@ button, input, select { font: inherit; }
 .draftCourseActions .btn{
   width: min(100%, 320px);
 }
-@media (max-width: 520px){
-  .draftCourseComposer{
+@media (max-width: 720px){
+  .draftCourseEntryGrid{
     grid-template-columns: minmax(0, 1fr);
   }
+}
+@media (max-width: 520px){
   .draftCourseActions{
     align-items: stretch;
   }

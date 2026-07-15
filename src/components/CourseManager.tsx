@@ -87,6 +87,7 @@ export default function CourseManager({
   const [draft, setDraft] = useState<CourseRow[]>(initialCourses);
   const [newCourseSemester, setNewCourseSemester] = useState("");
   const [newCourseName, setNewCourseName] = useState("");
+  const [newCourseFirma, setNewCourseFirma] = useState("");
   const [editing, setEditing] = useState(isDraft);
   const [message, setMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -182,9 +183,10 @@ export default function CourseManager({
       setMessage("Esa materia ya está en la lista.");
       return;
     }
-    updateDraft((current) => [...current, { semestre: newCourseSemester, materia, firma: "", tipos: [] }]);
+    updateDraft((current) => [...current, { semestre: newCourseSemester, materia, firma: newCourseFirma, tipos: [] }]);
     setNewCourseSemester("");
     setNewCourseName("");
+    setNewCourseFirma("");
     closeAutocomplete();
     setMessage("");
   };
@@ -426,40 +428,6 @@ export default function CourseManager({
     <div style={{ display: "grid", gap: 10 }}>
       {embedded && !isDraft && controls}
       {editsBlocked && <div className="muted" style={{ fontSize: 12 }}>{maintenance.disabledMessage}</div>}
-      {isDraft && editing && (
-        <div className="draftCourseComposer">
-          <select className="fakeInput" value={newCourseSemester} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => setNewCourseSemester(event.target.value)}>
-            <option value="">Semestre</option>
-            {SEMESTER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
-            <input
-              className="fakeInput"
-              value={newCourseName}
-              placeholder="Nombre de la materia"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded={activeAutocomplete === -1}
-              autoComplete="off"
-              disabled={editsBlocked}
-              title={editsBlocked ? maintenance.disabledMessage : undefined}
-              onFocus={() => { setActiveAutocomplete(-1); setHighlightedSuggestion(0); void loadCourseNames(); }}
-              onChange={(event) => { setNewCourseName(event.target.value); setActiveAutocomplete(-1); setHighlightedSuggestion(0); }}
-              onKeyDown={(event) => handleNameKeyDown(event, -1)}
-              onBlur={() => window.setTimeout(() => setActiveAutocomplete((current) => current === -1 ? null : current), 100)}
-            />
-            {activeAutocomplete === -1 && courseNamesStatus === "loading" && <div className="muted" style={{ fontSize: 12 }}>Cargando nombres de materias…</div>}
-            {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && nameSuggestions.length > 0 && (
-              <div role="listbox" style={{ display: "grid", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)", zIndex: 2 }}>
-                {nameSuggestions.map((name, suggestionIndex) => (
-                  <button key={name} type="button" role="option" aria-selected={suggestionIndex === highlightedSuggestion} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setHighlightedSuggestion(suggestionIndex)} onClick={() => selectName(-1, name)} style={{ border: 0, borderBottom: suggestionIndex < nameSuggestions.length - 1 ? "1px solid var(--border)" : 0, padding: "10px 12px", textAlign: "left", font: "inherit", fontWeight: 750, cursor: "pointer", color: "var(--text)", background: suggestionIndex === highlightedSuggestion ? "var(--primary2)" : "var(--card)" }}>{name}</button>
-                ))}
-              </div>
-            )}
-            {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && !nameSuggestions.length && <div className="muted" style={{ fontSize: 12 }}>Sin coincidencias. La materia se guardará con el nombre escrito.</div>}
-          </div>
-        </div>
-      )}
       <div style={{ overflowX: "auto" }}>
         <table className="tableMini">
           <thead><tr><th className="semestre">Semestre</th><th>Materia</th><th className="firma">Firma</th></tr></thead>
@@ -513,10 +481,56 @@ export default function CourseManager({
                 </> : <span>{course.firma || "—"}</span>}</div></td>
               </tr>
             ))}
+            {isDraft && !displayedCourses.length && (
+              <tr><td colSpan={3}><div className="muted">Aún no agregaste materias.</div></td></tr>
+            )}
+            {isDraft && editing && (
+              <tr className="draftCourseEntryRow">
+                <td colSpan={3}>
+                  <div className="draftCourseEntryGrid">
+                    <select className="fakeInput" value={newCourseSemester} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => setNewCourseSemester(event.target.value)}>
+                      <option value="">Semestre</option>
+                      {SEMESTER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                    <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                      <input
+                        className="fakeInput"
+                        value={newCourseName}
+                        placeholder="Nombre de la materia"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={activeAutocomplete === -1}
+                        autoComplete="off"
+                        disabled={editsBlocked}
+                        title={editsBlocked ? maintenance.disabledMessage : undefined}
+                        onFocus={() => { setActiveAutocomplete(-1); setHighlightedSuggestion(0); void loadCourseNames(); }}
+                        onChange={(event) => { setNewCourseName(event.target.value); setActiveAutocomplete(-1); setHighlightedSuggestion(0); }}
+                        onKeyDown={(event) => handleNameKeyDown(event, -1)}
+                        onBlur={() => window.setTimeout(() => setActiveAutocomplete((current) => current === -1 ? null : current), 100)}
+                      />
+                      {activeAutocomplete === -1 && courseNamesStatus === "loading" && <div className="muted" style={{ fontSize: 12 }}>Cargando nombres de materias…</div>}
+                      {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && nameSuggestions.length > 0 && (
+                        <div role="listbox" style={{ display: "grid", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)", zIndex: 2 }}>
+                          {nameSuggestions.map((name, suggestionIndex) => (
+                            <button key={name} type="button" role="option" aria-selected={suggestionIndex === highlightedSuggestion} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setHighlightedSuggestion(suggestionIndex)} onClick={() => selectName(-1, name)} style={{ border: 0, borderBottom: suggestionIndex < nameSuggestions.length - 1 ? "1px solid var(--border)" : 0, padding: "10px 12px", textAlign: "left", font: "inherit", fontWeight: 750, cursor: "pointer", color: "var(--text)", background: suggestionIndex === highlightedSuggestion ? "var(--primary2)" : "var(--card)" }}>{name}</button>
+                          ))}
+                        </div>
+                      )}
+                      {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && !nameSuggestions.length && <div className="muted" style={{ fontSize: 12 }}>Sin coincidencias. La materia se guardará con el nombre escrito.</div>}
+                    </div>
+                    <select className="fakeInput" value={newCourseFirma} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => setNewCourseFirma(event.target.value)}>
+                      <option value="">—</option>
+                      <option value="SI">SI</option>
+                      <option value="NO">NO</option>
+                    </select>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-      {!(editing ? draft.length : courses.length) && <div className="muted">Aún no agregaste materias.</div>}
+      {!isDraft && !(editing ? draft.length : courses.length) && <div className="muted">Aún no agregaste materias.</div>}
       {message && <div className="muted" role="status">{message}</div>}
       {embedded && isDraft && (
         <div className="draftCourseActions">
