@@ -85,6 +85,8 @@ export default function CourseManager({
   const editsBlocked = maintenance.isRestricted;
   const [courses, setCourses] = useState<CourseRow[]>(initialCourses);
   const [draft, setDraft] = useState<CourseRow[]>(initialCourses);
+  const [newCourseSemester, setNewCourseSemester] = useState("");
+  const [newCourseName, setNewCourseName] = useState("");
   const [editing, setEditing] = useState(isDraft);
   const [message, setMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -104,7 +106,11 @@ export default function CourseManager({
     setEditing(isDraft);
   }, [initialCourses, isDraft]);
 
-  const activeQuery = activeAutocomplete === null ? "" : String(draft[activeAutocomplete]?.materia || "");
+  const activeQuery = activeAutocomplete === null
+    ? ""
+    : activeAutocomplete === -1
+      ? newCourseName
+      : String(draft[activeAutocomplete]?.materia || "");
   const nameSuggestions = useMemo(() => {
     const query = normalizeSearch(activeQuery);
     if (!query) return [];
@@ -157,8 +163,30 @@ export default function CourseManager({
   };
 
   const selectName = (index: number, name: string) => {
+    if (index === -1) {
+      setNewCourseName(name);
+      closeAutocomplete();
+      return;
+    }
     updateDraft((current) => current.map((course, i) => i === index ? { ...course, materia: name } : course));
     closeAutocomplete();
+  };
+
+  const addDraftCourse = () => {
+    const materia = newCourseName.trim();
+    if (!materia) {
+      setMessage("Escribe el nombre de una materia antes de agregarla.");
+      return;
+    }
+    if (draft.some((course) => normalizeSearch(course.materia) === normalizeSearch(materia))) {
+      setMessage("Esa materia ya está en la lista.");
+      return;
+    }
+    updateDraft((current) => [...current, { semestre: newCourseSemester, materia, firma: "", tipos: [] }]);
+    setNewCourseSemester("");
+    setNewCourseName("");
+    closeAutocomplete();
+    setMessage("");
   };
 
   const handleNameKeyDown = (event: React.KeyboardEvent<HTMLInputElement>, index: number) => {
@@ -321,6 +349,19 @@ export default function CourseManager({
         setMessage("Selecciona al menos una clase para cada materia antes de continuar.");
         return;
       }
+      const selectedTypesByCourse = new Map<string, Set<string>>();
+      for (const classItem of selectedClasses) {
+        const types = selectedTypesByCourse.get(classItem.materia) || new Set<string>();
+        types.add(classItem.tipo);
+        selectedTypesByCourse.set(classItem.materia, types);
+      }
+      const coursesWithSelectedTypes = courses.map((course) => ({
+        ...course,
+        tipos: Array.from(selectedTypesByCourse.get(course.materia) || []),
+      }));
+      setCourses(coursesWithSelectedTypes);
+      setDraft(coursesWithSelectedTypes);
+      onCoursesChange?.(coursesWithSelectedTypes);
       onScheduleChange?.(selectedClasses);
       onDraftReadyChange?.(true);
       setMessage(`Selección local lista (${selectedClasses.length} clases)`);
@@ -379,16 +420,54 @@ export default function CourseManager({
     suggestions.groups.every((group) =>
       group.options.some((option) => Boolean(selectedSuggestions[option.tempId]))
     );
+  const displayedCourses = editing ? draft : courses;
 
   const content = loading ? <div className="muted">Cargando materias…</div> : (
     <div style={{ display: "grid", gap: 10 }}>
       {embedded && !isDraft && controls}
       {editsBlocked && <div className="muted" style={{ fontSize: 12 }}>{maintenance.disabledMessage}</div>}
+      {isDraft && editing && (
+        <div className="draftCourseComposer">
+          <select className="fakeInput" value={newCourseSemester} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => setNewCourseSemester(event.target.value)}>
+            <option value="">Semestre</option>
+            {SEMESTER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+          <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+            <input
+              className="fakeInput"
+              value={newCourseName}
+              placeholder="Nombre de la materia"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={activeAutocomplete === -1}
+              autoComplete="off"
+              disabled={editsBlocked}
+              title={editsBlocked ? maintenance.disabledMessage : undefined}
+              onFocus={() => { setActiveAutocomplete(-1); setHighlightedSuggestion(0); void loadCourseNames(); }}
+              onChange={(event) => { setNewCourseName(event.target.value); setActiveAutocomplete(-1); setHighlightedSuggestion(0); }}
+              onKeyDown={(event) => handleNameKeyDown(event, -1)}
+              onBlur={() => window.setTimeout(() => setActiveAutocomplete((current) => current === -1 ? null : current), 100)}
+            />
+            {activeAutocomplete === -1 && courseNamesStatus === "loading" && <div className="muted" style={{ fontSize: 12 }}>Cargando nombres de materias…</div>}
+            {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && nameSuggestions.length > 0 && (
+              <div role="listbox" style={{ display: "grid", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)", zIndex: 2 }}>
+                {nameSuggestions.map((name, suggestionIndex) => (
+                  <button key={name} type="button" role="option" aria-selected={suggestionIndex === highlightedSuggestion} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setHighlightedSuggestion(suggestionIndex)} onClick={() => selectName(-1, name)} style={{ border: 0, borderBottom: suggestionIndex < nameSuggestions.length - 1 ? "1px solid var(--border)" : 0, padding: "10px 12px", textAlign: "left", font: "inherit", fontWeight: 750, cursor: "pointer", color: "var(--text)", background: suggestionIndex === highlightedSuggestion ? "var(--primary2)" : "var(--card)" }}>{name}</button>
+                ))}
+              </div>
+            )}
+            {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && !nameSuggestions.length && <div className="muted" style={{ fontSize: 12 }}>Sin coincidencias. La materia se guardará con el nombre escrito.</div>}
+          </div>
+          <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={addDraftCourse}>
+            Agregar materia
+          </button>
+        </div>
+      )}
       <div style={{ overflowX: "auto" }}>
         <table className="tableMini">
           <thead><tr><th className="semestre">Semestre</th><th>Materia</th><th className="firma">Firma</th></tr></thead>
           <tbody>
-            {(editing ? draft : courses).map((course, index) => (
+            {displayedCourses.map((course, index) => (
               <tr key={course.id || index}>
                 <td>{editing ? (
                   <select className="fakeInput" value={course.semestre} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, semestre: event.target.value } : item))}>
@@ -398,20 +477,22 @@ export default function CourseManager({
                 ) : <span>{course.semestre || "—"}</span>}</td>
                 <td>{editing ? (
                   <div style={{ display: "grid", gap: 8, minWidth: 220 }}>
-                    <input
-                      className="fakeInput"
-                      value={course.materia}
-                      role="combobox"
-                      aria-autocomplete="list"
-                      aria-expanded={activeAutocomplete === index}
-                      autoComplete="off"
-                      disabled={editsBlocked}
-                      title={editsBlocked ? maintenance.disabledMessage : undefined}
-                      onFocus={() => { setActiveAutocomplete(index); setHighlightedSuggestion(0); void loadCourseNames(); }}
-                      onChange={(event) => { updateDraft((current) => current.map((item, i) => i === index ? { ...item, materia: event.target.value } : item)); setActiveAutocomplete(index); setHighlightedSuggestion(0); }}
-                      onKeyDown={(event) => handleNameKeyDown(event, index)}
-                      onBlur={() => window.setTimeout(() => setActiveAutocomplete((current) => current === index ? null : current), 100)}
-                    />
+                    <div>
+                      <input
+                        className="fakeInput"
+                        value={course.materia}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={activeAutocomplete === index}
+                        autoComplete="off"
+                        disabled={editsBlocked}
+                        title={editsBlocked ? maintenance.disabledMessage : undefined}
+                        onFocus={() => { setActiveAutocomplete(index); setHighlightedSuggestion(0); void loadCourseNames(); }}
+                        onChange={(event) => { updateDraft((current) => current.map((item, i) => i === index ? { ...item, materia: event.target.value } : item)); setActiveAutocomplete(index); setHighlightedSuggestion(0); }}
+                        onKeyDown={(event) => handleNameKeyDown(event, index)}
+                        onBlur={() => window.setTimeout(() => setActiveAutocomplete((current) => current === index ? null : current), 100)}
+                      />
+                    </div>
                     {activeAutocomplete === index && courseNamesStatus === "loading" && <div className="muted" style={{ fontSize: 12 }}>Cargando nombres de materias…</div>}
                     {activeAutocomplete === index && courseNamesStatus === "ready" && activeQuery.trim() && nameSuggestions.length > 0 && (
                       <div role="listbox" style={{ display: "grid", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)" }}>
@@ -421,12 +502,12 @@ export default function CourseManager({
                       </div>
                     )}
                     {activeAutocomplete === index && courseNamesStatus === "ready" && activeQuery.trim() && !nameSuggestions.length && <div className="muted" style={{ fontSize: 12 }}>Sin coincidencias. La materia se guardará con el nombre escrito.</div>}
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {!isDraft && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {["T", "P", "LAB"].map((type) => {
                         const active = (course.tipos || []).includes(type);
                         return <button key={type} type="button" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => current.map((item, i) => i === index ? { ...item, tipos: active ? (item.tipos || []).filter((value) => value !== type) : [...(item.tipos || []), type] } : item))} style={{ minWidth: 48, padding: "8px 12px", borderRadius: 12, border: "1px solid var(--border)", background: active ? "var(--success)" : "var(--card)", color: active ? "#fff" : "var(--text)", fontWeight: 800, cursor: editsBlocked ? "not-allowed" : "pointer", opacity: editsBlocked ? 0.6 : 1 }}>{type}</button>;
                       })}
-                    </div>
+                    </div>}
                   </div>
                 ) : <span>{course.materia}</span>}</td>
                 <td><div style={{ display: "flex", gap: 8 }}>{editing ? <>
@@ -441,12 +522,9 @@ export default function CourseManager({
       {!(editing ? draft.length : courses.length) && <div className="muted">Aún no agregaste materias.</div>}
       {message && <div className="muted" role="status">{message}</div>}
       {embedded && isDraft && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-          <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => [...current, { semestre: "", materia: "", firma: "", tipos: [] }])}>
-            Agregar materia
-          </button>
-          <button type="button" className="btn btnPrimary" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>
-            Confirmar materias y buscar secciones
+        <div style={{ display: "grid", marginTop: 6 }}>
+          <button type="button" className="btn btnPrimary" disabled={editsBlocked || suggestionsLoading || modalOpen} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses} style={{ width: "100%", minHeight: 44 }}>
+            {suggestionsLoading ? "Buscando secciones…" : "Confirmar materias y buscar secciones"}
           </button>
         </div>
       )}

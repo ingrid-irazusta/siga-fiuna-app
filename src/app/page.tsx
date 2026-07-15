@@ -1209,7 +1209,7 @@ export default function Page() {
                 title={maintenance.isRestricted ? maintenance.disabledMessage : undefined}
                 style={{ width: "100%", opacity: maintenance.isRestricted ? 0.58 : 1 }}
               >
-                Configurar nuevo ciclo
+                Comenzar ciclo 2-2026
               </button>
               {semesterSetupMessage && (
                 <div role="status" style={{ color: "var(--primary)", fontWeight: 800, fontSize: 12 }}>

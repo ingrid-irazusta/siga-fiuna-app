@@ -1210,6 +1210,20 @@ button, input, select { font: inherit; }
 .tableMini td{ font-weight: 850; }
 .tableMini .semestre{ width: 90px; }
 .tableMini .firma{ width: 120px; }
+.draftCourseComposer{
+  display: grid;
+  grid-template-columns: minmax(100px, 140px) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+@media (max-width: 520px){
+  .draftCourseComposer{
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .draftCourseComposer .btn{
+    width: 100%;
+  }
+}
 .footerLinks{
   text-align:center;
   padding: 18px 10px 6px;

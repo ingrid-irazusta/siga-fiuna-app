@@ -152,6 +152,11 @@ export default function SemesterSetupWizard({
     setFurthestStep((current) => Math.max(current, nextIndex));
   };
 
+  const handleDraftReadyChange = (ready: boolean) => {
+    setDraftReady(ready);
+    if (ready) goToStep("summary");
+  };
+
   const goForward = () => {
     if (step === "subjects" && !draftReady) return;
     const next = STEPS[currentStepIndex + 1];
@@ -373,16 +378,15 @@ export default function SemesterSetupWizard({
               initialSchedule={draftSchedule}
               onCoursesChange={handleCoursesChange}
               onScheduleChange={setDraftSchedule}
-              onDraftReadyChange={setDraftReady}
+              onDraftReadyChange={handleDraftReadyChange}
             />
 
             <div style={{ padding: 12, borderRadius: 12, background: "var(--primary2)", color: "var(--primary)", fontSize: 13, fontWeight: 750 }}>
               En esta fase, las materias y secciones permanecen como borrador y no modifican tus datos actuales.
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "flex-start", gap: 8 }}>
               <button type="button" className="btn" onClick={goBack}>Volver</button>
-              <button type="button" className="btn btnPrimary" onClick={goForward} disabled={!draftReady} title={!draftReady ? "Confirma las materias y termina la selección de secciones antes de continuar." : undefined} style={{ opacity: draftReady ? 1 : 0.55 }}>Revisar resumen</button>
             </div>
           </div>
         )}
