@@ -1197,7 +1197,7 @@ export default function Page() {
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)", display: "grid", gap: 8 }}>
               <button
                 type="button"
-                className="btn btnPrimary"
+                className="btn dashHeaderTop cycleLaunchButton"
                 onClick={() => {
                   if (maintenance.isRestricted) {
                     setSemesterSetupMessage(maintenance.actionMessage);
@@ -1209,7 +1209,7 @@ export default function Page() {
                 title={maintenance.isRestricted ? maintenance.disabledMessage : undefined}
                 style={{ width: "100%", opacity: maintenance.isRestricted ? 0.58 : 1 }}
               >
-                Comenzar ciclo 2-2026
+                Comenzar 2.º ciclo 2026
               </button>
               {semesterSetupMessage && (
                 <div role="status" style={{ color: "var(--primary)", fontWeight: 800, fontSize: 12 }}>

@@ -458,9 +458,6 @@ export default function CourseManager({
             )}
             {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && !nameSuggestions.length && <div className="muted" style={{ fontSize: 12 }}>Sin coincidencias. La materia se guardará con el nombre escrito.</div>}
           </div>
-          <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={addDraftCourse}>
-            Agregar materia
-          </button>
         </div>
       )}
       <div style={{ overflowX: "auto" }}>
@@ -522,8 +519,11 @@ export default function CourseManager({
       {!(editing ? draft.length : courses.length) && <div className="muted">Aún no agregaste materias.</div>}
       {message && <div className="muted" role="status">{message}</div>}
       {embedded && isDraft && (
-        <div style={{ display: "grid", marginTop: 6 }}>
-          <button type="button" className="btn btnPrimary" disabled={editsBlocked || suggestionsLoading || modalOpen} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses} style={{ width: "100%", minHeight: 44 }}>
+        <div className="draftCourseActions">
+          <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={addDraftCourse}>
+            Agregar materia
+          </button>
+          <button type="button" className="btn btnPrimary" disabled={editsBlocked || suggestionsLoading || modalOpen || !cleanCourses(draft).length} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>
             {suggestionsLoading ? "Buscando secciones…" : "Confirmar materias y buscar secciones"}
           </button>
         </div>

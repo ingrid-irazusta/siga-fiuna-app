@@ -1212,17 +1212,39 @@ button, input, select { font: inherit; }
 .tableMini .firma{ width: 120px; }
 .draftCourseComposer{
   display: grid;
-  grid-template-columns: minmax(100px, 140px) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(100px, 140px) minmax(0, 1fr);
   align-items: start;
   gap: 8px;
+}
+.draftCourseActions{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+.draftCourseActions .btn{
+  width: min(100%, 320px);
 }
 @media (max-width: 520px){
   .draftCourseComposer{
     grid-template-columns: minmax(0, 1fr);
   }
-  .draftCourseComposer .btn{
+  .draftCourseActions{
+    align-items: stretch;
+  }
+  .draftCourseActions .btn{
     width: 100%;
   }
+}
+.cycleLaunchButton{
+  width: 100%;
+  min-height: 54px;
+  cursor: pointer;
+  font-size: 15px;
+}
+.cycleLaunchButton:disabled{
+  cursor: not-allowed;
 }
 .footerLinks{
   text-align:center;
