@@ -1,4 +1,5 @@
 :root{
+  --app-header-height: 56px;
   --bg: #F4F6F8;
   --card: #FFFFFF;
   --text: #0F172A;
@@ -104,7 +105,7 @@
   /* IMPORTANT: usar border-box para que el padding no “agrande” la barra
      y no tape contenido/clics en móvil. */
   box-sizing: border-box;
-  height: 56px;
+  height: var(--app-header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2782,17 +2783,34 @@ select:focus {
 }
 
 /* Configuración de ciclo: tabla compacta en teléfonos. */
+.semesterSetupOverlay {
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px !important;
+}
+
+.semesterSetupDialog {
+  max-height: calc(100dvh - var(--app-header-height) - 40px) !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 @media (max-width: 640px) {
   .semesterSetupOverlay {
     place-items: start center !important;
-    padding: 8px !important;
+    padding: 10px 8px !important;
   }
 
   .semesterSetupDialog.isSubjectsStep {
     width: 100% !important;
-    max-height: calc(100dvh - 16px) !important;
+    max-height: calc(100dvh - var(--app-header-height) - 20px) !important;
     padding: 12px !important;
     border-radius: 16px !important;
+  }
+
+  .semesterSetupDialog:not(.isSubjectsStep) {
+    max-height: calc(100dvh - var(--app-header-height) - 20px) !important;
   }
 
   .semesterSetupDialog.isSubjectsStep .semesterSetupHeader {

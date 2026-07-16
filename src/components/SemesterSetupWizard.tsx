@@ -237,7 +237,10 @@ export default function SemesterSetupWizard({
       }}
       style={{
         position: "fixed",
-        inset: 0,
+        top: "var(--app-header-height)",
+        right: 0,
+        bottom: 0,
+        left: 0,
         zIndex: 1000,
         display: "grid",
         placeItems: "center",
@@ -250,7 +253,7 @@ export default function SemesterSetupWizard({
         className={`semesterSetupDialog${step === "subjects" ? " isSubjectsStep" : ""}`}
         style={{
           width: "min(760px, 100%)",
-          maxHeight: "calc(100vh - 32px)",
+          maxHeight: "calc(100dvh - var(--app-header-height) - 40px)",
           overflowY: "auto",
           border: "1px solid var(--border)",
           borderRadius: 20,
