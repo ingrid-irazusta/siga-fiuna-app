@@ -425,23 +425,23 @@ export default function CourseManager({
   const displayedCourses = editing ? draft : courses;
 
   const content = loading ? <div className="muted">Cargando materias…</div> : (
-    <div style={{ display: "grid", gap: 10 }}>
+    <div className={isDraft ? "courseManagerDraft" : undefined} style={{ display: "grid", gap: 10 }}>
       {embedded && !isDraft && controls}
       {editsBlocked && <div className="muted" style={{ fontSize: 12 }}>{maintenance.disabledMessage}</div>}
-      <div style={{ overflowX: "auto" }}>
-        <table className="tableMini">
+      <div className={isDraft ? "draftCourseTableWrap" : undefined} style={{ overflowX: "auto" }}>
+        <table className={`tableMini${isDraft ? " draftCourseTable" : ""}`}>
           <thead><tr><th className="semestre">Semestre</th><th>Materia</th><th className="firma">Firma</th></tr></thead>
           <tbody>
             {displayedCourses.map((course, index) => (
               <tr key={course.id || index}>
-                <td>{editing ? (
-                  <select className="fakeInput" value={course.semestre} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, semestre: event.target.value } : item))}>
-                    <option value="">Seleccionar</option>
+                <td className={isDraft ? "draftCourseSemesterCell" : undefined}>{editing ? (
+                  <select className="fakeInput draftCourseCompactSelect" value={course.semestre} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : course.semestre} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, semestre: event.target.value } : item))}>
+                    <option value="">{isDraft ? "—" : "Seleccionar"}</option>
                     {SEMESTER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
                   </select>
                 ) : <span>{course.semestre || "—"}</span>}</td>
-                <td>{editing ? (
-                  <div style={{ display: "grid", gap: 8, minWidth: 220 }}>
+                <td className={isDraft ? "draftCourseNameCell" : undefined}>{editing ? (
+                  <div className={isDraft ? "draftCourseNameEditor" : undefined} style={{ display: "grid", gap: 8, minWidth: isDraft ? 0 : 220 }}>
                     <div>
                       <input
                         className="fakeInput"
@@ -451,7 +451,7 @@ export default function CourseManager({
                         aria-expanded={activeAutocomplete === index}
                         autoComplete="off"
                         disabled={editsBlocked}
-                        title={editsBlocked ? maintenance.disabledMessage : undefined}
+                        title={editsBlocked ? maintenance.disabledMessage : course.materia}
                         onFocus={() => { setActiveAutocomplete(index); setHighlightedSuggestion(0); void loadCourseNames(); }}
                         onChange={(event) => { updateDraft((current) => current.map((item, i) => i === index ? { ...item, materia: event.target.value } : item)); setActiveAutocomplete(index); setHighlightedSuggestion(0); }}
                         onKeyDown={(event) => handleNameKeyDown(event, index)}
@@ -475,9 +475,9 @@ export default function CourseManager({
                     </div>}
                   </div>
                 ) : <span>{course.materia}</span>}</td>
-                <td><div style={{ display: "flex", gap: 8 }}>{editing ? <>
-                  <select className="fakeInput" value={course.firma} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, firma: event.target.value } : item))}><option value="">—</option><option value="SI">SI</option><option value="NO">NO</option></select>
-                  <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={() => updateDraft((current) => current.filter((_, i) => i !== index))}>Eliminar</button>
+                <td className={isDraft ? "draftCourseFirmaCell" : undefined}><div className={isDraft ? "draftCourseRowActions" : undefined} style={{ display: "flex", gap: 8 }}>{editing ? <>
+                  <select className="fakeInput draftCourseCompactSelect" value={course.firma} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : course.firma} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, firma: event.target.value } : item))}><option value="">—</option><option value="SI">{isDraft ? "Sí" : "SI"}</option><option value="NO">{isDraft ? "No" : "NO"}</option></select>
+                  <button type="button" className={`btn${isDraft ? " draftCourseRemoveButton" : ""}`} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : `Eliminar ${course.materia}`} onClick={() => updateDraft((current) => current.filter((_, i) => i !== index))}>Eliminar</button>
                 </> : <span>{course.firma || "—"}</span>}</div></td>
               </tr>
             ))}
@@ -488,15 +488,15 @@ export default function CourseManager({
               <tr className="draftCourseEntryRow">
                 <td colSpan={3}>
                   <div className="draftCourseEntryGrid">
-                    <select className="fakeInput" value={newCourseSemester} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => setNewCourseSemester(event.target.value)}>
-                      <option value="">Semestre</option>
+                    <select className="fakeInput draftCourseCompactSelect" aria-label="Semestre" value={newCourseSemester} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : "Semestre"} onChange={(event) => setNewCourseSemester(event.target.value)}>
+                      <option value="">—</option>
                       {SEMESTER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
                     </select>
                     <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
                       <input
                         className="fakeInput"
                         value={newCourseName}
-                        placeholder="Nombre de la materia"
+                        placeholder="Materia"
                         role="combobox"
                         aria-autocomplete="list"
                         aria-expanded={activeAutocomplete === -1}
@@ -518,10 +518,10 @@ export default function CourseManager({
                       )}
                       {activeAutocomplete === -1 && courseNamesStatus === "ready" && activeQuery.trim() && !nameSuggestions.length && <div className="muted" style={{ fontSize: 12 }}>Sin coincidencias. La materia se guardará con el nombre escrito.</div>}
                     </div>
-                    <select className="fakeInput" value={newCourseFirma} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onChange={(event) => setNewCourseFirma(event.target.value)}>
+                    <select className="fakeInput draftCourseCompactSelect" aria-label="Firma" value={newCourseFirma} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : "Firma"} onChange={(event) => setNewCourseFirma(event.target.value)}>
                       <option value="">—</option>
-                      <option value="SI">SI</option>
-                      <option value="NO">NO</option>
+                      <option value="SI">Sí</option>
+                      <option value="NO">No</option>
                     </select>
                   </div>
                 </td>

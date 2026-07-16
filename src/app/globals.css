@@ -2781,5 +2781,206 @@ select:focus {
   }
 }
 
+/* Configuración de ciclo: tabla compacta en teléfonos. */
+@media (max-width: 640px) {
+  .semesterSetupOverlay {
+    place-items: start center !important;
+    padding: 8px !important;
+  }
+
+  .semesterSetupDialog.isSubjectsStep {
+    width: 100% !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .semesterSetupDialog.isSubjectsStep .semesterSetupHeader {
+    gap: 8px !important;
+  }
+
+  .semesterSetupDialog.isSubjectsStep .semesterSetupHeader h2 {
+    font-size: 18px !important;
+    line-height: 1.2;
+  }
+
+  .semesterSetupDialog.isSubjectsStep .semesterSetupHeader > div > div {
+    margin-top: 2px !important;
+    font-size: 11.5px !important;
+    line-height: 1.3;
+  }
+
+  .semesterSetupDialog.isSubjectsStep .semesterSetupHeader .btn {
+    padding: 7px 9px;
+    border-radius: 9px;
+    font-size: 12px;
+  }
+
+  .semesterSetupDialog.isSubjectsStep .semesterSetupProgress {
+    gap: 4px !important;
+    margin: 12px 0 !important;
+  }
+
+  .semesterSetupDialog.isSubjectsStep .semesterSetupProgress button {
+    min-width: 0;
+    padding: 6px 3px !important;
+    font-size: 10.5px !important;
+  }
+
+  .semesterSetupSubjects {
+    gap: 9px !important;
+  }
+
+  .semesterSetupSubjectsIntro h3 {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .semesterSetupSubjectsIntro p {
+    margin-top: 3px !important;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .courseManagerDraft {
+    min-width: 0;
+    gap: 6px !important;
+  }
+
+  .draftCourseTableWrap {
+    min-width: 0;
+    overflow-x: visible !important;
+  }
+
+  .draftCourseTable {
+    width: 100%;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+
+  .draftCourseTable th,
+  .draftCourseTable td {
+    padding: 5px 3px !important;
+    vertical-align: top;
+  }
+
+  .draftCourseTable th {
+    overflow: hidden;
+    font-size: 10.5px !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .draftCourseTable .semestre,
+  .draftCourseTable .draftCourseSemesterCell {
+    width: 20% !important;
+  }
+
+  .draftCourseTable th:nth-child(2),
+  .draftCourseTable .draftCourseNameCell {
+    width: 58% !important;
+  }
+
+  .draftCourseTable .firma,
+  .draftCourseTable .draftCourseFirmaCell {
+    width: 22% !important;
+  }
+
+  .courseManagerDraft .fakeInput {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 32px;
+    padding: 4px 5px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+
+  .courseManagerDraft .draftCourseCompactSelect {
+    padding-right: 2px;
+    padding-left: 3px;
+  }
+
+  .draftCourseNameEditor {
+    min-width: 0 !important;
+    gap: 3px !important;
+  }
+
+  .draftCourseNameEditor input {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .draftCourseRowActions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    gap: 3px !important;
+  }
+
+  .draftCourseRemoveButton {
+    width: 100%;
+    min-height: 24px;
+    padding: 4px 2px !important;
+    border-radius: 8px;
+    font-size: 9.5px;
+    line-height: 1;
+  }
+
+  .draftCourseEntryRow td {
+    padding-top: 5px !important;
+    padding-bottom: 4px !important;
+  }
+
+  .draftCourseEntryGrid {
+    grid-template-columns: 20% minmax(0, 60%) 20% !important;
+    align-items: start;
+    gap: 3px !important;
+  }
+
+  .draftCourseEntryGrid > * {
+    min-width: 0;
+  }
+
+  .courseManagerDraft .muted {
+    font-size: 10.5px !important;
+    line-height: 1.3;
+  }
+
+  .courseManagerDraft [role="listbox"] {
+    position: relative;
+    z-index: 5;
+  }
+
+  .courseManagerDraft [role="listbox"] button {
+    padding: 7px 8px !important;
+    font-size: 11px !important;
+  }
+
+  .draftCourseActions {
+    gap: 4px;
+    margin-top: -1px;
+  }
+
+  .draftCourseActions .btn {
+    width: 100%;
+    min-height: 32px;
+    max-width: none;
+    padding: 7px 9px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .setupDraftNotice {
+    padding: 7px 9px;
+    border-radius: 9px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}
+
 
 

@@ -228,6 +228,7 @@ export default function SemesterSetupWizard({
 
   return (
     <div
+      className="semesterSetupOverlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="semester-setup-title"
@@ -246,6 +247,7 @@ export default function SemesterSetupWizard({
       }}
     >
       <div
+        className={`semesterSetupDialog${step === "subjects" ? " isSubjectsStep" : ""}`}
         style={{
           width: "min(760px, 100%)",
           maxHeight: "calc(100vh - 32px)",
@@ -257,7 +259,7 @@ export default function SemesterSetupWizard({
           padding: "clamp(18px, 4vw, 28px)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+        <div className="semesterSetupHeader" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
           <div>
             <h2 id="semester-setup-title" style={{ margin: 0, fontSize: 22 }}>Configurar nuevo ciclo</h2>
             <div style={{ marginTop: 5, color: "var(--muted)", fontSize: 13 }}>
@@ -267,7 +269,7 @@ export default function SemesterSetupWizard({
           <button type="button" className="btn" onClick={discardAndClose} disabled={savingCycle} aria-label="Cerrar asistente">Cerrar</button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, margin: "22px 0" }}>
+        <div className="semesterSetupProgress" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, margin: "22px 0" }}>
           {STEPS.map((item, index) => {
             const active = item.value === step;
             const reached = index <= furthestStep;
@@ -363,8 +365,8 @@ export default function SemesterSetupWizard({
         )}
 
         {step === "subjects" && (
-          <div style={{ display: "grid", gap: 16 }}>
-            <div>
+          <div className="semesterSetupSubjects" style={{ display: "grid", gap: 16 }}>
+            <div className="semesterSetupSubjectsIntro">
               <h3 style={{ margin: 0 }}>Materias del ciclo</h3>
               <p style={{ margin: "7px 0 0", color: "var(--muted)" }}>
                 Agrega todas las materias y luego busca sus secciones.
