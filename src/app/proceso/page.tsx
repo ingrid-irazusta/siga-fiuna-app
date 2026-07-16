@@ -168,24 +168,33 @@ async function loadProceso(userId: string): Promise<ProcesoData> {
 }
 
 async function saveProceso(userId: string, data: ProcesoData): Promise<void> {
-  try {
-    const supabase = getSupabase();
-    // Delete existing
-    await supabase.from("student_processes").delete().eq("user_id", userId);
+  const supabase = getSupabase();
+  const { error: deleteError } = await supabase
+    .from("student_processes")
+    .delete()
+    .eq("user_id", userId);
 
-    // Insert new
-    if (data.items.length) {
-      const inserts = data.items.map((item) => ({
-        user_id: userId,
-        materia: normText(item.nombre),
-        process_data: item,
-        updated_at: new Date().toISOString(),
-      }));
-      await supabase.from("student_processes").insert(inserts);
-    }
-  } catch (e) {
-    console.error("Error saving proceso:", e);
+  if (deleteError) throw deleteError;
+
+  if (data.items.length) {
+    const inserts = data.items.map((item) => ({
+      user_id: userId,
+      materia: normText(item.nombre),
+      process_data: item,
+      updated_at: new Date().toISOString(),
+    }));
+    const { error: insertError } = await supabase
+      .from("student_processes")
+      .insert(inserts);
+
+    if (insertError) throw insertError;
   }
+}
+
+function logProcesoDev(message: string, details?: unknown): void {
+  if (process.env.NODE_ENV !== "development") return;
+  if (typeof details === "undefined") console.debug(`[Proceso] ${message}`);
+  else console.debug(`[Proceso] ${message}`, details);
 }
 
 function makeId(nombre: string, semestre: number): string {
@@ -302,10 +311,12 @@ export default function ProcesoPage() {
   const [simRecuPctByItem, setSimRecuPctByItem] = useState<Record<string, number>>({});
   const [simFinalPctByItem, setSimFinalPctByItem] = useState<Record<string, number>>({});
   const [simUseRecuForFinalByItem, setSimUseRecuForFinalByItem] = useState<Record<string, boolean>>({});
-  const [didLoadProceso, setDidLoadProceso] = useState<boolean>(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [editingItems, setEditingItems] = useState<Record<string, boolean>>({});
   const [draftRowsById, setDraftRowsById] = useState<Record<string, Row[]>>({});
+  const [dirtyItems, setDirtyItems] = useState<Record<string, boolean>>({});
+  const [savingItemId, setSavingItemId] = useState<string | null>(null);
+  const [processSaveError, setProcessSaveError] = useState("");
   const [finalModalId, setFinalModalId] = useState<string | null>(null);
   const [courseSituation, setCourseSituation] = useState<"aprobada" | "conserva_firma" | "reprobada_sin_firma">("aprobada");
   const [finalMethod, setFinalMethod] = useState<"exoneracion" | "examen_final">("exoneracion");
@@ -318,6 +329,7 @@ export default function ProcesoPage() {
 
   useEffect(() => {
     const load = async () => {
+      logProcesoDev("Hidratación iniciada");
       const supabase = getSupabase();
       const { data } = await supabase.auth.getSession();
 
@@ -333,17 +345,22 @@ export default function ProcesoPage() {
       const courses = await loadCourses(uid);
       const merged = mergeCoursesIntoItems(courses, d.items).map(migrateItemIfNeeded);
       setItems(merged);
-      setDidLoadProceso(true);
+      setDirtyItems({});
       setIsLoading(false);
+      logProcesoDev("Hidratación completada", { materias: merged.length });
     };
 
     load();
   }, [router]);
 
-  useEffect(() => {
-    if (!didLoadProceso || !userId) return;
-    saveProceso(userId, { items });
-  }, [didLoadProceso, items, userId]);
+  const markItemDirty = (id: string) => {
+    setDirtyItems((prev) => {
+      if (prev[id]) return prev;
+      logProcesoDev("Cambio real detectado", { itemId: id });
+      return { ...prev, [id]: true };
+    });
+    setProcessSaveError("");
+  };
 
   const syncFromInicio = async () => {
     if (!userId) return;
@@ -352,6 +369,7 @@ export default function ProcesoPage() {
   };
 
   const addRow = (id: string) => {
+    markItemDirty(id);
     setDraftRowsById((prev) => {
       const rows = cloneRowsDeep(prev[id] || []);
       const rid = `r:${Date.now()}`;
@@ -367,6 +385,7 @@ export default function ProcesoPage() {
   };
 
   const removeRow = (id: string, rid: string) => {
+    markItemDirty(id);
     setDraftRowsById((prev) => {
       const rows = cloneRowsDeep(prev[id] || []);
       return {
@@ -377,6 +396,7 @@ export default function ProcesoPage() {
   };
 
   const addGroup = (id: string) => {
+    markItemDirty(id);
     setDraftRowsById((prev) => {
       const rows = cloneRowsDeep(prev[id] || []);
       const gid = `g:${Date.now()}`;
@@ -405,6 +425,7 @@ export default function ProcesoPage() {
   };
 
   const addSubRow = (id: string, groupRid: string) => {
+    markItemDirty(id);
     setDraftRowsById((prev) => {
       const rows = cloneRowsDeep(prev[id] || []);
 
@@ -424,6 +445,7 @@ export default function ProcesoPage() {
   };
 
   const removeSubRow = (id: string, groupRid: string, childRid: string) => {
+    markItemDirty(id);
     setDraftRowsById((prev) => {
       const rows = cloneRowsDeep(prev[id] || []);
 
@@ -466,6 +488,8 @@ export default function ProcesoPage() {
       ...prev,
       [it.id]: true,
     }));
+    setDirtyItems((prev) => ({ ...prev, [it.id]: false }));
+    setProcessSaveError("");
   };
 
   const cancelEditing = (id: string) => {
@@ -478,29 +502,58 @@ export default function ProcesoPage() {
       delete copy[id];
       return copy;
     });
+    setDirtyItems((prev) => ({ ...prev, [id]: false }));
+    setProcessSaveError("");
   };
 
-  const saveEditing = (id: string) => {
+  const saveEditing = async (id: string) => {
     const draft = draftRowsById[id];
     if (!draft) return;
 
-    setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, rows: cloneRowsDeep(draft) } : it))
+    if (!dirtyItems[id]) {
+      cancelEditing(id);
+      return;
+    }
+
+    if (!userId || savingItemId) return;
+
+    const nextItems = items.map((it) =>
+      it.id === id ? { ...it, rows: cloneRowsDeep(draft) } : it
     );
 
-    setEditingItems((prev) => ({
-      ...prev,
-      [id]: false,
-    }));
+    setSavingItemId(id);
+    setProcessSaveError("");
+    logProcesoDev("Guardado ejecutado", { itemId: id, materias: nextItems.length });
 
-    setDraftRowsById((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
+    try {
+      await saveProceso(userId, { items: nextItems });
+      setItems(nextItems);
+      setDirtyItems((prev) => ({ ...prev, [id]: false }));
+
+      setEditingItems((prev) => ({
+        ...prev,
+        [id]: false,
+      }));
+
+      setDraftRowsById((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+    } catch (error) {
+      console.error("Error saving proceso:", error);
+      setProcessSaveError(
+        error instanceof Error
+          ? `No se pudo guardar el proceso: ${error.message}`
+          : "No se pudo guardar el proceso. Intenta nuevamente."
+      );
+    } finally {
+      setSavingItemId(null);
+    }
   };
 
   const updateDraftRow = (itemId: string, rid: string, patch: Partial<Row>) => {
+    markItemDirty(itemId);
     setDraftRowsById((prev) => {
       const rows = cloneRowsDeep(prev[itemId] || []);
       return {
@@ -516,6 +569,7 @@ export default function ProcesoPage() {
     childRid: string,
     patch: Partial<ChildRow>
   ) => {
+    markItemDirty(itemId);
     setDraftRowsById((prev) => {
       const rows = cloneRowsDeep(prev[itemId] || []);
       return {
@@ -604,6 +658,21 @@ export default function ProcesoPage() {
 
   return (
     <div className="grid" style={{ gap: 14 }}>
+      {processSaveError && (
+        <div
+          role="alert"
+          style={{
+            padding: "10px 12px",
+            borderRadius: 14,
+            background: "rgba(220,38,38,0.10)",
+            border: "1px solid rgba(220,38,38,0.25)",
+            color: "rgba(220,38,38,0.95)",
+            fontWeight: 900,
+          }}
+        >
+          {processSaveError}
+        </div>
+      )}
       {finalFlowMessage && (
         <div style={{ padding: "10px 12px", borderRadius: 14, background: "var(--success2)", border: "1px solid var(--success)", color: "var(--success)", fontWeight: 900 }}>
           {finalFlowMessage}
@@ -908,6 +977,7 @@ export default function ProcesoPage() {
                                 className="btn"
                                 type="button"
                                 onClick={() => saveEditing(it.id)}
+                                disabled={savingItemId !== null}
                                 style={{
                                   borderRadius: 999,
                                   fontWeight: 950,
@@ -917,13 +987,14 @@ export default function ProcesoPage() {
                                 }}
                                 title="Guardar proceso"
                               >
-                                💾 Guardar
+                                {savingItemId === it.id ? "Guardando..." : "💾 Guardar"}
                               </button>
 
                               <button
                                 className="btn"
                                 type="button"
                                 onClick={() => cancelEditing(it.id)}
+                                disabled={savingItemId === it.id}
                                 style={{
                                   borderRadius: 999,
                                   fontWeight: 950,
