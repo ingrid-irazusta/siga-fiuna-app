@@ -19,6 +19,7 @@ export type SemesterSetupData = {
 type SemesterSetupWizardProps = {
   open: boolean;
   mode: SemesterSetupMode;
+  demoMode?: boolean;
   initialCareer?: string;
   initialCurriculum?: string;
   onClose: () => void;
@@ -35,6 +36,7 @@ const STEPS: Array<{ value: SemesterSetupStep; label: string }> = [
 export default function SemesterSetupWizard({
   open,
   mode,
+  demoMode = false,
   initialCareer = "",
   initialCurriculum = "",
   onClose,
@@ -202,14 +204,16 @@ export default function SemesterSetupWizard({
 
     setSavingCycle(true);
     try {
-      await configureNewCycle({
-        career: data.career,
-        curriculum: data.curriculum,
-        courses: data.courses,
-        schedule: data.schedule,
-        updateCareer: careerEdited && data.career !== initialCareerSnapshot,
-        updateCurriculum: curriculumEdited && data.curriculum !== initialCurriculumSnapshot,
-      });
+      if (!demoMode) {
+        await configureNewCycle({
+          career: data.career,
+          curriculum: data.curriculum,
+          courses: data.courses,
+          schedule: data.schedule,
+          updateCareer: careerEdited && data.career !== initialCareerSnapshot,
+          updateCurriculum: curriculumEdited && data.curriculum !== initialCurriculumSnapshot,
+        });
+      }
       await onComplete(data);
       setSubjects([]);
       setDraftSchedule([]);
@@ -268,8 +272,15 @@ export default function SemesterSetupWizard({
             <div style={{ marginTop: 5, color: "var(--muted)", fontSize: 13 }}>
               Define la información académica del ciclo actual.
             </div>
+            {demoMode && (
+              <div style={{ width: "fit-content", marginTop: 7, padding: "4px 8px", border: "1px solid var(--border)", borderRadius: 999, background: "var(--surface-soft)", color: "var(--text-soft)", fontSize: 11.5, fontWeight: 800 }}>
+                Modo demostración — los cambios no se guardarán
+              </div>
+            )}
           </div>
-          <button type="button" className="btn" onClick={discardAndClose} disabled={savingCycle} aria-label="Cerrar asistente">Cerrar</button>
+          <button type="button" className="btn" onClick={discardAndClose} disabled={savingCycle} aria-label={demoMode ? "Salir de la demostración" : "Cerrar asistente"}>
+            {demoMode ? "Salir de la demostración" : "Cerrar"}
+          </button>
         </div>
 
         <div className="semesterSetupProgress" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, margin: "22px 0" }}>
@@ -427,7 +438,7 @@ export default function SemesterSetupWizard({
             <div>
               <h3 style={{ margin: 0 }}>Confirmar nuevo ciclo</h3>
               <p style={{ margin: "7px 0 0", color: "var(--muted)" }}>
-                Revisa qué información se actualizará antes de continuar.
+                {demoMode ? "Revisa el resultado de la demostración antes de finalizar." : "Revisa qué información se actualizará antes de continuar."}
               </p>
             </div>
 
@@ -457,7 +468,9 @@ export default function SemesterSetupWizard({
             {cycleSummaryContent}
 
             <div style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(217,119,6,0.24)", background: "rgba(251,191,36,0.10)", color: "#92400e", fontWeight: 800 }}>
-              Al confirmar, SIGA actualizará la información activa del ciclo con las materias y secciones seleccionadas.
+              {demoMode
+                ? "Esta es una demostración local. Tus datos reales no se modificarán."
+                : "Al confirmar, SIGA actualizará la información activa del ciclo con las materias y secciones seleccionadas."}
             </div>
 
             <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontWeight: 850 }}>
@@ -474,7 +487,7 @@ export default function SemesterSetupWizard({
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <button type="button" className="btn" disabled={savingCycle} onClick={() => setStep("summary")}>Volver</button>
               <button type="button" className="btn btnPrimary" onClick={complete} disabled={!finalVerified || maintenance.isRestricted || savingCycle} title={maintenance.isRestricted ? maintenance.disabledMessage : undefined} style={{ opacity: finalVerified && !maintenance.isRestricted && !savingCycle ? 1 : 0.55 }}>
-                {savingCycle ? "Configurando ciclo..." : "Comenzar nuevo ciclo"}
+                {savingCycle ? (demoMode ? "Finalizando demostración..." : "Configurando ciclo...") : (demoMode ? "Finalizar demostración" : "Comenzar nuevo ciclo")}
               </button>
             </div>
           </div>

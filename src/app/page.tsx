@@ -9,6 +9,11 @@ import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import SemesterSetupWizard from "@/components/SemesterSetupWizard";
 import { getCurrentAcademicCycle } from "@/lib/academicCycle";
 import { CAREER_OPTIONS, CURRICULUM_OPTIONS } from "@/lib/academicOptions";
+import {
+  canUseFirstUseDemo,
+  isFirstUseDemoAuthorized,
+  isFirstUseDemoRequested,
+} from "@/lib/firstUseDemo";
 import { getSupabase } from "@/lib/supabaseClient";
 import { Session } from "@supabase/supabase-js";
 
@@ -362,6 +367,7 @@ export default function Page() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [semesterSetupOpen, setSemesterSetupOpen] = useState(false);
   const [semesterSetupMessage, setSemesterSetupMessage] = useState("");
+  const [firstUseDemoRequested, setFirstUseDemoRequested] = useState(false);
 
   /* =======================================================
      ESTADOS PERFIL
@@ -424,6 +430,11 @@ export default function Page() {
   const refreshAulasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const computeNotasKpisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    setFirstUseDemoRequested(isFirstUseDemoRequested(searchParams));
+  }, []);
+
 
   /* =======================================================
      EFECTO: AUTENTICACIÃ“N + CARGA PERFIL + EXÃMENES + NOTAS
@@ -444,8 +455,13 @@ export default function Page() {
 
         const uid = data.session.user.id;
 
-        // Track user activity (silencioso, no bloquea UI)
-        trackUserActivity(uid).catch(console.error);
+        const searchParams = new URLSearchParams(window.location.search);
+        const authorizedDemo = canUseFirstUseDemo(searchParams, uid);
+
+        // El demo autorizado no realiza ninguna escritura, ni siquiera de actividad.
+        if (!authorizedDemo) {
+          trackUserActivity(uid).catch(console.error);
+        }
 
         /* --- cargar perfil desde Supabase --- */
         const { data: profileData } = await supabase
@@ -532,10 +548,28 @@ export default function Page() {
   }, [router]);
 
   const userId = session?.user.id;
+  const isFirstUseDemo = isFirstUseDemoAuthorized(firstUseDemoRequested, userId);
   const currentCycle = getCurrentAcademicCycle();
   const needsSetup =
     !profile.last_configured_cycle ||
     profile.last_configured_cycle !== currentCycle.key;
+
+  useEffect(() => {
+    if (!isFirstUseDemo) return;
+    setSemesterSetupMessage("");
+    setSemesterSetupOpen(true);
+  }, [isFirstUseDemo]);
+
+  const leaveFirstUseDemo = (completed: boolean) => {
+    setSemesterSetupOpen(false);
+    setFirstUseDemoRequested(false);
+    router.replace("/");
+
+    if (completed) {
+      setSemesterSetupMessage("Demostración finalizada. No se modificaron tus datos.");
+      window.setTimeout(() => setSemesterSetupMessage(""), 4500);
+    }
+  };
 
   const refreshHomeAfterCycleSetup = async () => {
     if (!userId) throw new Error("Tu sesión venció. Inicia sesión nuevamente.");
@@ -772,6 +806,10 @@ export default function Page() {
      FUNCIONES PERFIL
   ======================================================== */
   const onGuardarPerfil = async () => {
+    if (isFirstUseDemo) {
+      setToastProfile("El modo demostración no permite guardar cambios.");
+      return;
+    }
     if (!userId) return;
 
     if (
@@ -1413,30 +1451,43 @@ export default function Page() {
             MATERIAS EN CURSO
         ================================================ */}
         <div className="blockMaterias">
-          <CourseManager
-            mode="persisted"
-            userId={userId}
-            initialCourses={courses}
-            loading={loadingCourses}
-            onCoursesChange={setCourses}
-            onScheduleSaved={async () => {
-              if (!userId) return;
-              const dayId = dayIdFromISO(testDateISO);
-              const updatedClasses = await loadScheduleForDay(userId, dayId);
-              updatedClasses.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
-              setClassesForDay(updatedClasses);
-            }}
-          />
+          {!isFirstUseDemo && (
+            <CourseManager
+              mode="persisted"
+              userId={userId}
+              initialCourses={courses}
+              loading={loadingCourses}
+              onCoursesChange={setCourses}
+              onScheduleSaved={async () => {
+                if (!userId) return;
+                const dayId = dayIdFromISO(testDateISO);
+                const updatedClasses = await loadScheduleForDay(userId, dayId);
+                updatedClasses.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+                setClassesForDay(updatedClasses);
+              }}
+            />
+          )}
         </div>
       </div>
 
       <SemesterSetupWizard
         open={semesterSetupOpen}
-        mode="new-cycle"
-        initialCareer={profile.carrera}
-        initialCurriculum={profile.malla}
-        onClose={() => setSemesterSetupOpen(false)}
+        mode={isFirstUseDemo ? "first-use" : "new-cycle"}
+        demoMode={isFirstUseDemo}
+        initialCareer={isFirstUseDemo ? "" : profile.carrera}
+        initialCurriculum={isFirstUseDemo ? "" : profile.malla}
+        onClose={() => {
+          if (isFirstUseDemo) {
+            leaveFirstUseDemo(false);
+            return;
+          }
+          setSemesterSetupOpen(false);
+        }}
         onComplete={async () => {
+          if (isFirstUseDemo) {
+            leaveFirstUseDemo(true);
+            return;
+          }
           try {
             await refreshHomeAfterCycleSetup();
           } catch (error) {
