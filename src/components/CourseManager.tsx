@@ -68,6 +68,44 @@ function cleanCourses(rows: CourseRow[]): CourseRow[] {
     .filter((course) => course.materia);
 }
 
+type PendingCourseValidation =
+  | { status: "empty" }
+  | { status: "invalid"; message: string }
+  | { status: "valid"; course: CourseRow };
+
+function validateAndBuildPendingCourse(
+  rows: CourseRow[],
+  semestreValue: string,
+  materiaValue: string,
+  firmaValue: string
+): PendingCourseValidation {
+  const semestre = String(semestreValue || "").trim();
+  const materia = String(materiaValue || "").trim();
+  const firma = String(firmaValue || "").trim();
+
+  if (!semestre && !materia && !firma) return { status: "empty" };
+  if (!semestre) {
+    return { status: "invalid", message: "Selecciona el semestre de la materia." };
+  }
+  if (!SEMESTER_OPTIONS.includes(semestre)) {
+    return { status: "invalid", message: "El semestre seleccionado no es válido." };
+  }
+  if (!materia) {
+    return { status: "invalid", message: "Escribe el nombre de una materia antes de agregarla." };
+  }
+  if (firma && firma !== "SI" && firma !== "NO") {
+    return { status: "invalid", message: "La firma seleccionada no es válida." };
+  }
+  if (rows.some((course) => normalizeSearch(course.materia) === normalizeSearch(materia))) {
+    return { status: "invalid", message: "Esa materia ya está en la lista." };
+  }
+
+  return {
+    status: "valid",
+    course: { semestre, materia, firma, tipos: [] },
+  };
+}
+
 export default function CourseManager({
   mode,
   userId = "",
@@ -173,21 +211,31 @@ export default function CourseManager({
     closeAutocomplete();
   };
 
-  const addDraftCourse = () => {
-    const materia = newCourseName.trim();
-    if (!materia) {
-      setMessage("Escribe el nombre de una materia antes de agregarla.");
-      return;
-    }
-    if (draft.some((course) => normalizeSearch(course.materia) === normalizeSearch(materia))) {
-      setMessage("Esa materia ya está en la lista.");
-      return;
-    }
-    updateDraft((current) => [...current, { semestre: newCourseSemester, materia, firma: newCourseFirma, tipos: [] }]);
+  const clearPendingCourse = () => {
     setNewCourseSemester("");
     setNewCourseName("");
     setNewCourseFirma("");
     closeAutocomplete();
+  };
+
+  const addDraftCourse = () => {
+    const validation = validateAndBuildPendingCourse(
+      draft,
+      newCourseSemester,
+      newCourseName,
+      newCourseFirma
+    );
+    if (validation.status === "empty") {
+      setMessage("Escribe el nombre de una materia antes de agregarla.");
+      return;
+    }
+    if (validation.status === "invalid") {
+      setMessage(validation.message);
+      return;
+    }
+
+    updateDraft((current) => [...current, validation.course]);
+    clearPendingCourse();
     setMessage("");
   };
 
@@ -292,19 +340,39 @@ export default function CourseManager({
       return;
     }
     closeAutocomplete();
-    const clean = cleanCourses(draft);
 
     if (isDraft) {
-      setCourses(clean);
-      setDraft(clean);
-      onCoursesChange?.(clean);
+      const validation = validateAndBuildPendingCourse(
+        draft,
+        newCourseSemester,
+        newCourseName,
+        newCourseFirma
+      );
+      if (validation.status === "invalid") {
+        setMessage(validation.message);
+        return;
+      }
+
+      const finalCourses = cleanCourses(
+        validation.status === "valid" ? [...draft, validation.course] : draft
+      );
+      if (!finalCourses.length) {
+        setMessage("No hay materias agregadas");
+        return;
+      }
+
+      setCourses(finalCourses);
+      setDraft(finalCourses);
+      onCoursesChange?.(finalCourses);
       onDraftReadyChange?.(false);
-      setMessage(clean.length ? `Borrador listo (${clean.length} materias)` : "No hay materias agregadas");
-      if (clean.length) await openSections(clean);
+      if (validation.status === "valid") clearPendingCourse();
+      setMessage(`Borrador listo (${finalCourses.length} materias)`);
+      await openSections(finalCourses);
       window.setTimeout(() => setMessage(""), 2500);
       return;
     }
 
+    const clean = cleanCourses(draft);
     if (!userId) return;
     const previousNames = new Set(courses.map((course) => course.materia.trim()));
     const nextNames = new Set(clean.map((course) => course.materia.trim()));
@@ -423,6 +491,9 @@ export default function CourseManager({
       group.options.some((option) => Boolean(selectedSuggestions[option.tempId]))
     );
   const displayedCourses = editing ? draft : courses;
+  const pendingRowHasData = Boolean(
+    newCourseSemester || newCourseName.trim() || newCourseFirma
+  );
 
   const content = loading ? <div className="muted">Cargando materias…</div> : (
     <div className={isDraft ? "courseManagerDraft" : undefined} style={{ display: "grid", gap: 10 }}>
@@ -537,7 +608,7 @@ export default function CourseManager({
           <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={addDraftCourse}>
             Agregar materia
           </button>
-          <button type="button" className="btn btnPrimary" disabled={editsBlocked || suggestionsLoading || modalOpen || !cleanCourses(draft).length} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>
+          <button type="button" className="btn btnPrimary" disabled={editsBlocked || suggestionsLoading || modalOpen || (!cleanCourses(draft).length && !pendingRowHasData)} title={editsBlocked ? maintenance.disabledMessage : undefined} onClick={saveCourses}>
             {suggestionsLoading ? "Buscando secciones…" : "Confirmar materias y buscar secciones"}
           </button>
         </div>
