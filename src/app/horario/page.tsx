@@ -56,6 +56,20 @@ const getTipoClass = (tipo: string) => {
   return "";
 };
 
+const getEventDensityClass = (inicio: string, fin: string) => {
+  const durationMinutes = Math.max(0, timeToMin(fin) - timeToMin(inicio));
+  if (durationMinutes >= 120) return "calEventTall";
+  if (durationMinutes >= 75) return "calEventMedium";
+  return "calEventCompact";
+};
+
+const getEventAccessibleText = (event: ScheduleEvent) => [
+  event.materia,
+  `${event.tipo}${event.seccion ? ` — Sección ${event.seccion}` : ""}`,
+  `${formatHourMin(event.inicio)}–${formatHourMin(event.fin)}`,
+  event.prof ? `Profesor: ${event.prof}` : "",
+].filter(Boolean).join("\n");
+
 const seed: Schedule = {
   1: [],
   2: [],
@@ -1021,7 +1035,7 @@ export default function HorarioPage() {
                     {(schedule[d.id as DayId] || []).map((ev) => (
                       <button
                         key={ev.id}
-                        className={`calEvent ${getTipoClass(ev.tipo)}`}
+                        className={`calEvent ${getTipoClass(ev.tipo)} ${getEventDensityClass(ev.inicio, ev.fin)}`}
                         style={{
                           top: `${topFor(ev.inicio)}%`,
                           height: `${heightFor(ev.inicio, ev.fin)}%`,
@@ -1030,7 +1044,8 @@ export default function HorarioPage() {
                           e.stopPropagation();
                           openEdit(d.id as DayId, ev);
                         }}
-                        title={`${ev.materia} (${ev.inicio}-${ev.fin})`}
+                        title={getEventAccessibleText(ev)}
+                        aria-label={getEventAccessibleText(ev)}
                         type="button"
                       >
                         <Badge tipo={ev.tipo} seccion={ev.seccion} />
