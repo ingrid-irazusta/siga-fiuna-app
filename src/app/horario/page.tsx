@@ -596,17 +596,25 @@ export default function HorarioPage() {
       return "";
     };
 
-    const timeSlotsHtml = hours
-      .map((h) => `<div class="calTimeLabel">${h}</div>`)
+    const printSlotsHtml = hours
+      .map(() => `<div class="calSlot"></div>`)
       .join("");
+
+    const escapeHtml = (value: string) => String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
 
     const daysHtml = DAYS.map((d) => {
       const eventsHtml = (schedule[d.id as DayId] || [])
         .map((ev) => {
           const tipoClass = getTipoColorClass(ev.tipo);
-          const materia = ev.materia.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          const prof = (ev.prof || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          const seccion = ev.seccion || "";
+          const densityClass = getEventDensityClass(ev.inicio, ev.fin);
+          const materia = escapeHtml(ev.materia);
+          const prof = escapeHtml(ev.prof || "");
+          const seccion = escapeHtml(ev.seccion || "");
           const top = topFor(ev.inicio);
           const height = heightFor(ev.inicio, ev.fin);
           const badgeHtml = seccion ? `<span class="calBadge sec">Sec. ${seccion}</span>` : "";
@@ -615,7 +623,7 @@ export default function HorarioPage() {
           const horaFin = ev.fin.substring(0, 5);
           
           return `
-            <div class="calEvent ${tipoClass}" style="top: ${top}%; height: ${height}%;">
+            <div class="calEvent ${tipoClass} ${densityClass}" style="top: ${top}%; height: ${height}%;">
               <div class="calBadges">
                 <span class="calBadge ${tipoClass}">${ev.tipo}</span>
                 ${badgeHtml}
@@ -633,6 +641,7 @@ export default function HorarioPage() {
       return `
         <div class="calDayCol">
           <div class="calSlotContainer">
+            <div class="calSlotGrid">${printSlotsHtml}</div>
             ${eventsHtml}
           </div>
         </div>
@@ -648,37 +657,84 @@ export default function HorarioPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Horario de clases</title>
   <style>
-    @page { size: A4 landscape; margin: 4mm; }
+    @page { size: A4 landscape; margin: 6mm; }
     
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    html, body {
+      width: 100%;
+      min-height: 100%;
+    }
     body { 
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; 
       margin: 0; 
-      padding: 0;
+      padding: 12px;
       color: #0f172a;
       background: #fff;
     }
+    .pdfDocument {
+      --pdf-time-column: 15mm;
+      --pdf-grid-gap: 1.4mm;
+      width: min(1180px, 100%);
+      aspect-ratio: 285 / 198;
+      margin: 44px auto 0;
+      display: grid;
+      grid-template-rows: 9mm minmax(0, 1fr);
+      gap: 2mm;
+      overflow: hidden;
+    }
+    .pdfHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6mm;
+      min-width: 0;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 0 1mm 1.5mm;
+    }
+    .pdfTitle {
+      display: flex;
+      align-items: baseline;
+      gap: 3mm;
+      min-width: 0;
+    }
+    .pdfBrand {
+      color: #00b0ff;
+      font-size: 11pt;
+      font-weight: 850;
+      letter-spacing: 0.04em;
+    }
+    .pdfName {
+      font-size: 10pt;
+      font-weight: 750;
+    }
     .meta { 
-      font-size: 10px; 
+      font-size: 7pt;
       color: #64748b; 
       text-align: right; 
-      margin-bottom: 8px;
       font-weight: 500;
+      white-space: nowrap;
     }
     
     .calWeek {
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: 9mm minmax(0, 1fr);
       gap: 0;
-      border: none;
-      border-radius: 0;
+      min-height: 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 3mm;
       overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     
     .calWeekHead {
       display: grid;
-      grid-template-columns: 32px repeat(6, 1fr);
-      gap: 0;
+      grid-template-columns: var(--pdf-time-column) repeat(6, minmax(0, 1fr));
+      gap: var(--pdf-grid-gap);
       border-bottom: 1px solid #cbd5e1;
       background: #f8fafc;
     }
@@ -689,11 +745,14 @@ export default function HorarioPage() {
     }
     
     .calHeadCell {
-      padding: 5px 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      padding: 1mm;
       text-align: center;
       font-weight: 700;
-      font-size: 9px;
-      border-right: 1px solid #cbd5e1;
+      font-size: 9.5pt;
       background: #f8fafc;
       line-height: 1.2;
     }
@@ -704,27 +763,25 @@ export default function HorarioPage() {
     
     .calWeekBody {
       display: grid;
-      grid-template-columns: 32px repeat(6, 1fr);
-      grid-template-rows: repeat(15, 42px);
-      gap: 0;
+      grid-template-columns: var(--pdf-time-column) minmax(0, 1fr);
+      column-gap: var(--pdf-grid-gap);
+      min-height: 0;
       background: #fff;
     }
     
     .calTimes {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: repeat(15, minmax(0, 1fr));
+      min-height: 0;
       border-right: 1px solid #cbd5e1;
       background: #f8fafc;
-      grid-column: 1;
-      grid-row: 1 / 16;
     }
     
     .calTimeRow {
-      flex: 1;
       display: flex;
       align-items: flex-start;
+      min-height: 0;
       border-bottom: 1px solid #e2e8f0;
-      height: 42px;
     }
     
     .calTimeRow:last-child {
@@ -732,10 +789,10 @@ export default function HorarioPage() {
     }
     
     .calTimeLabel {
-      font-size: 8px;
+      font-size: 7.5pt;
       font-weight: 700;
       color: #475569;
-      padding: 4px 1px;
+      padding: 1mm 0.5mm;
       text-align: center;
       width: 100%;
       line-height: 1.2;
@@ -743,15 +800,18 @@ export default function HorarioPage() {
     
     .calDays {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      grid-column: 2 / 8;
-      grid-row: 1 / 16;
-      gap: 0;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: var(--pdf-grid-gap);
+      min-width: 0;
+      min-height: 0;
     }
     
     .calDayCol {
       position: relative;
+      min-width: 0;
+      min-height: 0;
       border-right: 1px solid #e2e8f0;
+      border-left: 1px solid #e2e8f0;
       background: #ffffff;
     }
     
@@ -763,24 +823,43 @@ export default function HorarioPage() {
       position: relative;
       width: 100%;
       height: 100%;
+      min-height: 0;
+    }
+
+    .calSlotGrid {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-rows: repeat(15, minmax(0, 1fr));
+      pointer-events: none;
+    }
+
+    .calSlot {
+      min-height: 0;
+      border-bottom: 1px solid #e2e8f0;
     }
     
     .calEvent {
       position: absolute;
-      width: 94%;
-      left: 3%;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 0.68rem;
+      left: 4%;
+      right: auto;
+      width: 92%;
+      max-width: 92%;
+      min-height: 0;
+      border-radius: 2mm;
+      font-size: 7pt;
       text-align: left;
-      padding: 3px 4px;
+      padding: 1.2mm 1.5mm;
       display: flex;
       flex-direction: column;
-      gap: 1px;
+      justify-content: flex-start;
+      gap: 0.6mm;
       overflow: hidden;
       box-sizing: border-box;
-      border: 1.5px solid;
-      line-height: 1.1;
+      border: 1px solid;
+      line-height: 1.05;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     
     .calEvent.teo {
@@ -803,16 +882,18 @@ export default function HorarioPage() {
     
     .calBadges {
       display: flex;
-      gap: 1px;
-      flex-wrap: wrap;
+      flex: 0 0 auto;
+      min-width: 0;
+      gap: 0.6mm;
+      flex-wrap: nowrap;
       align-items: center;
     }
     
     .calBadge {
-      font-size: 8px;
+      font-size: 6.2pt;
       font-weight: 700;
-      padding: 2px 4px;
-      border-radius: 2px;
+      padding: 0.45mm 0.8mm;
+      border-radius: 0.7mm;
       display: inline-block;
       line-height: 1;
       white-space: nowrap;
@@ -839,69 +920,140 @@ export default function HorarioPage() {
     }
     
     .calEvTitle {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
       font-weight: 700;
-      font-size: 0.7rem;
-      line-height: 1.2;
+      font-size: 7.7pt;
+      line-height: 1.06;
+      overflow: hidden;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      hyphens: auto;
     }
     
     .calEvMeta {
-      font-size: 0.62rem;
+      flex: 0 0 auto;
+      font-size: 6.5pt;
       opacity: 1;
-      line-height: 1.1;
+      line-height: 1;
     }
     
     .calEvTime {
       font-weight: 700;
-      font-size: 0.62rem;
+      font-size: 6.5pt;
+      white-space: nowrap;
     }
     
     .calEvProf {
-      font-size: 0.62rem;
+      flex: 0 0 auto;
+      font-size: 6.2pt;
       opacity: 0.95;
-      line-height: 1.1;
+      line-height: 1.05;
       font-weight: 600;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+    }
+
+    .calEventMedium {
+      padding: 0.9mm 1.2mm;
+      gap: 0.35mm;
+    }
+
+    .calEventMedium .calEvTitle {
+      font-size: 7pt;
+      line-height: 1.03;
+    }
+
+    .calEventMedium .calEvProf,
+    .calEventCompact .calEvProf {
+      display: none;
+    }
+
+    .calEventCompact {
+      padding: 0.55mm 0.9mm;
+      gap: 0.2mm;
+    }
+
+    .calEventCompact .calBadge {
+      padding: 0.25mm 0.55mm;
+      font-size: 5.4pt;
+    }
+
+    .calEventCompact .calEvTitle {
+      font-size: 6.4pt;
+      line-height: 1;
+    }
+
+    .calEventCompact .calEvMeta,
+    .calEventCompact .calEvTime {
+      font-size: 5.8pt;
     }
     
     .printBtn {
+      position: fixed;
+      top: 10px;
+      right: 12px;
+      z-index: 10;
       border: 1px solid rgba(15,23,42,0.15);
       background: rgba(34,197,94,0.12);
       padding: 8px 10px;
       border-radius: 6px;
       font-weight: 900;
       cursor: pointer;
-      margin-bottom: 8px;
       font-size: 12px;
     }
     
     @media print {
-      @page { size: A4 landscape; margin: 4mm; }
+      @page { size: A4 landscape; margin: 6mm; }
+      html, body {
+        width: 285mm;
+        height: 198mm;
+        min-height: 0;
+        overflow: hidden;
+      }
       .printBtn { display: none; }
       body { margin: 0; padding: 0; background: #fff; }
-      .calWeek { border: none; }
-      .calWeekHead, .calWeekBody, .calDayCol { background: #fff; }
+      .pdfDocument {
+        width: 285mm;
+        height: 198mm;
+        margin: 0;
+        aspect-ratio: auto;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
   </style>
 </head>
 <body>
   <button class="printBtn" onclick="window.print()">Guardar como PDF</button>
-  <div class="meta">Generado: ${stamp}<br/>S.I.G.A</div>
+  <main class="pdfDocument">
+    <header class="pdfHeader">
+      <div class="pdfTitle">
+        <span class="pdfBrand">S.I.G.A</span>
+        <span class="pdfName">Horario de clases</span>
+      </div>
+      <div class="meta">Generado: ${stamp}</div>
+    </header>
 
-  <div class="calWeek">
-    <div class="calWeekHead">
-      <div class="calCorner"></div>
-      ${dayHeadersHtml}
-    </div>
-    
-    <div class="calWeekBody">
-      <div class="calTimes">
-        ${hours.map((h) => `<div class="calTimeRow"><div class="calTimeLabel">${h}</div></div>`).join("")}
+    <div class="calWeek">
+      <div class="calWeekHead">
+        <div class="calCorner"></div>
+        ${dayHeadersHtml}
       </div>
       
-      <div class="calDays">
-        ${daysHtml}
+      <div class="calWeekBody">
+        <div class="calTimes">
+          ${hours.map((h) => `<div class="calTimeRow"><div class="calTimeLabel">${h}</div></div>`).join("")}
+        </div>
+
+        <div class="calDays">
+          ${daysHtml}
+        </div>
       </div>
     </div>
-  </div>
+  </main>
 </body>
 </html>`;
 
