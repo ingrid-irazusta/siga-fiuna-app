@@ -2081,6 +2081,10 @@ button, input, select { font: inherit; }
 }
 
 .calWeek {
+  --cal-time-column: 80px;
+  --cal-column-gap: 10px;
+  --cal-day-gap: 10px;
+  --cal-hour-height: 50px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -2088,8 +2092,9 @@ button, input, select { font: inherit; }
 
 .calWeekHead {
   display: grid;
-  grid-template-columns: 80px repeat(6, 1fr);
-  gap: 10px;
+  grid-template-columns: var(--cal-time-column) repeat(6, minmax(0, 1fr));
+  gap: var(--cal-column-gap);
+  box-sizing: border-box;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid #ddd;
   margin-bottom: 0.5rem;
@@ -2100,6 +2105,8 @@ button, input, select { font: inherit; }
 }
 
 .calHeadCell {
+  min-width: 0;
+  box-sizing: border-box;
   font-weight: 600;
   color: #333;
   padding: 0.5rem;
@@ -2111,20 +2118,26 @@ button, input, select { font: inherit; }
 }
 
 .calWeekBody {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: var(--cal-time-column) minmax(0, 1fr);
+  column-gap: var(--cal-column-gap);
+  min-height: 0;
+  align-items: stretch;
 }
 
 .calTimes {
   display: flex;
   flex-direction: column;
-  width: 80px;
-  flex-shrink: 0;
+  width: auto;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .calTimeRow {
-  flex: 1;
-  min-height: 50px;
+  flex: 0 0 var(--cal-hour-height);
+  height: var(--cal-hour-height);
+  min-height: 0;
+  box-sizing: border-box;
   display: flex;
   align-items: flex-start;
   padding-top: 0.25rem;
@@ -2148,15 +2161,20 @@ button, input, select { font: inherit; }
 
 .calDays {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
-  flex: 1;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--cal-day-gap);
+  min-width: 0;
+  align-self: stretch;
+  align-items: stretch;
 }
 
 .calDayCol {
   position: relative;
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  box-sizing: border-box;
   border-left: 1px solid #f0f0f0;
-  min-height: 750px;
 }
 
 :root.dark-mode .calDayCol {
@@ -2164,9 +2182,14 @@ button, input, select { font: inherit; }
 }
 
 .calSlot {
-  position: absolute;
+  position: relative;
+  display: block;
   width: 100%;
-  height: 50px;
+  height: var(--cal-hour-height);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -2180,8 +2203,10 @@ button, input, select { font: inherit; }
 
 .calEvent {
   position: absolute;
-  width: 95%;
-  left: 2.5%;
+  left: 4%;
+  right: auto;
+  width: 92%;
+  max-width: 92%;
   border: none;
   padding: 0.75rem 0.75rem;
   border-radius: 8px;
@@ -2192,8 +2217,8 @@ button, input, select { font: inherit; }
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  overflow: visible;
-  min-height: 70px;
+  overflow: hidden;
+  min-height: 0;
   justify-content: center;
   box-sizing: border-box;
 }
@@ -2236,7 +2261,6 @@ button, input, select { font: inherit; }
 
 .calEvent:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: scale(1.02);
 }
 
 .calBadges {
@@ -2687,12 +2711,10 @@ select:focus {
     padding: 1rem;
   }
 
-  .calWeekHead {
-    grid-template-columns: 40px repeat(6, 1fr);
-  }
-
-  .calWeekBody {
-    grid-template-columns: 40px repeat(6, 1fr);
+  .calWeek {
+    --cal-time-column: 48px;
+    --cal-column-gap: 6px;
+    --cal-day-gap: 6px;
   }
 
   .calTopControls {
@@ -2701,7 +2723,7 @@ select:focus {
   }
 
   .calDayCol {
-    min-height: 400px;
+    min-height: 0;
   }
 
   .calHeadCell {
@@ -2733,12 +2755,10 @@ select:focus {
 }
 
 @media (max-width: 480px) {
-  .calWeekHead {
-    grid-template-columns: 35px repeat(6, 1fr);
-  }
-
-  .calWeekBody {
-    grid-template-columns: 35px repeat(6, 1fr);
+  .calWeek {
+    --cal-time-column: 42px;
+    --cal-column-gap: 4px;
+    --cal-day-gap: 4px;
   }
 
   .calTimeLabel {
