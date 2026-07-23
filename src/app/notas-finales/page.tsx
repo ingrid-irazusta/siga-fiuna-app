@@ -10,6 +10,7 @@ interface Profile {
   carrera: string;
   malla: string;
   ci: string;
+  intensificacion: string;
 }
 
 interface MallaItem {
@@ -34,6 +35,7 @@ interface NotaRow {
 interface MallaCacheKeyParams {
   carrera: string;
   plan: string;
+  intensificacion: string;
 }
 
 interface KPIs {
@@ -68,7 +70,7 @@ async function loadProfileFromDB(userId: string): Promise<Profile | null> {
 
     const { data, error } = await supabase
       .from("user_profiles")
-      .select("carrera, malla, ci")
+      .select("carrera, malla, ci, intensificacion")
       .eq("user_id", userId)
       .single();
 
@@ -84,8 +86,19 @@ async function loadProfileFromDB(userId: string): Promise<Profile | null> {
   }
 }
 
-function mallaCacheKey({ carrera, plan }: MallaCacheKeyParams): string {
-  return `${MALLA_CACHE_PREFIX}:${normText(carrera)}:${String(plan || "2023")}`;
+function usaIntensificacion(carrera: string, plan: string): boolean {
+  return carrera === "Ingeniería Electrónica" && plan === "2023";
+}
+
+function mallaCacheKey({
+  carrera,
+  plan,
+  intensificacion,
+}: MallaCacheKeyParams): string {
+  const baseKey = `${MALLA_CACHE_PREFIX}:${normText(carrera)}:${String(plan || "2023")}`;
+  return usaIntensificacion(carrera, plan)
+    ? `${baseKey}:${normText(intensificacion)}`
+    : baseKey;
 }
 
 function estadoFromNotas(...notas: NotaValue[]): EstadoType {
@@ -199,9 +212,13 @@ function enforceSinglePass(row: NotaRow, changedKey: NotaKey | undefined): NotaR
   return out;
 }
 
-async function readMallaMaterias(carrera: string, plan: string): Promise<MallaItem[]> {
+async function readMallaMaterias(
+  carrera: string,
+  plan: string,
+  intensificacion: string
+): Promise<MallaItem[]> {
   try {
-    const cacheKey = mallaCacheKey({ carrera, plan });
+    const cacheKey = mallaCacheKey({ carrera, plan, intensificacion });
     const raw = localStorage.getItem(cacheKey);
     const parsed = (safeParse<{ items?: any[] }>(raw) || {}) as { items?: any[] };
     const cachedItems = Array.isArray(parsed.items) ? parsed.items : [];
@@ -218,9 +235,11 @@ async function readMallaMaterias(carrera: string, plan: string): Promise<MallaIt
       return filtered;
     }
 
-    const response = await fetch(
-      `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}`
-    );
+    const url = usaIntensificacion(carrera, plan)
+      ? `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}&intensificacion=${encodeURIComponent(intensificacion || "")}`
+      : `/api/malla?carrera=${encodeURIComponent(carrera)}&plan=${encodeURIComponent(plan)}`;
+
+    const response = await fetch(url);
 
     const data = await response.json();
 
@@ -307,7 +326,12 @@ function mergeKeepNotas(existingRows: NotaRow[], baseRows: NotaRow[]): NotaRow[]
 
 export default function NotasFinalesPage() {
   const [userId, setUserId] = useState<string>("");
-  const [profile, setProfile] = useState<Profile>({ carrera: "", malla: "2023", ci: "" });
+  const [profile, setProfile] = useState<Profile>({
+    carrera: "",
+    malla: "2023",
+    ci: "",
+    intensificacion: "",
+  });
   const [rows, setRows] = useState<NotaRow[]>([]);
   const [totalMalla, setTotalMalla] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -350,15 +374,16 @@ export default function NotasFinalesPage() {
       if (cancelled) return;
 
       if (!p) {
-        setProfile({ carrera: "", malla: "2023", ci: "" });
+        setProfile({ carrera: "", malla: "2023", ci: "", intensificacion: "" });
         return;
       }
 
       const carrera = String(p.carrera || "").trim();
       const plan = p.malla === "2013" || p.malla === "2023" ? p.malla : "2023";
       const ci = String(p.ci || "").trim();
+      const intensificacion = String(p.intensificacion || "").trim();
 
-      setProfile({ carrera, malla: plan, ci });
+      setProfile({ carrera, malla: plan, ci, intensificacion });
     };
 
     loadProfile();
@@ -385,8 +410,9 @@ export default function NotasFinalesPage() {
                   ? newProfile.malla
                   : "2023";
               const ci = String(newProfile.ci || "").trim();
+              const intensificacion = String(newProfile.intensificacion || "").trim();
 
-              setProfile({ carrera, malla: plan, ci });
+              setProfile({ carrera, malla: plan, ci, intensificacion });
             }
           }
         )
@@ -410,7 +436,11 @@ export default function NotasFinalesPage() {
     setLoading(true);
     setNotesReady(false);
 
-    const mallaItems = await readMallaMaterias(profile.carrera, profile.malla);
+    const mallaItems = await readMallaMaterias(
+      profile.carrera,
+      profile.malla,
+      profile.intensificacion
+    );
     setTotalMalla(mallaItems.length);
 
     const baseRows = buildBaseRows(mallaItems);
@@ -457,7 +487,7 @@ export default function NotasFinalesPage() {
     setRows(merged);
     setLoading(false);
     setNotesReady(true);
-  }, [profile.carrera, profile.malla, userId]);
+  }, [profile.carrera, profile.malla, profile.intensificacion, userId]);
 
   useEffect(() => {
     loadNotasFinales();
