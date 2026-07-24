@@ -32,6 +32,18 @@ interface NotaRow {
   optativaNombre?: string;
 }
 
+interface StudentNotePayload {
+  user_id: string;
+  materia: string;
+  nota1: number | null;
+  nota2: number | null;
+  nota3: number | null;
+  nota4: number | null;
+  nota5: number | null;
+  nota6: number | null;
+  optativa_nombre: string | null;
+}
+
 interface MallaCacheKeyParams {
   carrera: string;
   plan: string;
@@ -60,6 +72,80 @@ function safeParse<T = any>(raw: string | null): T | null {
   } catch {
     return null;
   }
+}
+
+function prepareMallaItems(items: any[]): MallaItem[] {
+  const seen = new Set<string>();
+
+  const prepared = items
+    .map((it: any) => ({
+      semestre: Number(it?.semestre) || 0,
+      materia: String(it?.materia || "").trim(),
+    }))
+    .filter((item: MallaItem) => item.semestre > 0 && item.materia)
+    .filter((item: MallaItem) => {
+      const key = `${item.semestre}:${normText(item.materia)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  prepared.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
+  return prepared;
+}
+
+function validateUniqueNotePayloads(
+  payloads: StudentNotePayload[]
+): { payloads: StudentNotePayload[]; conflictingMaterias: string[] } {
+  const groups = new Map<string, StudentNotePayload[]>();
+
+  for (const payload of payloads) {
+    const key = `${payload.user_id}:${normText(payload.materia)}`;
+    const group = groups.get(key);
+    if (group) group.push(payload);
+    else groups.set(key, [payload]);
+  }
+
+  const uniquePayloads: StudentNotePayload[] = [];
+  const conflictingMaterias: string[] = [];
+
+  for (const group of groups.values()) {
+    const first = group[0];
+    if (group.length === 1) {
+      uniquePayloads.push(first);
+      continue;
+    }
+
+    const signatures = new Set(
+      group.map((payload) =>
+        JSON.stringify([
+          normText(payload.materia),
+          payload.nota1,
+          payload.nota2,
+          payload.nota3,
+          payload.nota4,
+          payload.nota5,
+          payload.nota6,
+          payload.optativa_nombre,
+        ])
+      )
+    );
+
+    if (signatures.size === 1) {
+      uniquePayloads.push(first);
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Notas Finales: materias duplicadas idénticas eliminadas", {
+          materia: first.materia,
+          duplicadosEliminados: group.length - 1,
+        });
+      }
+      continue;
+    }
+
+    conflictingMaterias.push(first.materia);
+  }
+
+  return { payloads: uniquePayloads, conflictingMaterias };
 }
 
 async function loadProfileFromDB(userId: string): Promise<Profile | null> {
@@ -224,15 +310,7 @@ async function readMallaMaterias(
     const cachedItems = Array.isArray(parsed.items) ? parsed.items : [];
 
     if (cachedItems.length > 0) {
-      const filtered = cachedItems
-        .map((it: any) => ({
-          semestre: Number(it?.semestre) || 0,
-          materia: String(it?.materia || "").trim(),
-        }))
-        .filter((x: MallaItem) => x.semestre > 0 && x.materia);
-
-      filtered.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
-      return filtered;
+      return prepareMallaItems(cachedItems);
     }
 
     const url = usaIntensificacion(carrera, plan)
@@ -249,15 +327,7 @@ async function readMallaMaterias(
     }
 
     const items = Array.isArray(data.materias) ? data.materias : [];
-
-    const filtered = items
-      .map((it: any) => ({
-        semestre: Number(it?.semestre) || 0,
-        materia: String(it?.materia || "").trim(),
-      }))
-      .filter((x: MallaItem) => x.semestre > 0 && x.materia);
-
-    filtered.sort((a: MallaItem, b: MallaItem) => a.semestre - b.semestre);
+    const filtered = prepareMallaItems(items);
 
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ items: filtered }));
@@ -515,14 +585,12 @@ export default function NotasFinalesPage() {
     setGlobalSaveStatus("saving");
 
     try {
-      const supabase = getSupabase();
-
       const validRows = rows.filter((r) => {
         const materia = String(r.materia || "").trim();
         return Boolean(materia);
       });
 
-      const payloads = validRows.map((r) => ({
+      const candidatePayloads: StudentNotePayload[] = validRows.map((r) => ({
         user_id: userId,
         materia: r.materia,
         nota1: r.nota1 === "" ? null : Number(r.nota1),
@@ -534,6 +602,21 @@ export default function NotasFinalesPage() {
         optativa_nombre: r.optativaNombre || null,
       }));
 
+      const { payloads, conflictingMaterias } =
+        validateUniqueNotePayloads(candidatePayloads);
+
+      if (conflictingMaterias.length > 0) {
+        setGlobalSaveStatus("error");
+        alert(
+          "Se encontraron materias repetidas con notas diferentes. " +
+          "Revise las filas duplicadas antes de guardar.\n\n" +
+          "Materia:\n" +
+          conflictingMaterias.map((materia) => `- ${materia}`).join("\n")
+        );
+        return;
+      }
+
+      const supabase = getSupabase();
       const { error } = await supabase.from("student_notes").upsert(payloads, {
         onConflict: "user_id,materia",
       });
