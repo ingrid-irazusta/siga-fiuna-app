@@ -1341,6 +1341,7 @@ export default function Page() {
                           const key = `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`;
                           const info = aulasInfo[key];
                           const aula = aulasOn ? (info?.found ? info.aula : "—") : "—";
+                          const profesor = c.profesor || (info?.found ? info.profesor : "") || "";
                           const estado = aulasOn ? (info?.found ? info.estado : { icon: "ℹ️ ", text: "Sin coincidencia", code: "NC" }) : null;
                           const observacion = aulasOn ? info?.observacion : null;
                           return (
@@ -1349,7 +1350,7 @@ export default function Page() {
                               <div style={{ display: "grid", gap: 4 }}>
                                 <div style={{ fontWeight: 950 }}>{c.materia} <span className="muted">({c.tipo}-{c.seccion})</span></div>
                                 <div className="metaLine">
-                                  <span>👤 {c.profesor || "—"}</span>
+                                  <span>👨‍🏫 Profesor: {profesor || "Pendiente"}</span>
                                   {estado?.text ? (
                                     <span className={estado.icon === "✅" ? "badgeOk" : estado.icon === "❌" ? "badgeBad" : "badgeWarn"}>
                                       {estado.icon} {estado.text}

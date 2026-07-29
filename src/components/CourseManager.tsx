@@ -4,6 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Card from "@/components/Card";
 import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { getSupabase } from "@/lib/supabaseClient";
+import {
+  normalizeClassType,
+  normalizeSection,
+  normalizeSubjectName,
+} from "@/lib/academicDataNormalization";
 
 export type CourseRow = {
   id?: string;
@@ -23,12 +28,14 @@ export type CourseScheduleClass = {
   inicio: string;
   fin: string;
   prof?: string;
+  aula?: string;
 };
 
 type SuggestionResponse = {
   ok: boolean;
   groups: Array<{ materia: string; options: CourseScheduleClass[] }>;
   missing: string[];
+  ambiguous: string[];
 };
 
 type CourseManagerProps = {
@@ -45,7 +52,22 @@ type CourseManagerProps = {
 };
 
 const SEMESTER_OPTIONS = ["1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "OPT", "COMPLE"];
-const EMPTY_SUGGESTIONS: SuggestionResponse = { ok: false, groups: [], missing: [] };
+const EMPTY_SUGGESTIONS: SuggestionResponse = { ok: false, groups: [], missing: [], ambiguous: [] };
+
+function groupOptionsBySection(options: CourseScheduleClass[]) {
+  const sections = new Map<string, { key: string; label: string; options: CourseScheduleClass[] }>();
+  for (const option of options) {
+    const key = normalizeSection(option.seccion);
+    const current = sections.get(key) || {
+      key,
+      label: option.seccion.trim() || "Sin sección",
+      options: [],
+    };
+    current.options.push(option);
+    sections.set(key, current);
+  }
+  return Array.from(sections.values());
+}
 
 function normalizeSearch(value: string) {
   return String(value || "")
@@ -284,7 +306,7 @@ export default function CourseManager({
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
-        setSuggestions({ ok: false, groups: [], missing: rows.map((course) => course.materia) });
+        setSuggestions({ ok: false, groups: [], missing: rows.map((course) => course.materia), ambiguous: [] });
         return;
       }
 
@@ -292,6 +314,7 @@ export default function CourseManager({
         ok: true,
         groups: Array.isArray(data.groups) ? data.groups : [],
         missing: Array.isArray(data.missing) ? data.missing : [],
+        ambiguous: Array.isArray(data.ambiguous) ? data.ambiguous : [],
       };
       setSuggestions(nextSuggestions);
 
@@ -300,9 +323,9 @@ export default function CourseManager({
         for (const group of nextSuggestions.groups) {
           for (const option of group.options) {
             initialSelected[option.tempId] = initialSchedule.some((existing) =>
-              String(existing.materia || "").trim() === String(option.materia || "").trim() &&
-              String(existing.tipo || "").trim() === String(option.tipo || "").trim() &&
-              String(existing.seccion || "").trim() === String(option.seccion || "").trim() &&
+              normalizeSubjectName(existing.materia) === normalizeSubjectName(option.materia) &&
+              normalizeClassType(existing.tipo) === normalizeClassType(option.tipo) &&
+              normalizeSection(existing.seccion) === normalizeSection(option.seccion) &&
               Number(existing.day_id) === Number(option.day_id) &&
               String(existing.inicio || "").trim() === String(option.inicio || "").trim()
             );
@@ -317,9 +340,9 @@ export default function CourseManager({
         for (const group of nextSuggestions.groups) {
           for (const option of group.options) {
             initialSelected[option.tempId] = (existingClasses || []).some((existing) =>
-              String(existing.materia || "").trim() === String(option.materia || "").trim() &&
-              String(existing.tipo || "").trim() === String(option.tipo || "").trim() &&
-              String(existing.seccion || "").trim() === String(option.seccion || "").trim() &&
+              normalizeSubjectName(existing.materia) === normalizeSubjectName(option.materia) &&
+              normalizeClassType(existing.tipo) === normalizeClassType(option.tipo) &&
+              normalizeSection(existing.seccion) === normalizeSection(option.seccion) &&
               Number(existing.day_id) === Number(option.day_id)
             );
           }
@@ -328,7 +351,7 @@ export default function CourseManager({
       setSelectedSuggestions(initialSelected);
     } catch (error) {
       console.error("Error loading section suggestions:", error);
-      setSuggestions({ ok: false, groups: [], missing: rows.map((course) => course.materia) });
+      setSuggestions({ ok: false, groups: [], missing: rows.map((course) => course.materia), ambiguous: [] });
     } finally {
       setSuggestionsLoading(false);
     }
@@ -406,6 +429,10 @@ export default function CourseManager({
       setMessage(maintenance.actionMessage);
       return;
     }
+    if (suggestions.ambiguous.length) {
+      setMessage("La distribución contiene clases ambiguas. No se guardó ningún cambio.");
+      return;
+    }
     const selectedIds = Object.entries(selectedSuggestions).filter(([, selected]) => selected).map(([id]) => id);
     const selectedClasses = suggestions.groups.flatMap((group) =>
       group.options.filter((option) => selectedIds.includes(option.tempId))
@@ -454,15 +481,15 @@ export default function CourseManager({
           day_id: option.day_id,
           materia: option.materia,
           tipo: option.tipo,
-          seccion: option.seccion,
+          seccion: option.seccion || null,
           inicio: option.inicio,
           fin: option.fin,
           prof: option.prof || null,
         }))
         .filter((candidate) => !(existingClasses || []).some((existing) =>
-          String(existing.materia || "").trim() === candidate.materia.trim() &&
-          String(existing.tipo || "").trim() === candidate.tipo.trim() &&
-          String(existing.seccion || "").trim() === candidate.seccion.trim() &&
+          normalizeSubjectName(existing.materia) === normalizeSubjectName(candidate.materia) &&
+          normalizeClassType(existing.tipo) === normalizeClassType(candidate.tipo) &&
+          normalizeSection(existing.seccion) === normalizeSection(candidate.seccion) &&
           Number(existing.day_id) === Number(candidate.day_id)
         ));
       if (newClasses.length) await supabase.from("student_classes").insert(newClasses);
@@ -628,11 +655,48 @@ export default function CourseManager({
           <div style={{ padding: 20, display: "grid", gap: 18 }}>
             {suggestionsLoading ? <div className="muted">Buscando coincidencias en la distribución de aulas…</div> : <>
               {!suggestions.groups.length && !suggestions.missing.length && <div className="muted">Aún no hay resultados para mostrar.</div>}
-              {suggestions.groups.map((group) => <div key={group.materia} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 14, display: "grid", gap: 10 }}><div style={{ fontWeight: 900 }}>{group.materia}</div>{group.options.map((option) => { const checked = Boolean(selectedSuggestions[option.tempId]); return <label key={option.tempId} title={editsBlocked ? maintenance.disabledMessage : undefined} style={{ display: "grid", gridTemplateColumns: "22px 1fr", gap: 12, padding: 12, borderRadius: 12, border: checked ? "1px solid var(--success)" : "1px solid var(--border)", background: checked ? "var(--success2)" : "var(--card)", cursor: editsBlocked ? "not-allowed" : "pointer", opacity: editsBlocked ? 0.65 : 1 }}><input type="checkbox" checked={checked} disabled={editsBlocked} onChange={() => setSelectedSuggestions((current) => ({ ...current, [option.tempId]: !current[option.tempId] }))} /><div><div style={{ fontWeight: 800 }}>{option.tipo} — Sec. {option.seccion} — {option.dia}</div><div className="metaLine"><span>{option.inicio} - {option.fin}</span><span>{option.prof || "—"}</span></div></div></label>; })}</div>)}
+              {suggestions.groups.map((group) => (
+                <div key={group.materia} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 14, display: "grid", gap: 10 }}>
+                  <div style={{ fontWeight: 900 }}>{group.materia}</div>
+                  {groupOptionsBySection(group.options).map((section) => {
+                    const checked = section.options.every((option) => Boolean(selectedSuggestions[option.tempId]));
+                    return (
+                      <label
+                        key={section.key || "SIN_SECCION"}
+                        title={editsBlocked ? maintenance.disabledMessage : undefined}
+                        style={{ display: "grid", gridTemplateColumns: "22px 1fr", gap: 12, padding: 12, borderRadius: 12, border: checked ? "1px solid var(--success)" : "1px solid var(--border)", background: checked ? "var(--success2)" : "var(--card)", cursor: editsBlocked ? "not-allowed" : "pointer", opacity: editsBlocked ? 0.65 : 1 }}
+                      >
+                        <input
+                          type="radio"
+                          name={`section-${normalizeSubjectName(group.materia)}`}
+                          checked={checked}
+                          disabled={editsBlocked}
+                          onChange={() => setSelectedSuggestions((current) => {
+                            const next = { ...current };
+                            for (const option of group.options) delete next[option.tempId];
+                            for (const option of section.options) next[option.tempId] = true;
+                            return next;
+                          })}
+                        />
+                        <div style={{ display: "grid", gap: 7 }}>
+                          <div style={{ fontWeight: 850 }}>Sección {section.label}</div>
+                          {section.options.map((option) => (
+                            <div key={option.tempId} className="metaLine">
+                              <span>{option.tipo} — {option.dia} — {option.inicio} - {option.fin}</span>
+                              <span>👨‍🏫 Profesor: {option.prof || "Pendiente"}{option.aula ? ` · Aula: ${option.aula}` : ""}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              ))}
+              {!!suggestions.ambiguous.length && <div style={{ border: "1px dashed rgba(180,83,9,0.35)", background: "rgba(251,191,36,0.10)", borderRadius: 14, padding: 14 }}><b>Datos ambiguos en la distribución</b><div className="muted" style={{ marginTop: 6 }}>{suggestions.ambiguous.join(", ")}</div></div>}
               {!!suggestions.missing.length && <div style={{ border: "1px dashed rgba(180,83,9,0.35)", background: "rgba(251,191,36,0.10)", borderRadius: 14, padding: 14 }}><b>Aún no encontradas en la distribución</b><div className="muted" style={{ marginTop: 6 }}>{suggestions.missing.join(", ")}</div></div>}
             </>}
           </div>
-          <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><button type="button" className="btn" onClick={closeModal}>Cerrar por ahora</button>{isDraft && !draftSelectionComplete && <span className="muted" style={{ fontSize: 12 }}>Selecciona al menos una clase para cada materia antes de generar el horario borrador.</span>}<button type="button" className="btn btnPrimary" onClick={saveSelectedClasses} disabled={savingSuggestions || editsBlocked || (isDraft && !draftSelectionComplete)} title={editsBlocked ? maintenance.disabledMessage : undefined}>{savingSuggestions ? "Guardando…" : isDraft ? "Generar horario borrador" : "Guardar Horario de Clases"}</button></div>
+          <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><button type="button" className="btn" onClick={closeModal}>Cerrar por ahora</button>{isDraft && !draftSelectionComplete && <span className="muted" style={{ fontSize: 12 }}>Selecciona al menos una clase para cada materia antes de generar el horario borrador.</span>}<button type="button" className="btn btnPrimary" onClick={saveSelectedClasses} disabled={savingSuggestions || editsBlocked || suggestions.ambiguous.length > 0 || (isDraft && !draftSelectionComplete)} title={editsBlocked ? maintenance.disabledMessage : undefined}>{savingSuggestions ? "Guardando…" : isDraft ? "Generar horario borrador" : "Guardar Horario de Clases"}</button></div>
         </div>
       </div>
     )}

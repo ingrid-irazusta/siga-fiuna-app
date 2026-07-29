@@ -1,5 +1,11 @@
 export const dynamic = "force-dynamic";
 import { getSupabaseServer } from "@/lib/supabaseClient";
+import {
+  normalizeClassType,
+  normalizeScheduleTime,
+  normalizeSection,
+  normalizeSubjectName,
+} from "@/lib/academicDataNormalization";
 
 type DiasData = Record<string, { cabeceras: any[]; filas: any[][] }>;
 
@@ -19,7 +25,12 @@ interface EstadoInfo {
 interface MatchResult {
   ok: boolean;
   found: boolean;
+  ambiguous?: boolean;
   aula?: string;
+  profesor?: string;
+  tipo?: "T" | "P" | "LAB";
+  inicio?: string;
+  fin?: string;
   estado?: EstadoInfo;
   reemplazo?: string;
   observacion?: string;
@@ -72,11 +83,7 @@ function normTime(s?: string): string {
 }
 
 function normalizeTipo(val?: string): string {
-  const t = normalizeText(val);
-  if (!t) return "";
-  if (t === "T" || t.startsWith("TEO")) return "T";
-  if (t === "P" || t.startsWith("PRA")) return "P";
-  return t[0];
+  return normalizeClassType(val);
 }
 
 function decodeEstado(code?: string): EstadoInfo {
@@ -145,8 +152,8 @@ function matchEnDia(
   const cands: any[][] = [];
 
   for (const row of diaData.filas) {
-    const mat = normalizeText(String(row[cols.materia] || ""));
-    const sec = normalizeText(String(row[cols.seccion] || ""));
+    const mat = normalizeSubjectName(row[cols.materia]);
+    const sec = normalizeSection(row[cols.seccion]);
     const tipo = normalizeTipo(String(row[cols.tipo] || ""));
 
     if (!mat || mat !== qMateria) continue;
@@ -160,30 +167,54 @@ function matchEnDia(
 
   // Elegir el candidato más cercano en hora
   const qMin = minutesFromTime(qHora);
-  let best = cands[0];
-
-  if (qMin !== null && cols.horaInicio >= 0) {
-    let bestScore = Infinity;
-
-    for (const r of cands) {
-      const rMin = minutesFromTime(String(r[cols.horaInicio] || ""));
-      const diff = rMin === null ? 1e9 : Math.abs(rMin - qMin);
-
-      if (diff < bestScore) {
-        bestScore = diff;
-        best = r;
-      }
-    }
+  const scored = cands.map((row) => {
+    const rowMinutes = cols.horaInicio >= 0
+      ? minutesFromTime(String(row[cols.horaInicio] || ""))
+      : null;
+    return {
+      row,
+      score: qMin === null || rowMinutes === null ? Number.POSITIVE_INFINITY : Math.abs(rowMinutes - qMin),
+    };
+  });
+  const bestScore = Math.min(...scored.map((candidate) => candidate.score));
+  const nearest = scored
+    .filter((candidate) => candidate.score === bestScore)
+    .map((candidate) => candidate.row);
+  const uniqueNearest = new Map<string, any[]>();
+  for (const row of nearest) {
+    const signature = JSON.stringify({
+      aula: cols.aula >= 0 ? String(row[cols.aula] || "").trim() : "",
+      profesor: cols.docente >= 0 ? String(row[cols.docente] || "").trim() : "",
+      inicio: cols.horaInicio >= 0 ? normTime(String(row[cols.horaInicio] || "")) : "",
+      fin: cols.horaFin >= 0 ? normTime(String(row[cols.horaFin] || "")) : "",
+      tipo: cols.tipo >= 0 ? normalizeTipo(String(row[cols.tipo] || "")) : "",
+      estado: cols.estado >= 0 ? String(row[cols.estado] || "").trim() : "",
+    });
+    if (!uniqueNearest.has(signature)) uniqueNearest.set(signature, row);
   }
+  if (uniqueNearest.size !== 1) {
+    return { ok: true, found: false, ambiguous: true };
+  }
+  const best = Array.from(uniqueNearest.values())[0];
 
   return {
     ok: true,
     found: true,
     aula: String(best[cols.aula] || "").trim() || "No hallada",
+    profesor: cols.docente >= 0 ? String(best[cols.docente] || "").trim() : "",
+    tipo: normalizeTipo(String(best[cols.tipo] || "")) as "T" | "P" | "LAB",
+    inicio: cols.horaInicio >= 0 ? normalizeScheduleTime(best[cols.horaInicio]) || normTime(best[cols.horaInicio]) : "",
+    fin: cols.horaFin >= 0 ? normalizeScheduleTime(best[cols.horaFin]) || normTime(best[cols.horaFin]) : "",
     estado: decodeEstado(String(best[cols.estado] || "")),
     reemplazo: cols.reemplazo >= 0 ? String(best[cols.reemplazo] || "").trim() : "",
     observacion: cols.obs >= 0 ? String(best[cols.obs] || "").trim() : "",
   };
+}
+
+function getDiaDataByDayId(diasData: DiasData, dayId: number) {
+  const expected = ["", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"][dayId];
+  if (!expected) return undefined;
+  return Object.entries(diasData).find(([key]) => normalizeText(key) === expected)?.[1];
 }
 
 // --- Mapeo JS día de semana → clave del JSON ---
@@ -205,9 +236,22 @@ export async function POST(req: Request) {
     const body = await req.json();
     const ahora = Date.now();
     let usoMemoria = true;
+    const expectedAcademicVersion =
+      typeof body?.expectedAcademicVersion === "string"
+        ? body.expectedAcademicVersion
+        : "";
+    const memoryAcademicVersion = (
+      memoriaDias as unknown as {
+        _meta?: { academicVersion?: string };
+      } | null
+    )?._meta?.academicVersion || "";
 
     // 1. Usar memoria si todavía no venció
-    if (!memoriaDias || ahora - memoriaUltimaLectura > TTL_MS) {
+    if (
+      !memoriaDias ||
+      ahora - memoriaUltimaLectura > TTL_MS ||
+      (expectedAcademicVersion && memoryAcademicVersion !== expectedAcademicVersion)
+    ) {
       usoMemoria = false;
       console.log("🔄 Leyendo aulas_cache desde Supabase...");
 
@@ -245,6 +289,9 @@ export async function POST(req: Request) {
         { status: 503 }
       );
     }
+    const versionMeta = (diasData as unknown as {
+      _meta?: { academicVersion?: string; temporaryVersion?: string };
+    })._meta;
 
     // 2. Determinar qué día consultar
     const diaKey = getDiaKey(body?.fecha);
@@ -253,7 +300,7 @@ export async function POST(req: Request) {
     console.log("Fecha solicitada:", body?.fecha);
     console.log("Día calculado:", diaKey);
 
-    if (!diaData) {
+    if (!diaData && !body?.resolveByDayId) {
       console.log("No hay datos para el día:", diaKey);
       return Response.json(
         { ok: false, error: `Sin datos para ${diaKey}` },
@@ -267,12 +314,16 @@ export async function POST(req: Request) {
 
       for (const item of body.classes) {
         const key = String(item?.key || "");
-        const qMateria = normalizeText(item?.materia);
-        const qSeccion = normalizeText(item?.seccion);
-        const qTipo = normalizeText(item?.tipo);
+        const qMateria = normalizeSubjectName(item?.materia);
+        const qSeccion = normalizeSection(item?.seccion);
+        const qTipo = normalizeClassType(item?.tipo);
         const qHora = normTime(item?.horaInicio);
-
-        const match = matchEnDia(diaData, qMateria, qSeccion, qTipo, qHora);
+        const itemDayData = body?.resolveByDayId
+          ? getDiaDataByDayId(diasData, Number(item?.day_id))
+          : diaData;
+        const match = itemDayData
+          ? matchEnDia(itemDayData, qMateria, qSeccion, qTipo, qHora)
+          : { ok: true, found: false };
         results[key] = match;
       }
 
@@ -280,6 +331,8 @@ export async function POST(req: Request) {
         ok: true,
         fromCache: usoMemoria,
         updatedAt: memoriaUpdatedAt,
+        academicVersion: versionMeta?.academicVersion || null,
+        temporaryVersion: versionMeta?.temporaryVersion || null,
         results,
       });
     }
@@ -294,4 +347,4 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+}

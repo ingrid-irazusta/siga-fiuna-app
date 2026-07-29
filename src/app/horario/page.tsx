@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "../../lib/supabaseClient";
 
 const DAYS = [
@@ -45,6 +45,7 @@ type ScheduleEvent = {
   inicio: string;
   fin: string;
   prof?: string;
+  aula?: string;
 };
 
 type Schedule = Record<DayId, ScheduleEvent[]>;
@@ -68,6 +69,7 @@ const getEventAccessibleText = (event: ScheduleEvent) => [
   `${event.tipo}${event.seccion ? ` — Sección ${event.seccion}` : ""}`,
   `${formatHourMin(event.inicio)}–${formatHourMin(event.fin)}`,
   event.prof ? `Profesor: ${event.prof}` : "",
+  event.aula ? `Aula: ${event.aula}` : "",
 ].filter(Boolean).join("\n");
 
 const seed: Schedule = {
@@ -296,6 +298,7 @@ function Modal({ open, onClose, title, children }: ModalProps) {
 }
 
 export default function HorarioPage() {
+  const academicVersionRef = useRef<string | null>(null);
   const [userId, setUserId] = useState<string>("");
   const [mode, setMode] = useState<"week" | "day">("week");
   const [activeDay, setActiveDay] = useState<DayId>(1);
@@ -344,7 +347,9 @@ export default function HorarioPage() {
         setUserId(uid);
 
         // Load schedule from DB
-        const schedule = await loadScheduleFromDB(uid);
+        const schedule = await loadVisibleSchedule(uid, (version) => {
+          academicVersionRef.current = version;
+        });
         setSchedule(schedule);
 
         // Load courses from DB
@@ -385,7 +390,9 @@ export default function HorarioPage() {
           (payload) => {
             console.log("Real-time update received:", payload);
             // Reload schedule when changes occur
-            loadScheduleFromDB(userId).then((newSchedule) => {
+            loadVisibleSchedule(userId, (version) => {
+              academicVersionRef.current = version;
+            }).then((newSchedule) => {
               setSchedule(newSchedule);
             });
           }
@@ -398,6 +405,38 @@ export default function HorarioPage() {
     } catch (error) {
       console.warn("Exception setting up real-time subscription:", error);
     }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = getSupabase();
+    const subscription = supabase
+      .channel(`aulas_cache_horario_${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "aulas_cache" },
+        (payload) => {
+          const nextAcademicVersion =
+            (payload.new as { dias?: { _meta?: { academicVersion?: string } } } | null)
+              ?.dias?._meta?.academicVersion || null;
+          if (
+            nextAcademicVersion &&
+            nextAcademicVersion === academicVersionRef.current
+          ) {
+            return;
+          }
+          if (nextAcademicVersion) {
+            academicVersionRef.current = nextAcademicVersion;
+          }
+          loadVisibleSchedule(userId, (version) => {
+            academicVersionRef.current = version;
+          }, nextAcademicVersion).then(setSchedule);
+        }
+      )
+      .subscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [userId]);
 
   const hours = useMemo(() => {
@@ -519,7 +558,9 @@ export default function HorarioPage() {
       if (success) {
         // Reload schedule from database
         console.log("Reloading schedule after save");
-        const newSchedule = await loadScheduleFromDB(userId);
+        const newSchedule = await loadVisibleSchedule(userId, (version) => {
+          academicVersionRef.current = version;
+        });
         setSchedule(newSchedule);
         setIsModalOpen(false);
         console.log("Save completed successfully");
@@ -543,7 +584,9 @@ export default function HorarioPage() {
       
       if (success) {
         if (userId) {
-          const newSchedule = await loadScheduleFromDB(userId);
+          const newSchedule = await loadVisibleSchedule(userId, (version) => {
+            academicVersionRef.current = version;
+          });
           setSchedule(newSchedule);
         }
         setIsModalOpen(false);
@@ -1207,7 +1250,8 @@ export default function HorarioPage() {
                             {formatHourMin(ev.inicio)}–{formatHourMin(ev.fin)}
                           </span>
                         </div>
-                        {ev.prof && <div className="calEvProf">👨‍🏫 {ev.prof}</div>}
+                        <div className="calEvProf">👨‍🏫 Profesor: {ev.prof || "Pendiente"}</div>
+                        {ev.aula && <div className="calEvProf">Aula: {ev.aula}</div>}
                       </button>
                     ))}
                   </div>
@@ -1257,7 +1301,8 @@ export default function HorarioPage() {
                       {ev.seccion && (
                         <span className="calMiniBadge sec">Sec. {ev.seccion}</span>
                       )}
-                      {ev.prof && <span className="calCardMeta">👨‍🏫 {ev.prof}</span>}
+                      <span className="calCardMeta">👨‍🏫 Profesor: {ev.prof || "Pendiente"}</span>
+                      {ev.aula && <span className="calCardMeta">Aula: {ev.aula}</span>}
                     </div>
                   </div>
                   <div className="calCardActions">
@@ -1424,5 +1469,76 @@ export default function HorarioPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+async function enrichScheduleFromCurrentDistribution(
+  schedule: Schedule,
+  onAcademicVersion?: (version: string | null) => void,
+  expectedAcademicVersion?: string | null
+): Promise<Schedule> {
+  const entries = DAYS.flatMap((day) =>
+    (schedule[day.id as DayId] || []).map((event) => ({ dayId: day.id as DayId, event }))
+  );
+  if (!entries.length) return schedule;
+
+  try {
+    const response = await fetch("/api/aulas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resolveByDayId: true,
+        expectedAcademicVersion: expectedAcademicVersion || undefined,
+        classes: entries.map(({ dayId, event }) => ({
+          key: event.id,
+          day_id: dayId,
+          materia: event.materia,
+          seccion: event.seccion || "",
+          tipo: event.tipo,
+          horaInicio: event.inicio,
+        })),
+      }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.ok || !data?.results) return schedule;
+    onAcademicVersion?.(
+      typeof data.academicVersion === "string" ? data.academicVersion : null
+    );
+
+    const next: Schedule = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    for (const { dayId, event } of entries) {
+      const current = data.results[event.id];
+      const exactSnapshotMatch =
+        current?.found &&
+        formatHourMin(current.inicio || "") === formatHourMin(event.inicio) &&
+        formatHourMin(current.fin || "") === formatHourMin(event.fin) &&
+        current.tipo === event.tipo;
+      next[dayId].push(exactSnapshotMatch ? {
+        ...event,
+        // Los registros heredados no tienen procedencia. Solo completamos
+        // profesor si el snapshot no contenía uno, para no pisar ediciones manuales.
+        prof: event.prof || current.profesor || undefined,
+        aula: current.aula && current.aula !== "No hallada" ? current.aula : undefined,
+      } : event);
+    }
+    for (const day of DAYS) {
+      next[day.id as DayId].sort((a, b) => a.inicio.localeCompare(b.inicio));
+    }
+    return next;
+  } catch {
+    return schedule;
+  }
+}
+
+async function loadVisibleSchedule(
+  userId: string,
+  onAcademicVersion?: (version: string | null) => void,
+  expectedAcademicVersion?: string | null
+): Promise<Schedule> {
+  const snapshot = await loadScheduleFromDB(userId);
+  return enrichScheduleFromCurrentDistribution(
+    snapshot,
+    onAcademicVersion,
+    expectedAcademicVersion
   );
 }

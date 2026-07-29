@@ -1,5 +1,14 @@
 export const dynamic = "force-dynamic";
+import { createHash } from "node:crypto";
 import { getSupabaseServer } from "@/lib/supabaseClient";
+import {
+  normalizeClassType,
+  normalizeScheduleTime,
+  normalizeSection,
+  normalizeSubjectName,
+  normalizeTextForMatching,
+  normalizeWhitespace,
+} from "@/lib/academicDataNormalization";
 
 function normalizeHora(hora: any): string {
   if (hora === null || hora === undefined) return "";
@@ -46,6 +55,81 @@ function normalizeHeader(s?: any): string {
     .toUpperCase()
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function findColumn(headers: any[], ...keys: string[]): number {
+  const normalizedHeaders = headers.map((header) => normalizeTextForMatching(header));
+  for (const key of keys.map((value) => normalizeTextForMatching(value))) {
+    const exact = normalizedHeaders.findIndex((header) => header === key);
+    if (exact >= 0) return exact;
+  }
+  for (const key of keys.map((value) => normalizeTextForMatching(value))) {
+    const included = normalizedHeaders.findIndex((header) => header.includes(key));
+    if (included >= 0) return included;
+  }
+  return -1;
+}
+
+function cell(row: any[], index: number): unknown {
+  return index >= 0 ? row[index] : "";
+}
+
+function hashSignatures(signatures: string[]): string {
+  return createHash("sha256")
+    .update(JSON.stringify([...signatures].sort()))
+    .digest("hex");
+}
+
+function buildDistributionVersions(dias: Record<string, any>) {
+  const academicSignatures: string[] = [];
+  const temporarySignatures: string[] = [];
+
+  for (const [day, data] of Object.entries(dias)) {
+    if (day === "_meta") continue;
+    const headers = Array.isArray(data?.cabeceras) ? data.cabeceras : [];
+    const rows = Array.isArray(data?.filas) ? data.filas : [];
+    const columns = {
+      subject: findColumn(headers, "ASIGNATURA", "MATERIA"),
+      section: findColumn(headers, "SECCION", "SECCIÓN", "SECC"),
+      type: findColumn(headers, "TIPO DE CLASE", "TIPO"),
+      professor: findColumn(headers, "DOCENTE", "PROF"),
+      start: findColumn(headers, "HORA INICIO", "INICIO"),
+      end: findColumn(headers, "HORA FIN", "FIN"),
+      room: findColumn(headers, "AULA"),
+      status: findColumn(headers, "ESTADO", "P - R", "P-R"),
+      observation: findColumn(headers, "OBSERVACION", "OBS"),
+      replacement: findColumn(headers, "REEMPLAZO", "SUPL"),
+    };
+
+    for (const rawRow of rows) {
+      const row = Array.isArray(rawRow) ? rawRow : [];
+      const subject = normalizeSubjectName(cell(row, columns.subject));
+      if (!subject) continue;
+      const rawType = cell(row, columns.type);
+      const academicIdentity = {
+        day: normalizeTextForMatching(day),
+        subject,
+        section: normalizeSection(cell(row, columns.section)),
+        type: normalizeClassType(rawType) || normalizeTextForMatching(rawType),
+        start: normalizeScheduleTime(cell(row, columns.start)) || normalizeWhitespace(cell(row, columns.start)),
+        end: normalizeScheduleTime(cell(row, columns.end)) || normalizeWhitespace(cell(row, columns.end)),
+        professor: normalizeTextForMatching(cell(row, columns.professor)),
+        room: normalizeTextForMatching(cell(row, columns.room)),
+      };
+      academicSignatures.push(JSON.stringify(academicIdentity));
+      temporarySignatures.push(JSON.stringify({
+        ...academicIdentity,
+        status: normalizeTextForMatching(cell(row, columns.status)),
+        observation: normalizeWhitespace(cell(row, columns.observation)),
+        replacement: normalizeTextForMatching(cell(row, columns.replacement)),
+      }));
+    }
+  }
+
+  return {
+    academicVersion: hashSignatures(academicSignatures),
+    temporaryVersion: hashSignatures(temporarySignatures),
+  };
 }
 
 const SECRET = process.env.AULAS_SYNC_SECRET || "";
@@ -113,6 +197,11 @@ export async function POST(req: Request) {
         ];
       })
     );
+    const versions = buildDistributionVersions(diasNormalizados);
+    const diasConVersiones = {
+      ...diasNormalizados,
+      _meta: versions,
+    };
     console.log("=== DIAS NORMALIZADOS SAMPLE ===");
     for (const [dia, data] of Object.entries(diasNormalizados)) {
       const filas = Array.isArray((data as any)?.filas) ? (data as any).filas : [];
@@ -121,7 +210,7 @@ export async function POST(req: Request) {
     const supabase = getSupabaseServer();
     const res = await supabase
       .from("aulas_cache")
-      .upsert({ id: 1, dias: diasNormalizados, updated_at: new Date().toISOString() });
+      .upsert({ id: 1, dias: diasConVersiones, updated_at: new Date().toISOString() });
 
     if (res.error) {
       console.error("Supabase upsert error:", res.error);

@@ -1,6 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { getSupabaseServer } from "@/lib/supabaseClient";
+import {
+  normalizeClassType,
+  normalizeSection,
+  normalizeSubjectName,
+} from "@/lib/academicDataNormalization";
 
 type DiasData = Record<string, { cabeceras: any[]; filas: any[][] }>;
 
@@ -20,6 +25,7 @@ interface SuggestedClass {
   inicio: string;
   fin: string;
   prof?: string;
+  aula?: string;
 }
 
 interface SuggestionGroup {
@@ -53,25 +59,6 @@ function normalizeText(s?: string): string {
     .toUpperCase()
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function normalizeTipo(val?: string): "T" | "P" | "LAB" | "" {
-  const t = normalizeText(val);
-  if (!t) return "";
-
-  if (t === "T" || t.startsWith("TEO") || t.includes("TEORIA")) return "T";
-  if (t === "P" || t.startsWith("PRA") || t.includes("PRACT")) return "P";
-  if (t === "LAB" || t.startsWith("LAB")) return "LAB";
-
-  return "";
-}
-
-function normalizeSemestre(val?: string | null): string {
-  return String(val || "")
-    .trim()
-    .toUpperCase()
-    .replace(/º/g, "°")
-    .replace(/\s+/g, "");
 }
 
 function normTimeLoose(s?: string): string {
@@ -154,6 +141,7 @@ function pickColIndexes(cabeceras: any[]) {
     docente: findExactOrIncludes("DOCENTE", "PROF"),
     horaInicio: findExactOrIncludes("HORA INICIO"),
     horaFin: findExactOrIncludes("HORA FIN"),
+    aula: findExactOrIncludes("AULA"),
   };
 }
 
@@ -179,7 +167,7 @@ export async function GET() {
 
       for (const row of dayData.filas) {
         const nombreExacto = String(row[cols.materia] || "").trim();
-        const clave = normalizeText(nombreExacto);
+        const clave = normalizeSubjectName(nombreExacto);
         if (clave && !materiasUnicas.has(clave)) {
           materiasUnicas.set(clave, nombreExacto);
         }
@@ -222,24 +210,20 @@ export async function POST(req: Request) {
     const diasData = data.dias as DiasData;
     const groups: SuggestionGroup[] = [];
     const missing: string[] = [];
+    const ambiguous: string[] = [];
 
     console.log("=== DEBUG HORARIO SUGERENCIAS: DIAS DISPONIBLES ===");
     console.log(Object.keys(diasData || {}));
 
     for (const course of materias) {
-      const qMateria = normalizeText(course.materia);
-      const qSemestre = normalizeSemestre(course.semestre);
-      const qTipos = (course.tipos || [])
-        .map((t) => normalizeTipo(t))
-        .filter(Boolean) as ("T" | "P" | "LAB")[];
+      const qMateria = normalizeSubjectName(course.materia);
 
       const optionsMap = new Map<string, SuggestedClass>();
+      const ambiguousKeys = new Set<string>();
 
       console.log("=== BUSCANDO MATERIA ===", {
         materiaOriginal: course.materia,
         materiaNormalizada: qMateria,
-        semestre: qSemestre,
-        tipos: qTipos,
       });
 
       for (const [dayKey, dayData] of Object.entries(diasData)) {
@@ -259,20 +243,14 @@ export async function POST(req: Request) {
         if (!dayId) continue;
 
         for (const row of dayData.filas) {
-          const mat = normalizeText(row[cols.materia]);
+          const mat = normalizeSubjectName(row[cols.materia]);
           if (!mat || mat !== qMateria) continue;
 
-          const sem = cols.semestre >= 0 ? normalizeSemestre(row[cols.semestre]) : "";
-          const semestreCoincide = !qSemestre || !sem || sem === qSemestre;
-          if (!semestreCoincide) continue;
-
-          const tipo = normalizeTipo(row[cols.tipo]);
+          const tipo = normalizeClassType(row[cols.tipo]);
           if (!tipo) continue;
 
-          if (qTipos.length > 0 && !qTipos.includes(tipo)) continue;
-
           const seccion = cols.seccion >= 0 ? String(row[cols.seccion] || "").trim() : "";
-          const seccionMostrar = seccion || "—";
+          const seccionNormalizada = normalizeSection(seccion);
 
           const inicioRaw = cols.horaInicio >= 0 ? String(row[cols.horaInicio] || "").trim() : "";
           const finRaw = cols.horaFin >= 0 ? String(row[cols.horaFin] || "").trim() : "";
@@ -286,6 +264,7 @@ export async function POST(req: Request) {
 
           const prof =
             cols.docente >= 0 ? String(row[cols.docente] || "").trim() : "";
+          const aula = cols.aula >= 0 ? String(row[cols.aula] || "").trim() : "";
 
           console.log("=== MATCH ENCONTRADO ===", {
             dayKey,
@@ -301,12 +280,12 @@ export async function POST(req: Request) {
           });
 
           const groupKey = [
-            qSemestre,
             qMateria,
             tipo,
-            seccion,
+            seccionNormalizada,
             dayId,
-            prof,
+            inicio,
+            fin,
           ].join("|");
 
           const candidate: SuggestedClass = {
@@ -317,13 +296,15 @@ export async function POST(req: Request) {
             dia: prettifyDay(dayKey),
             materia: course.materia,
             tipo,
-            seccion: seccionMostrar,
+            seccion,
             inicio,
             fin,
-            prof: prof || "—",
+            prof,
+            aula,
           };
 
           const existing = optionsMap.get(groupKey);
+          if (ambiguousKeys.has(groupKey)) continue;
 
           const candidateHasHora = inicio !== "—" && fin !== "—";
           const existingHasHora =
@@ -331,6 +312,13 @@ export async function POST(req: Request) {
 
           if (!existing) {
             optionsMap.set(groupKey, candidate);
+          } else if (
+            normalizeText(existing.prof || "") !== normalizeText(candidate.prof || "") ||
+            normalizeText(existing.aula || "") !== normalizeText(candidate.aula || "")
+          ) {
+            optionsMap.delete(groupKey);
+            ambiguousKeys.add(groupKey);
+            ambiguous.push(`${course.materia} — sección ${seccion || "sin sección"} — ${tipo} — ${prettifyDay(dayKey)} ${inicio}`);
           } else if (!existingHasHora && candidateHasHora) {
             optionsMap.set(groupKey, candidate);
           }
@@ -358,6 +346,7 @@ export async function POST(req: Request) {
       ok: true,
       groups,
       missing,
+      ambiguous,
     });
   } catch (e: any) {
     console.error("ERROR horario-sugerencias:", e);
