@@ -14,6 +14,7 @@ import {
   isFirstUseDemoAuthorized,
   isFirstUseDemoRequested,
 } from "@/lib/firstUseDemo";
+import { isMissingAcademicText } from "@/lib/academicDataNormalization";
 import { getSupabase } from "@/lib/supabaseClient";
 import { Session } from "@supabase/supabase-js";
 
@@ -428,6 +429,7 @@ export default function Page() {
      DEBOUNCE REFS
   ======================================================== */
   const refreshAulasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const temporaryVersionRef = useRef<string | null>(null);
   const computeNotasKpisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -904,7 +906,7 @@ export default function Page() {
   /* =======================================================
      FUNCIÓN: REFRESCAR AULAS (ahora para polling)
   ======================================================== */
-  const refreshAulas = async () => {
+  const refreshAulas = async (expectedTemporaryVersion?: string | null) => {
     const startedAt = Date.now();
     try {
       setAulasError("");
@@ -916,6 +918,7 @@ export default function Page() {
       }
       const payload = {
         fecha: testDateISO, // ya la tenés como estado
+        expectedTemporaryVersion: expectedTemporaryVersion || undefined,
         classes: classesForDay.map((c) => ({
           key: `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`,
           materia: c.materia,
@@ -945,6 +948,10 @@ export default function Page() {
         setAulasInfo(data.results);
         console.log("aulasInfo:", data.results);
       }
+      temporaryVersionRef.current =
+        typeof data?.temporaryVersion === "string"
+          ? data.temporaryVersion
+          : expectedTemporaryVersion || null;
       setAulasOn(true);
     } catch (e) {
       const msg = `No se pudo conectar a la BD de aulas.\nDebug: ${e instanceof Error ? e.message : "Error"}`;
@@ -961,12 +968,12 @@ export default function Page() {
   /* =======================================================
      FUNCIÓN: REFRESCAR AULAS CON DEBOUNCE (para cambios en tiempo real)
   ======================================================== */
-  const debouncedRefreshAulas = () => {
+  const debouncedRefreshAulas = (expectedTemporaryVersion?: string | null) => {
     if (refreshAulasTimeoutRef.current) {
       clearTimeout(refreshAulasTimeoutRef.current);
     }
     refreshAulasTimeoutRef.current = setTimeout(() => {
-      refreshAulas();
+      refreshAulas(expectedTemporaryVersion);
     }, 1000); // 1000ms debounce
   };
 
@@ -974,8 +981,10 @@ export default function Page() {
      EFECTO: SUSCRIPCIÓN EN TIEMPO REAL DE AULAS
   ======================================================== */
   useEffect(() => {
-    if (userId && classesForDay.length > 0 && testDateISO) {
-      refreshAulas(); // Carga inicial (sin debounce)
+    if (userId && testDateISO) {
+      if (classesForDay.length > 0) {
+        refreshAulas(); // Carga inicial (sin debounce)
+      }
 
       // Suscripción a cambios en tiempo real
       const supabase = getSupabase();
@@ -988,8 +997,23 @@ export default function Page() {
             schema: 'public',
             table: 'aulas_cache',
           },
-          () => {
-            debouncedRefreshAulas(); // Con debounce para evitar múltiples llamadas
+          (payload) => {
+            const nextTemporaryVersion =
+              (payload.new as {
+                dias?: { _meta?: { temporaryVersion?: string } };
+              } | null)?.dias?._meta?.temporaryVersion || null;
+            if (
+              nextTemporaryVersion &&
+              nextTemporaryVersion === temporaryVersionRef.current
+            ) {
+              return;
+            }
+            if (nextTemporaryVersion) {
+              temporaryVersionRef.current = nextTemporaryVersion;
+            }
+            if (classesForDay.length > 0) {
+              debouncedRefreshAulas(nextTemporaryVersion);
+            }
           }
         )
         .subscribe();
@@ -1341,7 +1365,14 @@ export default function Page() {
                           const key = `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`;
                           const info = aulasInfo[key];
                           const aula = aulasOn ? (info?.found ? info.aula : "—") : "—";
-                          const profesor = c.profesor || (info?.found ? info.profesor : "") || "";
+                          const snapshotProfesor = isMissingAcademicText(c.profesor)
+                            ? ""
+                            : String(c.profesor).trim();
+                          const currentProfesor =
+                            info?.found && !isMissingAcademicText(info.profesor)
+                              ? String(info.profesor).trim()
+                              : "";
+                          const profesor = snapshotProfesor || currentProfesor;
                           const estado = aulasOn ? (info?.found ? info.estado : { icon: "ℹ️ ", text: "Sin coincidencia", code: "NC" }) : null;
                           const observacion = aulasOn ? info?.observacion : null;
                           return (

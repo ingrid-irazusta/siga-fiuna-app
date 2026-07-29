@@ -2,6 +2,17 @@ export function normalizeWhitespace(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
+export function isMissingAcademicText(value: unknown): boolean {
+  const normalized = normalizeWhitespace(value);
+  return (
+    !normalized ||
+    normalized === "-" ||
+    normalized === "—" ||
+    normalized === "–" ||
+    normalized === "â€”"
+  );
+}
+
 export function normalizeTextForMatching(value: unknown): string {
   return normalizeWhitespace(value)
     .normalize("NFD")

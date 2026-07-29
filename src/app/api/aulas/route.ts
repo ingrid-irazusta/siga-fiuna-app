@@ -240,17 +240,24 @@ export async function POST(req: Request) {
       typeof body?.expectedAcademicVersion === "string"
         ? body.expectedAcademicVersion
         : "";
-    const memoryAcademicVersion = (
+    const expectedTemporaryVersion =
+      typeof body?.expectedTemporaryVersion === "string"
+        ? body.expectedTemporaryVersion
+        : "";
+    const memoryVersionMeta = (
       memoriaDias as unknown as {
-        _meta?: { academicVersion?: string };
+        _meta?: { academicVersion?: string; temporaryVersion?: string };
       } | null
-    )?._meta?.academicVersion || "";
+    )?._meta;
+    const memoryAcademicVersion = memoryVersionMeta?.academicVersion || "";
+    const memoryTemporaryVersion = memoryVersionMeta?.temporaryVersion || "";
 
     // 1. Usar memoria si todavía no venció
     if (
       !memoriaDias ||
       ahora - memoriaUltimaLectura > TTL_MS ||
-      (expectedAcademicVersion && memoryAcademicVersion !== expectedAcademicVersion)
+      (expectedAcademicVersion && memoryAcademicVersion !== expectedAcademicVersion) ||
+      (expectedTemporaryVersion && memoryTemporaryVersion !== expectedTemporaryVersion)
     ) {
       usoMemoria = false;
       console.log("🔄 Leyendo aulas_cache desde Supabase...");

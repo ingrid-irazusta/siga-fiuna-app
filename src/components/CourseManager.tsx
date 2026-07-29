@@ -5,7 +5,9 @@ import Card from "@/components/Card";
 import { useMaintenanceMode } from "@/components/MaintenanceProvider";
 import { getSupabase } from "@/lib/supabaseClient";
 import {
+  isMissingAcademicText,
   normalizeClassType,
+  normalizeScheduleTime,
   normalizeSection,
   normalizeSubjectName,
 } from "@/lib/academicDataNormalization";
@@ -53,6 +55,31 @@ type CourseManagerProps = {
 
 const SEMESTER_OPTIONS = ["1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "OPT", "COMPLE"];
 const EMPTY_SUGGESTIONS: SuggestionResponse = { ok: false, groups: [], missing: [], ambiguous: [] };
+
+type ExistingClass = {
+  id: string;
+  materia: string;
+  tipo: string;
+  seccion: string | null;
+  day_id: number;
+  inicio: string;
+  fin: string;
+  prof: string | null;
+};
+
+function isEquivalentClass(
+  existing: ExistingClass,
+  candidate: Pick<CourseScheduleClass, "materia" | "tipo" | "seccion" | "day_id" | "inicio" | "fin">
+) {
+  return (
+    normalizeSubjectName(existing.materia) === normalizeSubjectName(candidate.materia) &&
+    normalizeClassType(existing.tipo) === normalizeClassType(candidate.tipo) &&
+    normalizeSection(existing.seccion) === normalizeSection(candidate.seccion) &&
+    Number(existing.day_id) === Number(candidate.day_id) &&
+    normalizeScheduleTime(existing.inicio) === normalizeScheduleTime(candidate.inicio) &&
+    normalizeScheduleTime(existing.fin) === normalizeScheduleTime(candidate.fin)
+  );
+}
 
 function groupOptionsBySection(options: CourseScheduleClass[]) {
   const sections = new Map<string, { key: string; label: string; options: CourseScheduleClass[] }>();
@@ -333,17 +360,15 @@ export default function CourseManager({
         }
       } else if (userId) {
         const supabase = getSupabase();
-        const { data: existingClasses } = await supabase
+        const { data: existingClasses, error: existingClassesError } = await supabase
           .from("student_classes")
-          .select("materia, tipo, seccion, day_id")
+          .select("id, materia, tipo, seccion, day_id, inicio, fin, prof")
           .eq("user_id", userId);
+        if (existingClassesError) throw existingClassesError;
         for (const group of nextSuggestions.groups) {
           for (const option of group.options) {
             initialSelected[option.tempId] = (existingClasses || []).some((existing) =>
-              normalizeSubjectName(existing.materia) === normalizeSubjectName(option.materia) &&
-              normalizeClassType(existing.tipo) === normalizeClassType(option.tipo) &&
-              normalizeSection(existing.seccion) === normalizeSection(option.seccion) &&
-              Number(existing.day_id) === Number(option.day_id)
+              isEquivalentClass(existing as ExistingClass, option)
             );
           }
         }
@@ -471,12 +496,26 @@ export default function CourseManager({
     try {
       setSavingSuggestions(true);
       const supabase = getSupabase();
-      const { data: existingClasses } = await supabase
+      const { data: existingClasses, error: existingClassesError } = await supabase
         .from("student_classes")
-        .select("materia, tipo, seccion, day_id")
+        .select("id, materia, tipo, seccion, day_id, inicio, fin, prof")
         .eq("user_id", userId);
-      const newClasses = selectedClasses
-        .map((option) => ({
+      if (existingClassesError) throw existingClassesError;
+      const existingRows = (existingClasses || []) as ExistingClass[];
+      const newClasses: Array<{
+        user_id: string;
+        day_id: number;
+        materia: string;
+        tipo: string;
+        seccion: string | null;
+        inicio: string;
+        fin: string;
+        prof: string | null;
+      }> = [];
+      const professorRepairs: Array<{ id: string; prof: string }> = [];
+
+      for (const option of selectedClasses) {
+        const candidate = {
           user_id: userId,
           day_id: option.day_id,
           materia: option.materia,
@@ -484,15 +523,33 @@ export default function CourseManager({
           seccion: option.seccion || null,
           inicio: option.inicio,
           fin: option.fin,
-          prof: option.prof || null,
-        }))
-        .filter((candidate) => !(existingClasses || []).some((existing) =>
-          normalizeSubjectName(existing.materia) === normalizeSubjectName(candidate.materia) &&
-          normalizeClassType(existing.tipo) === normalizeClassType(candidate.tipo) &&
-          normalizeSection(existing.seccion) === normalizeSection(candidate.seccion) &&
-          Number(existing.day_id) === Number(candidate.day_id)
-        ));
-      if (newClasses.length) await supabase.from("student_classes").insert(newClasses);
+          prof: isMissingAcademicText(option.prof) ? null : String(option.prof).trim(),
+        };
+        const equivalent = existingRows.find((existing) =>
+          isEquivalentClass(existing, option)
+        );
+        if (!equivalent) {
+          newClasses.push(candidate);
+        } else if (
+          isMissingAcademicText(equivalent.prof) &&
+          !isMissingAcademicText(candidate.prof)
+        ) {
+          professorRepairs.push({ id: equivalent.id, prof: candidate.prof as string });
+        }
+      }
+
+      if (newClasses.length) {
+        const { error } = await supabase.from("student_classes").insert(newClasses);
+        if (error) throw error;
+      }
+      for (const repair of professorRepairs) {
+        const { error } = await supabase
+          .from("student_classes")
+          .update({ prof: repair.prof })
+          .eq("id", repair.id)
+          .eq("user_id", userId);
+        if (error) throw error;
+      }
       await onScheduleSaved?.();
       closeModal();
     } catch (error) {
