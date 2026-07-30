@@ -638,7 +638,7 @@ export default function CourseManager({
       {editsBlocked && <div className="muted" style={{ fontSize: 12 }}>{maintenance.disabledMessage}</div>}
       <div className={isDraft ? "draftCourseTableWrap" : undefined} style={{ overflowX: "auto" }}>
         <table className={`tableMini${isDraft ? " draftCourseTable" : ""}`}>
-          <thead><tr><th className="semestre">Semestre</th><th>Materia</th><th className="firma">Firma</th>{!isDraft && <th>Acción</th>}</tr></thead>
+          <thead><tr><th className="semestre">Semestre</th><th>Materia</th><th className="firma">Firma</th>{!isDraft && editing && <th>Acción</th>}</tr></thead>
           <tbody>
             {displayedCourses.map((course, index) => (
               <tr key={course.id || index}>
@@ -681,7 +681,7 @@ export default function CourseManager({
                   <select className="fakeInput draftCourseCompactSelect" value={course.firma} disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : course.firma} onChange={(event) => updateDraft((current) => current.map((item, i) => i === index ? { ...item, firma: event.target.value } : item))}><option value="">—</option><option value="SI">{isDraft ? "Sí" : "SI"}</option><option value="NO">{isDraft ? "No" : "NO"}</option></select>
                   {isDraft && <button type="button" className="btn draftCourseRemoveButton" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : `Eliminar ${course.materia}`} onClick={() => updateDraft((current) => current.filter((_, i) => i !== index))}>Eliminar</button>}
                 </> : <span>{course.firma || "—"}</span>}</div></td>
-                {!isDraft && <td>{editing ? <button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : `Eliminar ${course.materia}`} onClick={() => updateDraft((current) => current.filter((_, i) => i !== index))}>Eliminar</button> : <span className="muted">—</span>}</td>}
+                {!isDraft && editing && <td><button type="button" className="btn" disabled={editsBlocked} title={editsBlocked ? maintenance.disabledMessage : `Eliminar ${course.materia}`} onClick={() => updateDraft((current) => current.filter((_, i) => i !== index))}>Eliminar</button></td>}
               </tr>
             ))}
             {isDraft && !displayedCourses.length && (
