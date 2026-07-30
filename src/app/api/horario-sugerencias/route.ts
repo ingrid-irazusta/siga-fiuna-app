@@ -10,9 +10,7 @@ import {
 type DiasData = Record<string, { cabeceras: any[]; filas: any[][] }>;
 
 interface RequestedCourse {
-  semestre?: string | null;
   materia: string;
-  tipos?: string[];
 }
 
 interface SuggestedClass {
