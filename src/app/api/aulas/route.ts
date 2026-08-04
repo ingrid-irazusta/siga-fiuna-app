@@ -236,6 +236,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const ahora = Date.now();
     let usoMemoria = true;
+    const forceRefresh = body?.forceRefresh === true;
     const expectedAcademicVersion =
       typeof body?.expectedAcademicVersion === "string"
         ? body.expectedAcademicVersion
@@ -254,6 +255,7 @@ export async function POST(req: Request) {
 
     // 1. Usar memoria si todavía no venció
     if (
+      forceRefresh ||
       !memoriaDias ||
       ahora - memoriaUltimaLectura > TTL_MS ||
       (expectedAcademicVersion && memoryAcademicVersion !== expectedAcademicVersion) ||

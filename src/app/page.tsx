@@ -430,7 +430,14 @@ export default function Page() {
   ======================================================== */
   const refreshAulasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const temporaryVersionRef = useRef<string | null>(null);
+  const classesForDayRef = useRef<ClassRow[]>([]);
+  const aulasRequestIdRef = useRef(0);
+  const lastForegroundRefreshRef = useRef(0);
   const computeNotasKpisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    classesForDayRef.current = classesForDay;
+  }, [classesForDay]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -906,20 +913,31 @@ export default function Page() {
   /* =======================================================
      FUNCIÓN: REFRESCAR AULAS (ahora para polling)
   ======================================================== */
-  const refreshAulas = async (expectedTemporaryVersion?: string | null) => {
+  const refreshAulas = async (
+    expectedTemporaryVersion?: string | null,
+    options: { forceRefresh?: boolean; silent?: boolean } = {}
+  ) => {
     const startedAt = Date.now();
+    const requestId = ++aulasRequestIdRef.current;
+    const currentClasses = classesForDayRef.current;
+    const silent = options.silent === true;
     try {
-      setAulasError("");
-      setAulasLoading(true);
-      if (classesForDay.length === 0) {
-        const msg = "Hoy no hay clases cargadas en tu Horario, por eso no se consultan aulas.";
-        setAulasError(msg);
+      if (!silent) {
+        setAulasError("");
+        setAulasLoading(true);
+      }
+      if (currentClasses.length === 0) {
+        if (!silent) {
+          const msg = "Hoy no hay clases cargadas en tu Horario, por eso no se consultan aulas.";
+          setAulasError(msg);
+        }
         return;
       }
       const payload = {
-        fecha: testDateISO, // ya la tenés como estado
+        fecha: testDateISO,
         expectedTemporaryVersion: expectedTemporaryVersion || undefined,
-        classes: classesForDay.map((c) => ({
+        forceRefresh: options.forceRefresh === true || undefined,
+        classes: currentClasses.map((c) => ({
           key: `${c.horaInicio}|${c.horaFin}|${normText(c.materia)}|${c.tipo}-${c.seccion}|${normText(c.profesor || "")}`,
           materia: c.materia,
           tipo: c.tipo,
@@ -941,12 +959,18 @@ export default function Page() {
       if (!r.ok || data?.ok === false) {
         const base = data?.error || data?.message || "No se pudo conectar a la BD de aulas";
         const msg = `${base}\n\nPosibles causas:\n• Tu Google Sheet NO está público\n• El gid no corresponde\n• Problema de red`;
-        setAulasError(msg);
+        if (!silent) setAulasError(msg);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[aulas_cache refresh]", base);
+        }
         return;
       }
+      if (requestId !== aulasRequestIdRef.current) return;
       if (data?.results && typeof data.results === "object") {
         setAulasInfo(data.results);
-        console.log("aulasInfo:", data.results);
+        if (process.env.NODE_ENV === "development") {
+          console.log("aulasInfo:", data.results);
+        }
       }
       temporaryVersionRef.current =
         typeof data?.temporaryVersion === "string"
@@ -955,13 +979,15 @@ export default function Page() {
       setAulasOn(true);
     } catch (e) {
       const msg = `No se pudo conectar a la BD de aulas.\nDebug: ${e instanceof Error ? e.message : "Error"}`;
-      setAulasError(msg);
-      console.error(e);
+      if (!silent) setAulasError(msg);
+      if (process.env.NODE_ENV === "development") console.error(e);
     } finally {
-      const elapsed = Date.now() - startedAt;
-      const wait = Math.max(0, 3000 - elapsed);
-      if (wait) await new Promise((res) => setTimeout(res, wait));
-      setAulasLoading(false);
+      if (!silent) {
+        const elapsed = Date.now() - startedAt;
+        const wait = Math.max(0, 3000 - elapsed);
+        if (wait) await new Promise((res) => setTimeout(res, wait));
+        setAulasLoading(false);
+      }
     }
   };
 
@@ -982,9 +1008,31 @@ export default function Page() {
   ======================================================== */
   useEffect(() => {
     if (userId && testDateISO) {
-      if (classesForDay.length > 0) {
-        refreshAulas(); // Carga inicial (sin debounce)
+      if (classesForDayRef.current.length > 0) {
+        void refreshAulas(); // Carga inicial (sin debounce)
       }
+
+      const refreshTodaySilently = () => {
+        if (classesForDayRef.current.length === 0) return;
+        void refreshAulas(null, { forceRefresh: true, silent: true });
+      };
+
+      const refreshAfterForeground = () => {
+        const now = Date.now();
+        if (now - lastForegroundRefreshRef.current < 1500) return;
+        lastForegroundRefreshRef.current = now;
+        refreshTodaySilently();
+      };
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          refreshAfterForeground();
+        }
+      };
+
+      const fallbackInterval = window.setInterval(refreshTodaySilently, 60_000);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      window.addEventListener("focus", refreshAfterForeground);
 
       // Suscripción a cambios en tiempo real
       const supabase = getSupabase();
@@ -1008,18 +1056,22 @@ export default function Page() {
             ) {
               return;
             }
-            if (nextTemporaryVersion) {
-              temporaryVersionRef.current = nextTemporaryVersion;
-            }
-            if (classesForDay.length > 0) {
+            if (classesForDayRef.current.length > 0) {
               debouncedRefreshAulas(nextTemporaryVersion);
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[aulas_cache realtime]", status);
+          }
+        });
 
       return () => {
-        subscription.unsubscribe();
+        window.clearInterval(fallbackInterval);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        window.removeEventListener("focus", refreshAfterForeground);
+        void supabase.removeChannel(subscription);
         // Limpiar timeout pendiente al desmontar
         if (refreshAulasTimeoutRef.current) {
           clearTimeout(refreshAulasTimeoutRef.current);

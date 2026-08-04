@@ -23,25 +23,19 @@ interface NotaRow {
   base: boolean;
   semestre: number;
   materia: string;
-  nota1: string | number;
-  nota2: string | number;
-  nota3: string | number;
-  nota4?: string | number;
-  nota5?: string | number;
-  nota6?: string | number;
+  attempts: NoteAttempt[];
   optativaNombre?: string;
 }
 
-interface StudentNotePayload {
-  user_id: string;
+interface NoteAttempt {
+  attemptNumber: number;
+  nota: string | number;
+}
+
+interface StudentNoteSavePayload {
   materia: string;
-  nota1: number | null;
-  nota2: number | null;
-  nota3: number | null;
-  nota4: number | null;
-  nota5: number | null;
-  nota6: number | null;
   optativa_nombre: string | null;
+  attempts: Array<{ attempt_number: number; nota: number }>;
 }
 
 interface MallaCacheKeyParams {
@@ -57,9 +51,7 @@ interface KPIs {
   progresoPct: number;
 }
 
-type NotaValue = string | number | null | undefined;
 type EstadoType = "PENDIENTE" | "APROBADO" | "AUN NO";
-type NotaKey = "nota1" | "nota2" | "nota3" | "nota4" | "nota5" | "nota6";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function normText(s: string | null | undefined): string {
@@ -95,18 +87,18 @@ function prepareMallaItems(items: any[]): MallaItem[] {
 }
 
 function validateUniqueNotePayloads(
-  payloads: StudentNotePayload[]
-): { payloads: StudentNotePayload[]; conflictingMaterias: string[] } {
-  const groups = new Map<string, StudentNotePayload[]>();
+  payloads: StudentNoteSavePayload[]
+): { payloads: StudentNoteSavePayload[]; conflictingMaterias: string[] } {
+  const groups = new Map<string, StudentNoteSavePayload[]>();
 
   for (const payload of payloads) {
-    const key = `${payload.user_id}:${normText(payload.materia)}`;
+    const key = normText(payload.materia);
     const group = groups.get(key);
     if (group) group.push(payload);
     else groups.set(key, [payload]);
   }
 
-  const uniquePayloads: StudentNotePayload[] = [];
+  const uniquePayloads: StudentNoteSavePayload[] = [];
   const conflictingMaterias: string[] = [];
 
   for (const group of groups.values()) {
@@ -120,12 +112,7 @@ function validateUniqueNotePayloads(
       group.map((payload) =>
         JSON.stringify([
           normText(payload.materia),
-          payload.nota1,
-          payload.nota2,
-          payload.nota3,
-          payload.nota4,
-          payload.nota5,
-          payload.nota6,
+          payload.attempts,
           payload.optativa_nombre,
         ])
       )
@@ -187,10 +174,27 @@ function mallaCacheKey({
     : baseKey;
 }
 
-function estadoFromNotas(...notas: NotaValue[]): EstadoType {
-  const vals = (notas || [])
-    .map((x) => (x === "" || x === null || typeof x === "undefined" ? null : Number(x)))
-    .filter((x): x is number => Number.isFinite(x));
+function validAttempts(attempts: NoteAttempt[] | undefined): Array<{ attemptNumber: number; nota: number }> {
+  const byNumber = new Map<number, number>();
+  for (const attempt of attempts || []) {
+    const attemptNumber = Number(attempt.attemptNumber);
+    const nota = Number(attempt.nota);
+    if (
+      Number.isInteger(attemptNumber) &&
+      attemptNumber > 0 &&
+      Number.isFinite(nota) &&
+      nota >= 1 &&
+      nota <= 5
+    ) {
+      byNumber.set(attemptNumber, nota);
+    }
+  }
+  return Array.from(byNumber, ([attemptNumber, nota]) => ({ attemptNumber, nota }))
+    .sort((a, b) => a.attemptNumber - b.attemptNumber);
+}
+
+function estadoFromNotas(attempts: NoteAttempt[]): EstadoType {
+  const vals = validAttempts(attempts).map((attempt) => attempt.nota);
 
   if (!vals.length) return "PENDIENTE";
   if (vals.some((v) => v >= 2)) return "APROBADO";
@@ -209,93 +213,70 @@ function clampNotaInput(v: string | number): string | number {
 }
 
 function notasRowAll(r: NotaRow | undefined): number[] {
-  if (!r) return [];
-
-  return [r.nota1, r.nota2, r.nota3, r.nota4, r.nota5, r.nota6]
-    .map((x) => (x === "" || x === null || typeof x === "undefined" ? null : Number(x)))
-    .filter((x): x is number => x !== null && Number.isFinite(x) && x >= 1 && x <= 5);
+  return r ? validAttempts(r.attempts).map((attempt) => attempt.nota) : [];
 }
 
-function hasExtraNotas(r: NotaRow | undefined): boolean {
-  if (!r) return false;
-
-  return (
-    typeof r.nota4 !== "undefined" ||
-    typeof r.nota5 !== "undefined" ||
-    typeof r.nota6 !== "undefined"
-  );
+function attemptValue(attempts: NoteAttempt[], attemptNumber: number): string | number {
+  return attempts.find((attempt) => attempt.attemptNumber === attemptNumber)?.nota ?? "";
 }
 
-function ensureExtraNotas(r: NotaRow): NotaRow {
-  if (hasExtraNotas(r)) return r;
-  return { ...r, nota4: "", nota5: "", nota6: "" };
+function updateAttempt(
+  attempts: NoteAttempt[],
+  attemptNumber: number,
+  nextValue: string | number
+): NoteAttempt[] {
+  const withoutCurrent = attempts.filter((attempt) => attempt.attemptNumber !== attemptNumber);
+  if (nextValue === "") return withoutCurrent.sort((a, b) => a.attemptNumber - b.attemptNumber);
+
+  const nota = Number(nextValue);
+  const withCurrent = [...withoutCurrent, { attemptNumber, nota }];
+  if (nota >= 2) {
+    return withCurrent
+      .filter((attempt) => attempt.attemptNumber <= attemptNumber)
+      .sort((a, b) => a.attemptNumber - b.attemptNumber);
+  }
+  return withCurrent.sort((a, b) => a.attemptNumber - b.attemptNumber);
 }
 
-function stripExtraNotas(r: NotaRow | undefined): Partial<NotaRow> {
-  if (!r) return {};
-  const { nota4, nota5, nota6, ...rest } = r;
-  return rest;
-}
+function visibleAttemptNumbers(attempts: NoteAttempt[], isEditing: boolean): number[] {
+  const stored = validAttempts(attempts);
+  if (!isEditing) return stored.map((attempt) => attempt.attemptNumber);
 
-function shouldHaveExtras(r: NotaRow | undefined): boolean {
-  if (!r) return false;
-
-  const n1 = Number(r?.nota1);
-  const n2 = Number(r?.nota2);
-  const n3 = Number(r?.nota3);
-
-  return n1 === 1 && n2 === 1 && n3 === 1;
-}
-
-function reconcileExtras(r: NotaRow): NotaRow {
-  if (shouldHaveExtras(r)) return ensureExtraNotas(r);
-  return hasExtraNotas(r) ? (stripExtraNotas(r) as NotaRow) : r;
-}
-
-function enforceSinglePass(row: NotaRow, changedKey: NotaKey | undefined): NotaRow {
-  const orderAll: NotaKey[] = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"];
-  const order = orderAll.filter((k) => typeof row?.[k] !== "undefined") as NotaKey[];
-
-  const toNum = (v: NotaValue): number | null => {
-    if (v === "" || v === null || typeof v === "undefined") return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  const changedVal = changedKey ? toNum(row?.[changedKey]) : null;
-  let passKey: NotaKey | null = null;
-
-  if (changedKey && changedVal !== null && changedVal >= 2) {
-    passKey = changedKey;
-  } else {
-    for (const k of order) {
-      const n = toNum(row?.[k]);
-      if (n !== null && n >= 2) {
-        passKey = k;
-        break;
-      }
-    }
+  const firstPass = stored.find((attempt) => attempt.nota >= 2)?.attemptNumber;
+  const lastStored = stored.length ? stored[stored.length - 1].attemptNumber : 0;
+  if (firstPass) {
+    return Array.from({ length: Math.max(firstPass, lastStored) }, (_, index) => index + 1);
   }
 
-  if (!passKey) return row;
+  let visibleCount = Math.max(3, Math.ceil(Math.max(lastStored, 1) / 3) * 3);
+  const byNumber = new Map(stored.map((attempt) => [attempt.attemptNumber, attempt.nota]));
+  const currentBlockIsFullOfOnes = Array.from(
+    { length: visibleCount },
+    (_, index) => byNumber.get(index + 1) === 1
+  ).every(Boolean);
+  if (currentBlockIsFullOfOnes) visibleCount += 3;
 
-  const passIdx = order.indexOf(passKey);
-  const out = { ...row } as NotaRow & Partial<Record<NotaKey, string | number | undefined>>;
+  return Array.from({ length: visibleCount }, (_, index) => index + 1);
+}
 
-  for (let i = 0; i < order.length; i++) {
-    const k = order[i];
-    const n = toNum(out?.[k]);
-
-    if (k !== passKey && n !== null && n >= 2) {
-      out[k] = "";
-    }
-
-    if (i > passIdx) {
-      out[k] = "";
+function legacyAttempts(row: any): NoteAttempt[] {
+  const attempts: NoteAttempt[] = [];
+  for (let attemptNumber = 1; attemptNumber <= 6; attemptNumber += 1) {
+    const raw = row?.[`nota${attemptNumber}`];
+    if (raw === null || typeof raw === "undefined" || raw === "") continue;
+    const nota = Number(raw);
+    if (Number.isFinite(nota) && nota >= 1 && nota <= 5) {
+      attempts.push({ attemptNumber, nota });
     }
   }
+  return attempts;
+}
 
-  return out;
+function mergeAttemptSources(legacy: NoteAttempt[], current: NoteAttempt[]): NoteAttempt[] {
+  const merged = new Map<number, NoteAttempt>();
+  for (const attempt of legacy) merged.set(attempt.attemptNumber, attempt);
+  for (const attempt of current) merged.set(attempt.attemptNumber, attempt);
+  return Array.from(merged.values()).sort((a, b) => a.attemptNumber - b.attemptNumber);
 }
 
 async function readMallaMaterias(
@@ -346,9 +327,7 @@ function buildBaseRows(mallaItems: MallaItem[]): NotaRow[] {
     base: true,
     semestre: it.semestre,
     materia: it.materia,
-    nota1: "",
-    nota2: "",
-    nota3: "",
+    attempts: [],
   }));
 }
 
@@ -369,16 +348,7 @@ function mergeKeepNotas(existingRows: NotaRow[], baseRows: NotaRow[]): NotaRow[]
     if (prev) {
       merged.push({
         ...b,
-        nota1: prev.nota1 ?? "",
-        nota2: prev.nota2 ?? "",
-        nota3: prev.nota3 ?? "",
-        ...(hasExtraNotas(prev)
-          ? {
-            nota4: prev.nota4 ?? "",
-            nota5: prev.nota5 ?? "",
-            nota6: prev.nota6 ?? "",
-          }
-          : {}),
+        attempts: prev.attempts,
         optativaNombre: prev.optativaNombre ?? "",
       });
     } else {
@@ -520,15 +490,40 @@ export default function NotasFinalesPage() {
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await supabase
-        .from("student_notes")
-        .select("id,materia,nota1,nota2,nota3,nota4,nota5,nota6,optativa_nombre")
-        .eq("user_id", userId);
+      const [legacyResult, attemptsResult] = await Promise.all([
+        supabase
+          .from("student_notes")
+          .select("id,materia,nota1,nota2,nota3,nota4,nota5,nota6,optativa_nombre")
+          .eq("user_id", userId),
+        supabase
+          .from("student_note_attempts")
+          .select("materia,attempt_number,nota")
+          .eq("user_id", userId)
+          .order("attempt_number", { ascending: true }),
+      ]);
 
-      if (error) throw error;
+      if (legacyResult.error) throw legacyResult.error;
 
-      if (Array.isArray(data)) {
-        loaded = data.map((d: any) => {
+      const attemptsByMateria = new Map<string, NoteAttempt[]>();
+      if (!attemptsResult.error && Array.isArray(attemptsResult.data)) {
+        for (const attempt of attemptsResult.data as any[]) {
+          const key = normText(String(attempt.materia || ""));
+          const current = attemptsByMateria.get(key) || [];
+          current.push({
+            attemptNumber: Number(attempt.attempt_number),
+            nota: Number(attempt.nota),
+          });
+          attemptsByMateria.set(key, current);
+        }
+      } else if (attemptsResult.error && process.env.NODE_ENV === "development") {
+        console.warn(
+          "Notas Finales: student_note_attempts no disponible; se usa el fallback legacy.",
+          attemptsResult.error
+        );
+      }
+
+      if (Array.isArray(legacyResult.data)) {
+        loaded = legacyResult.data.map((d: any) => {
           const materia = String(d.materia || "").trim();
           const key = normText(materia);
           const baseMatch = baseRows.find((b) => normText(b.materia) === key);
@@ -538,12 +533,10 @@ export default function NotasFinalesPage() {
             base: !!baseMatch,
             semestre: baseMatch ? baseMatch.semestre : 0,
             materia,
-            nota1: d.nota1 ?? "",
-            nota2: d.nota2 ?? "",
-            nota3: d.nota3 ?? "",
-            ...(d.nota4 !== null && typeof d.nota4 !== "undefined" ? { nota4: d.nota4 } : {}),
-            ...(d.nota5 !== null && typeof d.nota5 !== "undefined" ? { nota5: d.nota5 } : {}),
-            ...(d.nota6 !== null && typeof d.nota6 !== "undefined" ? { nota6: d.nota6 } : {}),
+            attempts: mergeAttemptSources(
+              legacyAttempts(d),
+              attemptsByMateria.get(key) || []
+            ),
             ...(d.optativa_nombre ? { optativaNombre: d.optativa_nombre } : {}),
           };
         });
@@ -590,16 +583,13 @@ export default function NotasFinalesPage() {
         return Boolean(materia);
       });
 
-      const candidatePayloads: StudentNotePayload[] = validRows.map((r) => ({
-        user_id: userId,
+      const candidatePayloads: StudentNoteSavePayload[] = validRows.map((r) => ({
         materia: r.materia,
-        nota1: r.nota1 === "" ? null : Number(r.nota1),
-        nota2: r.nota2 === "" ? null : Number(r.nota2),
-        nota3: r.nota3 === "" ? null : Number(r.nota3),
-        nota4: r.nota4 === "" || typeof r.nota4 === "undefined" ? null : Number(r.nota4),
-        nota5: r.nota5 === "" || typeof r.nota5 === "undefined" ? null : Number(r.nota5),
-        nota6: r.nota6 === "" || typeof r.nota6 === "undefined" ? null : Number(r.nota6),
         optativa_nombre: r.optativaNombre || null,
+        attempts: validAttempts(r.attempts).map((attempt) => ({
+          attempt_number: attempt.attemptNumber,
+          nota: attempt.nota,
+        })),
       }));
 
       const { payloads, conflictingMaterias } =
@@ -617,8 +607,8 @@ export default function NotasFinalesPage() {
       }
 
       const supabase = getSupabase();
-      const { error } = await supabase.from("student_notes").upsert(payloads, {
-        onConflict: "user_id,materia",
+      const { error } = await supabase.rpc("save_student_note_attempts", {
+        p_rows: payloads,
       });
 
       if (error) throw error;
@@ -695,54 +685,37 @@ export default function NotasFinalesPage() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
 
-  const updateRowReconcile = (id: string, patch: Partial<NotaRow>) => {
+  const updateRowAttempt = (id: string, attemptNumber: number, value: string | number) => {
     if (!isEditing) return;
-
-    const rawKey = Object.keys(patch || {})[0];
-
-    const changedKey = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"].includes(
-      rawKey as string
-    )
-      ? (rawKey as NotaKey)
-      : undefined;
-
     setRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const next = reconcileExtras({ ...r, ...patch });
-        return enforceSinglePass(next, changedKey);
-      })
+      prev.map((r) =>
+        r.id === id
+          ? { ...r, attempts: updateAttempt(r.attempts, attemptNumber, value) }
+          : r
+      )
     );
   };
 
-  const focusByData = (rowIdx: number, colKey: string) => {
+  const focusByData = (rowIdx: number, attemptNumber: number) => {
     const el = document.querySelector(
-      `[data-nf-row="${rowIdx}"][data-nf-col="${colKey}"]`
+      `[data-nf-row="${rowIdx}"][data-nf-attempt="${attemptNumber}"]`
     ) as HTMLElement;
 
     if (el && typeof el.focus === "function") el.focus();
   };
 
-  const handleEnterMove = (rowIdx: number, colKey: string) => {
-    const cols3 = ["nota1", "nota2", "nota3"];
-    const cols6 = ["nota1", "nota2", "nota3", "nota4", "nota5", "nota6"];
+  const handleEnterMove = (rowIdx: number, attemptNumber: number) => {
+    window.setTimeout(() => {
+      const nextAttempt = document.querySelector(
+        `[data-nf-row="${rowIdx}"][data-nf-attempt="${attemptNumber + 1}"]`
+      ) as HTMLElement;
+      if (nextAttempt && typeof nextAttempt.focus === "function") {
+        nextAttempt.focus();
+        return;
+      }
 
-    const r = rows[rowIdx];
-    const useCols = hasExtraNotas(r) ? cols6 : cols3;
-    const i = useCols.indexOf(colKey);
-
-    if (i === -1) return;
-
-    if (i < useCols.length - 1) {
-      focusByData(rowIdx, useCols[i + 1]);
-      return;
-    }
-
-    const nextIdx = rowIdx + 1;
-
-    if (nextIdx < rows.length) {
-      focusByData(nextIdx, "nota1");
-    }
+      if (rowIdx + 1 < rows.length) focusByData(rowIdx + 1, 1);
+    }, 0);
   };
 
   const addRow = (sem: number) => {
@@ -758,9 +731,7 @@ export default function NotasFinalesPage() {
           base: false,
           semestre: sem,
           materia: "",
-          nota1: "",
-          nota2: "",
-          nota3: "",
+          attempts: [],
         },
       ];
 
@@ -862,14 +833,7 @@ export default function NotasFinalesPage() {
                 {list.map((r) => {
                   const idx = rows.findIndex((x) => x.id === r.id);
 
-                  const estado = estadoFromNotas(
-                    r.nota1,
-                    r.nota2,
-                    r.nota3,
-                    r.nota4,
-                    r.nota5,
-                    r.nota6
-                  );
+                  const estado = estadoFromNotas(r.attempts);
 
                   const isOptativa = normText(r.materia).startsWith("optativa");
 
@@ -916,171 +880,50 @@ export default function NotasFinalesPage() {
                       </div>
 
                       <div className="nfTd nfNotasCell">
-                        <div className="nfNotasGrid">
-                          <input
-                            className="nfInput nfNota"
-                            value={r.nota1}
-                            disabled={!isEditing}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) =>
-                              updateRowReconcile(r.id, { nota1: clampNotaInput(e.target.value) })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleEnterMove(idx, "nota1");
-                              }
-                            }}
-                            data-nf-row={idx}
-                            data-nf-col="nota1"
-                            placeholder="-"
-                          />
-
-                          <input
-                            className="nfInput nfNota"
-                            value={r.nota2}
-                            disabled={!isEditing}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) =>
-                              updateRowReconcile(r.id, { nota2: clampNotaInput(e.target.value) })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleEnterMove(idx, "nota2");
-                              }
-                            }}
-                            data-nf-row={idx}
-                            data-nf-col="nota2"
-                            placeholder="-"
-                          />
-
-                          <input
-                            className="nfInput nfNota"
-                            value={r.nota3}
-                            disabled={!isEditing}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) =>
-                              updateRowReconcile(r.id, { nota3: clampNotaInput(e.target.value) })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-
-                                const v3 = clampNotaInput(e.currentTarget.value);
-
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const base = { ...x, nota3: v3 };
-                                    return reconcileExtras(base);
-                                  })
-                                );
-
-                                const willExtra =
-                                  Number(r?.nota1) === 1 &&
-                                  Number(r?.nota2) === 1 &&
-                                  Number(v3) === 1;
-
-                                if (willExtra) setTimeout(() => focusByData(idx, "nota4"), 0);
-                                else handleEnterMove(idx, "nota3");
-                              }
-                            }}
-                            data-nf-row={idx}
-                            data-nf-col="nota3"
-                            placeholder="-"
-                          />
-                        </div>
-
-                        {hasExtraNotas(r) && (
-                          <div className="nfNotasGrid nfNotasGridExtra">
-                            <input
-                              className="nfInput nfNota"
-                              value={r.nota4 ?? ""}
-                              disabled={!isEditing}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              onChange={(e) => {
-                                const v = clampNotaInput(e.target.value);
-
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const next = { ...ensureExtraNotas(x), nota4: v };
-                                    return enforceSinglePass(next, "nota4");
-                                  })
-                                );
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleEnterMove(idx, "nota4");
-                                }
-                              }}
-                              data-nf-row={idx}
-                              data-nf-col="nota4"
-                              placeholder="-"
-                            />
-
-                            <input
-                              className="nfInput nfNota"
-                              value={r.nota5 ?? ""}
-                              disabled={!isEditing}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              onChange={(e) => {
-                                const v = clampNotaInput(e.target.value);
-
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const next = { ...ensureExtraNotas(x), nota5: v };
-                                    return enforceSinglePass(next, "nota5");
-                                  })
-                                );
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleEnterMove(idx, "nota5");
-                                }
-                              }}
-                              data-nf-row={idx}
-                              data-nf-col="nota5"
-                              placeholder="-"
-                            />
-
-                            <input
-                              className="nfInput nfNota"
-                              value={r.nota6 ?? ""}
-                              disabled={!isEditing}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              onChange={(e) => {
-                                const v = clampNotaInput(e.target.value);
-
-                                setRows((prev) =>
-                                  prev.map((x) => {
-                                    if (x.id !== r.id) return x;
-                                    const next = { ...ensureExtraNotas(x), nota6: v };
-                                    return enforceSinglePass(next, "nota6");
-                                  })
-                                );
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleEnterMove(idx, "nota6");
-                                }
-                              }}
-                              data-nf-row={idx}
-                              data-nf-col="nota6"
-                              placeholder="-"
-                            />
+                        {isEditing ? (
+                          <div className="nfAttemptsEditor">
+                            {visibleAttemptNumbers(r.attempts, true).map((attemptNumber) => (
+                              <label className="nfAttemptEditor" key={attemptNumber}>
+                                <span>{attemptNumber}</span>
+                                <input
+                                  className="nfInput nfNota"
+                                  value={attemptValue(r.attempts, attemptNumber)}
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  aria-label={`Oportunidad ${attemptNumber}`}
+                                  onChange={(event) =>
+                                    updateRowAttempt(
+                                      r.id,
+                                      attemptNumber,
+                                      clampNotaInput(event.target.value)
+                                    )
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") {
+                                      event.preventDefault();
+                                      handleEnterMove(idx, attemptNumber);
+                                    }
+                                  }}
+                                  data-nf-row={idx}
+                                  data-nf-attempt={attemptNumber}
+                                />
+                              </label>
+                            ))}
                           </div>
+                        ) : validAttempts(r.attempts).length ? (
+                          <div className="nfAttemptsRead" aria-label={`Notas de ${r.materia}`}>
+                            {validAttempts(r.attempts).map((attempt) => (
+                              <span
+                                className="nfAttemptChip"
+                                key={attempt.attemptNumber}
+                                title={`Oportunidad ${attempt.attemptNumber}`}
+                              >
+                                {attempt.nota}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="muted">Sin notas</span>
                         )}
                       </div>
 
@@ -1257,14 +1100,35 @@ export default function NotasFinalesPage() {
           padding: 10px;
         }
 
-        .nfNotasGrid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(44px, 1fr));
+        .nfAttemptsEditor,
+        .nfAttemptsRead {
+          display: flex;
+          flex-wrap: wrap;
           gap: 8px;
         }
 
-        .nfNotasGridExtra {
-          margin-top: 8px;
+        .nfAttemptEditor {
+          display: grid;
+          gap: 3px;
+          width: 48px;
+          color: var(--muted);
+          font-size: 10px;
+          font-weight: 900;
+          text-align: center;
+        }
+
+        .nfAttemptChip {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 30px;
+          height: 30px;
+          padding: 0 9px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          background: var(--border2);
+          color: var(--text);
+          font-weight: 900;
         }
 
         .nfMateriaBase {
@@ -1381,9 +1245,13 @@ export default function NotasFinalesPage() {
             grid-template-columns: 1fr 1fr 110px;
           }
 
-          .nfNotasGrid {
-            grid-template-columns: repeat(3, minmax(36px, 1fr));
+          .nfAttemptsEditor,
+          .nfAttemptsRead {
             gap: 6px;
+          }
+
+          .nfAttemptEditor {
+            width: 42px;
           }
 
           .nfTh {
