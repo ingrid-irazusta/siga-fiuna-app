@@ -153,6 +153,11 @@ function AppShellContent({ children }: AppShellProps) {
             return (
               <Link key={it.href} href={it.href} prefetch={false} className={`appNavItem ${active ? "active" : ""}`} onClick={() => setNavOpen(false)}>
                 {it.label}
+                {it.href === "/notas-finales" && (
+                  <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 600 }}>
+                    <span aria-hidden="true">⚠️</span> En mantenimiento
+                  </span>
+                )}
               </Link>
             );
           })}

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { getSupabase } from "../../lib/supabaseClient";
 import Card from "../../components/Card";
 
 const MALLA_CACHE_PREFIX = "fiuna_os_malla_cache_v1";
+const ATTEMPTS_PAGE_SIZE = 1000;
 
 interface Profile {
   carrera: string;
@@ -157,6 +158,29 @@ async function loadProfileFromDB(userId: string): Promise<Profile | null> {
     console.error("Error in loadProfileFromDB:", error);
     return null;
   }
+}
+
+async function loadAllNoteAttempts(userId: string): Promise<{ data: any[]; error: any | null }> {
+  const supabase = getSupabase();
+  const allAttempts: any[] = [];
+
+  for (let from = 0; ; from += ATTEMPTS_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("student_note_attempts")
+      .select("materia,attempt_number,nota")
+      .eq("user_id", userId)
+      .order("materia", { ascending: true })
+      .order("attempt_number", { ascending: true })
+      .range(from, from + ATTEMPTS_PAGE_SIZE - 1);
+
+    if (error) return { data: [], error };
+
+    const page = Array.isArray(data) ? data : [];
+    allAttempts.push(...page);
+    if (page.length < ATTEMPTS_PAGE_SIZE) break;
+  }
+
+  return { data: allAttempts, error: null };
 }
 
 function usaIntensificacion(carrera: string, plan: string): boolean {
@@ -380,6 +404,8 @@ export default function NotasFinalesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [globalSaveStatus, setGlobalSaveStatus] = useState<SaveStatus>("idle");
+  const [attemptsLoadComplete, setAttemptsLoadComplete] = useState(false);
+  const notesLoadRequestRef = useRef(0);
 
   useEffect(() => {
     try {
@@ -471,16 +497,24 @@ export default function NotasFinalesPage() {
   }, [userId]);
 
   const loadNotasFinales = useCallback(async () => {
-    if (!profile.carrera || !userId) return;
+    const loadRequestId = notesLoadRequestRef.current + 1;
+    notesLoadRequestRef.current = loadRequestId;
+
+    if (!profile.carrera || !userId) {
+      setAttemptsLoadComplete(false);
+      return;
+    }
 
     setLoading(true);
     setNotesReady(false);
+    setAttemptsLoadComplete(false);
 
     const mallaItems = await readMallaMaterias(
       profile.carrera,
       profile.malla,
       profile.intensificacion
     );
+    if (loadRequestId !== notesLoadRequestRef.current) return;
     setTotalMalla(mallaItems.length);
 
     const baseRows = buildBaseRows(mallaItems);
@@ -495,11 +529,7 @@ export default function NotasFinalesPage() {
           .from("student_notes")
           .select("id,materia,nota1,nota2,nota3,nota4,nota5,nota6,optativa_nombre")
           .eq("user_id", userId),
-        supabase
-          .from("student_note_attempts")
-          .select("materia,attempt_number,nota")
-          .eq("user_id", userId)
-          .order("attempt_number", { ascending: true }),
+        loadAllNoteAttempts(userId),
       ]);
 
       if (legacyResult.error) throw legacyResult.error;
@@ -514,6 +544,9 @@ export default function NotasFinalesPage() {
             nota: Number(attempt.nota),
           });
           attemptsByMateria.set(key, current);
+        }
+        if (loadRequestId === notesLoadRequestRef.current) {
+          setAttemptsLoadComplete(true);
         }
       } else if (attemptsResult.error && process.env.NODE_ENV === "development") {
         console.warn(
@@ -543,7 +576,12 @@ export default function NotasFinalesPage() {
       }
     } catch (err) {
       console.error("Error reading notes from DB:", err);
+      if (loadRequestId === notesLoadRequestRef.current) {
+        setAttemptsLoadComplete(false);
+      }
     }
+
+    if (loadRequestId !== notesLoadRequestRef.current) return;
 
     const merged = mergeKeepNotas(loaded, baseRows);
 
@@ -568,6 +606,12 @@ export default function NotasFinalesPage() {
   }, [rows]);
 
   const saveAllNotesToDB = async () => {
+    if (!attemptsLoadComplete) {
+      setGlobalSaveStatus("error");
+      alert("No se pudieron cargar todas las oportunidades. Recarga la página antes de guardar.");
+      return;
+    }
+
     if (!userId || !profile.carrera) {
       setGlobalSaveStatus("error");
       alert("No se pudo guardar: falta usuario o carrera.");
@@ -756,6 +800,11 @@ export default function NotasFinalesPage() {
             {globalSaveStatus === "error" && " · Error al guardar"}
             {globalSaveStatus === "saving" && " · Guardando..."}
           </span>
+          {!attemptsLoadComplete && notesReady && (
+            <span className="nfLoadWarning" role="alert">
+              No se pudieron cargar todas las oportunidades. Recarga la página antes de guardar.
+            </span>
+          )}
         </div>
 
         <div className="nfStickyButtons">
@@ -778,7 +827,12 @@ export default function NotasFinalesPage() {
                 type="button"
                 className="btnSoft primary"
                 onClick={saveAllNotesToDB}
-                disabled={savingAll}
+                disabled={savingAll || !attemptsLoadComplete}
+                title={
+                  !attemptsLoadComplete
+                    ? "No se pudieron cargar todas las oportunidades. Recarga la página antes de guardar."
+                    : undefined
+                }
               >
                 {savingAll ? "Guardando..." : "Guardar cambios"}
               </button>
@@ -955,6 +1009,14 @@ export default function NotasFinalesPage() {
       })}
 
       <style jsx>{`
+        .nfLoadWarning {
+          display: block;
+          margin-top: 4px;
+          color: #b42318;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
         .nfStickyActions {
          position: fixed;
          top: 70px;

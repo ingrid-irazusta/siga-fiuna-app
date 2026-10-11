@@ -21,41 +21,56 @@ create table if not exists public.student_note_attempts (
 
 alter table public.student_note_attempts enable row level security;
 
-drop policy if exists student_note_attempts_select_own
-  on public.student_note_attempts;
-create policy student_note_attempts_select_own
-  on public.student_note_attempts
-  for select
-  to authenticated
-  using (auth.uid() = user_id);
+do $policies$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'student_note_attempts'
+      and policyname = 'student_note_attempts_select_own'
+  ) then
+    create policy student_note_attempts_select_own
+      on public.student_note_attempts
+      for select
+      to authenticated
+      using (auth.uid() = user_id);
+  end if;
 
-drop policy if exists student_note_attempts_insert_own
-  on public.student_note_attempts;
-create policy student_note_attempts_insert_own
-  on public.student_note_attempts
-  for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'student_note_attempts'
+      and policyname = 'student_note_attempts_insert_own'
+  ) then
+    create policy student_note_attempts_insert_own
+      on public.student_note_attempts
+      for insert
+      to authenticated
+      with check (auth.uid() = user_id);
+  end if;
 
-drop policy if exists student_note_attempts_update_own
-  on public.student_note_attempts;
-create policy student_note_attempts_update_own
-  on public.student_note_attempts
-  for update
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-drop policy if exists student_note_attempts_delete_own
-  on public.student_note_attempts;
-create policy student_note_attempts_delete_own
-  on public.student_note_attempts
-  for delete
-  to authenticated
-  using (auth.uid() = user_id);
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'student_note_attempts'
+      and policyname = 'student_note_attempts_update_own'
+  ) then
+    create policy student_note_attempts_update_own
+      on public.student_note_attempts
+      for update
+      to authenticated
+      using (auth.uid() = user_id)
+      with check (auth.uid() = user_id);
+  end if;
+end
+$policies$;
 
 revoke all on table public.student_note_attempts from anon;
-grant select, insert, update, delete
+revoke delete on table public.student_note_attempts from authenticated;
+grant select, insert, update
   on table public.student_note_attempts
   to authenticated;
 
@@ -101,7 +116,6 @@ declare
   v_optativa_nombre text;
   v_first_pass integer;
   v_affected integer := 0;
-  v_deleted integer := 0;
   v_row_count integer := 0;
 begin
   if v_user_id is null then
@@ -156,12 +170,6 @@ begin
     v_optativa_nombre := nullif(btrim(v_row->>'optativa_nombre'), '');
     v_attempts := v_row->'attempts';
 
-    if jsonb_array_length(v_attempts) > 100 then
-      raise exception using
-        errcode = '22023',
-        message = format('La materia %s excede el límite de oportunidades permitido por solicitud.', v_materia);
-    end if;
-
     if exists (
       select 1
       from jsonb_array_elements(v_attempts) as attempt_item(value)
@@ -185,21 +193,6 @@ begin
         message = format('La materia %s contiene oportunidades duplicadas.', v_materia);
     end if;
 
-    select min((attempt_item.value->>'attempt_number')::integer)
-    into v_first_pass
-    from jsonb_array_elements(v_attempts) as attempt_item(value)
-    where (attempt_item.value->>'nota')::integer >= 2;
-
-    if v_first_pass is not null and exists (
-      select 1
-      from jsonb_array_elements(v_attempts) as attempt_item(value)
-      where (attempt_item.value->>'attempt_number')::integer > v_first_pass
-    ) then
-      raise exception using
-        errcode = '22023',
-        message = format('La materia %s contiene notas posteriores a una aprobación.', v_materia);
-    end if;
-
     insert into public.student_note_attempts (
       user_id,
       materia,
@@ -220,17 +213,26 @@ begin
     get diagnostics v_row_count = row_count;
     v_affected := v_affected + v_row_count;
 
-    delete from public.student_note_attempts as stored
+    -- La secuencia se valida contra el estado persistido final: oportunidades
+    -- anteriores más las insertadas o actualizadas explícitamente arriba.
+    select min(stored.attempt_number)
+    into v_first_pass
+    from public.student_note_attempts as stored
     where stored.user_id = v_user_id
       and stored.materia = v_materia
-      and not exists (
-        select 1
-        from jsonb_array_elements(v_attempts) as attempt_item(value)
-        where (attempt_item.value->>'attempt_number')::integer = stored.attempt_number
-      );
+      and stored.nota >= 2;
 
-    get diagnostics v_row_count = row_count;
-    v_deleted := v_deleted + v_row_count;
+    if v_first_pass is not null and exists (
+      select 1
+      from public.student_note_attempts as stored
+      where stored.user_id = v_user_id
+        and stored.materia = v_materia
+        and stored.attempt_number > v_first_pass
+    ) then
+      raise exception using
+        errcode = '22023',
+        message = format('La materia %s contiene notas posteriores a una aprobación.', v_materia);
+    end if;
 
     insert into public.student_notes (
       user_id,
@@ -243,41 +245,19 @@ begin
       nota6,
       optativa_nombre
     )
-    values (
+    select
       v_user_id,
       v_materia,
-      (
-        select (attempt_item.value->>'nota')::smallint
-        from jsonb_array_elements(v_attempts) as attempt_item(value)
-        where (attempt_item.value->>'attempt_number')::integer = 1
-      ),
-      (
-        select (attempt_item.value->>'nota')::smallint
-        from jsonb_array_elements(v_attempts) as attempt_item(value)
-        where (attempt_item.value->>'attempt_number')::integer = 2
-      ),
-      (
-        select (attempt_item.value->>'nota')::smallint
-        from jsonb_array_elements(v_attempts) as attempt_item(value)
-        where (attempt_item.value->>'attempt_number')::integer = 3
-      ),
-      (
-        select (attempt_item.value->>'nota')::smallint
-        from jsonb_array_elements(v_attempts) as attempt_item(value)
-        where (attempt_item.value->>'attempt_number')::integer = 4
-      ),
-      (
-        select (attempt_item.value->>'nota')::smallint
-        from jsonb_array_elements(v_attempts) as attempt_item(value)
-        where (attempt_item.value->>'attempt_number')::integer = 5
-      ),
-      (
-        select (attempt_item.value->>'nota')::smallint
-        from jsonb_array_elements(v_attempts) as attempt_item(value)
-        where (attempt_item.value->>'attempt_number')::integer = 6
-      ),
+      max(stored.nota) filter (where stored.attempt_number = 1),
+      max(stored.nota) filter (where stored.attempt_number = 2),
+      max(stored.nota) filter (where stored.attempt_number = 3),
+      max(stored.nota) filter (where stored.attempt_number = 4),
+      max(stored.nota) filter (where stored.attempt_number = 5),
+      max(stored.nota) filter (where stored.attempt_number = 6),
       v_optativa_nombre
-    )
+    from public.student_note_attempts as stored
+    where stored.user_id = v_user_id
+      and stored.materia = v_materia
     on conflict (user_id, materia)
     do update set
       nota1 = excluded.nota1,
@@ -292,8 +272,7 @@ begin
   return jsonb_build_object(
     'ok', true,
     'materials', jsonb_array_length(p_rows),
-    'attempts_upserted', v_affected,
-    'attempts_deleted', v_deleted
+    'attempts_upserted', v_affected
   );
 end;
 $$;
